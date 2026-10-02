@@ -108,52 +108,99 @@
         </div>
     </section>
 
-    <!-- TAXONOMÍA Y METODOLOGÍA -->
+   <!-- TAXONOMÍA Y METODOLOGÍA (BASADO EN TAXONOMÍA DE BLOOM) -->
     <section id="taxonomia" class="py-20 bg-slate-100 border-y border-slate-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid lg:grid-cols-2 gap-12 items-center">
-                <div>
-                    <span class="text-sm font-bold text-blue-600 uppercase tracking-wide">Marco Pedagógico</span>
-                    <h2 class="text-3xl font-bold text-slate-900 mt-2 mb-6">Evaluación Multimodal por Ejes Temáticos</h2>
-                    <p class="text-slate-600 mb-6 leading-relaxed">
-                        Nuestra arquitectura algorítmica estructura la evaluación según la complejidad cognitiva del contenido escolar, combinando reactivos interactivos de múltiples tipos:
-                    </p>
-                    <ul class="space-y-4">
-                        <li class="flex items-start gap-3">
-                            <i data-lucide="check-circle-2" class="text-blue-600 w-5 h-5 mt-0.5"></i>
-                            <div>
-                                <strong class="text-slate-900">Variedad de Reactivos:</strong> Opciones múltiples (OM), Análisis Verdadero/Falso (VF), Cuestionarios Analíticos (CA) y Balanzas de Equivalencia.
-                            </div>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <i data-lucide="check-circle-2" class="text-blue-600 w-5 h-5 mt-0.5"></i>
-                            <div>
-                                <strong class="text-slate-900">Mapeo de Errores:</strong> Clasificación automatizada de fallos en el razonamiento algebraico o numérico para el equipo docente.
-                            </div>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <i data-lucide="check-circle-2" class="text-blue-600 w-5 h-5 mt-0.5"></i>
-                            <div>
-                                <strong class="text-slate-900">Rendimiento Inclusivo:</strong> Formatos dinámicos optimizados con ayuda pedagógica configurable.
-                            </div>
-                        </li>
-                    </ul>
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <span class="text-xs font-bold text-blue-600 uppercase tracking-widest bg-blue-100 px-3 py-1 rounded-full">Fundamentación Didáctica</span>
+                <h2 class="text-3xl font-extrabold text-slate-900 mt-4">Evaluación por Niveles Cognitivos de la Taxonomía de Bloom</h2>
+                <p class="mt-4 text-slate-600 leading-relaxed">
+                    Nuestra arquitectura algorítmica no mide memorización repetitiva; evalúa la progresión de las habilidades del pensamiento matemático estructuradas según el marco pedagógico de Anderson y Krathwohl.
+                </p>
+            </div>
+
+            <!-- GRID DE NIVELES COGNITIVOS -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                <!-- Nivel 1 -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Nivel 1 & 2 Bloom</span>
+                            <i data-lucide="book-open" class="text-blue-500 w-5 h-5"></i>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-lg mb-2">Recordar y Comprender</h3>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            Interpretación de lenguaje simbólico, propiedades algebraicas y lectura de gráficos. Reconocimiento de conceptos fundamentales.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
+                        <strong>Formatos:</strong> Verdadero/Falso con justificación y Opción Múltiple conceptual.
+                    </div>
                 </div>
-                <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 class="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-100">Estructura del Motor de Examen</h3>
-                    <div class="space-y-4 text-sm">
-                        <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                            <span class="font-bold text-blue-900">Eje 1: Conceptos Básicos y Lectura</span>
-                            <p class="text-blue-700 text-xs mt-1">Selección aleatoria de 1 reactivo del banco de datos.</p>
+
+                <!-- Nivel 2 -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Nivel 3 Bloom</span>
+                            <i data-lucide="calculator" class="text-blue-500 w-5 h-5"></i>
                         </div>
-                        <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                            <span class="font-bold text-blue-900">Eje 2: Algoritmos y Procedimientos</span>
-                            <p class="text-blue-700 text-xs mt-1">Evaluación de la resolución de pasos intermedios.</p>
+                        <h3 class="font-bold text-slate-900 text-lg mb-2">Aplicación Procedimental</h3>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            Ejecución precisa de algoritmos, resolución de ecuaciones, operaciones combinadas y manipulación algebraica directa.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
+                        <strong>Formatos:</strong> Balanzas de equivalencia y Cuestionarios Analíticos (CA).
+                    </div>
+                </div>
+
+                <!-- Nivel 3 -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Nivel 4 Bloom</span>
+                            <i data-lucide="binary" class="text-blue-500 w-5 h-5"></i>
                         </div>
-                        <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                            <span class="font-bold text-blue-900">Eje 3: Modelización y Aplicación</span>
-                            <p class="text-blue-700 text-xs mt-1">Problemas analíticos con variables dinámicas.</p>
+                        <h3 class="font-bold text-slate-900 text-lg mb-2">Análisis de Errores</h3>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            Desglose de estrategias de resolución, detección automatizada de fallos procedimentales e inconsistencias lógicas.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
+                        <strong>Formatos:</strong> Detección de pasos erróneos e ítems de respuesta múltiple crítica.
+                    </div>
+                </div>
+
+                <!-- Nivel 4 -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Nivel 5 & 6 Bloom</span>
+                            <i data-lucide="lightbulb" class="text-blue-500 w-5 h-5"></i>
                         </div>
+                        <h3 class="font-bold text-slate-900 text-lg mb-2">Modelización y Evaluación</h3>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            Transferencia de conocimientos a problemas del mundo real mediante parámetros y variables que cambian en cada intento.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
+                        <strong>Formatos:</strong> Problemas contextualizados con aleatorización de datos.
+                    </div>
+                </div>
+            </div>
+
+            <!-- DETALLE DE DIAGNÓSTICO INSTITUCIONAL -->
+            <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-4xl mx-auto">
+                <div class="flex flex-col md:flex-row gap-6 items-center">
+                    <div class="p-4 bg-blue-600 text-white rounded-2xl flex items-center justify-center shrink-0">
+                        <i data-lucide="file-line" class="w-10 h-10"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-bold text-slate-900 mb-1">Informe Diagnóstico Institucional Inmediato</h4>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            A diferencia de los cuestionarios tradicionales, el motor procesa el rendimiento ponderado por nivel de complejidad cognitiva. Al finalizar, el docente obtiene una matriz clara que indica si el grupo falla en la <strong>comprensión del concepto</strong> o en la <strong>ejecución del algoritmo</strong>, permitiendo planificar intervenciones pedagógicas precisas.
+                        </p>
                     </div>
                 </div>
             </div>
