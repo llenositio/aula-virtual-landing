@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aula Virtual - Evaluaciones Dinámicas de Matemática</title>
-    <!-- Tailwind CSS CDN para diseño moderno sin dependencias -->
+    <title>Aula Virtual - Ecosistema Metodológico de Matemática</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons para íconos limpios -->
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         .gradient-bg {
@@ -24,8 +24,8 @@
                 <span class="font-bold text-xl text-slate-900 tracking-tight">Aula Virtual</span>
             </div>
             <nav class="hidden md:flex gap-8 text-sm font-medium text-slate-600">
+                <a href="#metodologia" class="hover:text-blue-600 transition">Metodología</a>
                 <a href="#caracteristicas" class="hover:text-blue-600 transition">Beneficios</a>
-                <a href="#taxonomia" class="hover:text-blue-600 transition">Taxonomía</a>
                 <a href="#planes" class="hover:text-blue-600 transition">Planes y Precios</a>
                 <a href="#contacto" class="hover:text-blue-600 transition">Contacto</a>
             </nav>
@@ -37,139 +37,106 @@
         </div>
     </header>
 
-    <!-- HERO SECTION -->
+    <!-- HERO SECTION (ENFOCADO EN ECOSISTEMA METODOLÓGICO) -->
     <section class="relative pt-20 pb-24 gradient-bg text-white overflow-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
             <span class="inline-block py-1 px-3 bg-blue-500/30 border border-blue-400/30 rounded-full text-xs font-semibold uppercase tracking-wider mb-4">
-                Plataforma Pedagógica para Instituciones y Docentes
+                Ecosistema Didáctico Integral para Colegios y Docentes
             </span>
-            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight max-w-4xl mx-auto leading-tight">
-                Evaluaciones de Matemática Dinámicas, Automatizadas y con Diagnóstico Pedagógico
+            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight max-w-5xl mx-auto leading-tight">
+                Ecosistema Metodológico para la Enseñanza, Práctica y Evaluación Dinámica de Matemática
             </h1>
-            <p class="mt-6 text-lg md:text-xl text-blue-100 max-w-2xl mx-auto font-light">
-                Generación aleatoria por ejes temáticos, corrección inmediata sin margen de error, control de fugas de pantalla y reportes analíticos al instante.
+            <p class="mt-6 text-lg md:text-xl text-blue-100 max-w-3xl mx-auto font-light">
+                Integra clases interactivas, práctica continua y evaluaciones algorítmicas con diagnóstico pedagógico basado en la Taxonomía de Bloom.
             </p>
             <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
                 <a href="https://llenositio.github.io/mathsystem-mdp/" target="_blank" class="bg-white text-blue-900 font-bold px-8 py-3 rounded-xl shadow-lg hover:bg-blue-50 transition text-center">
                     Probar Demo en Vivo
                 </a>
-                <a href="#taxonomia" class="border border-white/40 bg-white/10 backdrop-blur-sm text-white font-medium px-8 py-3 rounded-xl hover:bg-white/20 transition text-center">
+                <a href="#metodologia" class="border border-white/40 bg-white/10 backdrop-blur-sm text-white font-medium px-8 py-3 rounded-xl hover:bg-white/20 transition text-center">
                     Conocer la Metodología
                 </a>
             </div>
         </div>
     </section>
 
-   <!-- CARACTERÍSTICAS / BENEFICIOS -->
-    <section id="caracteristicas" class="py-20 bg-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center max-w-3xl mx-auto mb-16">
-                <h2 class="text-3xl font-bold text-slate-900">Ecosistema Didáctico Diseñado para el Aula Moderna</h2>
-                <p class="mt-4 text-slate-600">Una propuesta pedagógica estructurada que acompaña al docente desde la presentación conceptual hasta la evaluación diagnóstica.</p>
-            </div>
-
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <!-- Card 1: Metodología y Clases -->
-                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition">
-                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
-                        <i data-lucide="presentation"></i>
-                    </div>
-                    <h3 class="text-lg font-bold text-slate-900 mb-2">Clases e Interacción Visual</h3>
-                    <p class="text-sm text-slate-600">Recursos dinámicos integrados (diapositivas interactivas en Slides/Canva) alineados conceptualmente con cada eje de práctica.</p>
-                </div>
-
-                <!-- Card 2 -->
-                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition">
-                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
-                        <i data-lucide="shuffle"></i>
-                    </div>
-                    <h3 class="text-lg font-bold text-slate-900 mb-2">Evaluación Anticopia</h3>
-                    <p class="text-sm text-slate-600">Generación aleatoria de reactivos por nivel cognitivo. Imposible copiar respuestas entre estudiantes de un mismo grupo.</p>
-                </div>
-
-                <!-- Card 3 -->
-                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition">
-                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
-                        <i data-lucide="zap"></i>
-                    </div>
-                    <h3 class="text-lg font-bold text-slate-900 mb-2">Corrección Automatizada</h3>
-                    <p class="text-sm text-slate-600">Calificación al instante con registro de foco de pantalla para garantizar la honestidad durante la resolución.</p>
-                </div>
-
-                <!-- Card 4 -->
-                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition">
-                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
-                        <i data-lucide="brain"></i>
-                    </div>
-                    <h3 class="text-lg font-bold text-slate-900 mb-2">Diagnóstico por Bloom</h3>
-                    <p class="text-sm text-slate-600">Mapeo pedagógico preciso que distingue entre errores conceptuales y fallos en la ejecución algorítmica.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
     <!-- METODOLOGÍA INTEGRAL Y TAXONOMÍA DE BLOOM -->
-    <section id="taxonomia" class="py-20 bg-slate-100 border-y border-slate-200">
+    <section id="metodologia" class="py-20 bg-slate-100 border-b border-slate-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center max-w-3xl mx-auto mb-16">
                 <span class="text-xs font-bold text-blue-600 uppercase tracking-widest bg-blue-100 px-3 py-1 rounded-full">Metodología de Trabajo</span>
-                <h2 class="text-3xl font-extrabold text-slate-900 mt-4">Ciclo de Aprendizaje en 3 Instancias</h2>
+                <h2 class="text-3xl font-extrabold text-slate-900 mt-4">Ciclo Didáctico Integral en 3 Instancias</h2>
                 <p class="mt-4 text-slate-600 leading-relaxed">
-                    Nuestra propuesta conecta la enseñanza directa en el aula con la práctica guiada y la evaluación de habilidades del pensamiento (Taxonomía de Bloom).
+                    Un modelo pedagógico articulado que acompaña al docente desde la exposición teórica en el aula hasta la medición precisa de competencias matemáticas.
                 </p>
             </div>
 
             <!-- PASOS DE LA METODOLOGÍA -->
             <div class="grid md:grid-cols-3 gap-8 mb-16">
                 <!-- Paso 1 -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative">
+                <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative flex flex-col justify-between">
                     <span class="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">Paso 1</span>
-                    <h3 class="font-bold text-slate-900 text-lg mt-2 mb-2">Clases y Exposición Visual</h3>
-                    <p class="text-sm text-slate-600 leading-relaxed mb-4">
-                        Desarrollo de secuencias didácticas apoyadas en material interactivo (Google Slides / Canva) diseñado para fijar conceptos clave antes de la práctica.
-                    </p>
-                    <span class="text-xs text-blue-600 font-semibold">&check; Introducción conceptual e intuitiva</span>
+                    <div>
+                        <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-4 mt-2">
+                            <i data-lucide="presentation"></i>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-xl mb-2">Clases e Interacción Visual</h3>
+                        <p class="text-sm text-slate-600 leading-relaxed mb-4">
+                            Desarrollo de secuencias didácticas apoyadas en diapositivas y presentaciones visuales e interactivas para fijar la intuición conceptual antes de la práctica.
+                        </p>
+                    </div>
+                    <span class="text-xs text-blue-600 font-semibold">&check; Enseñanza activa e intuitiva</span>
                 </div>
 
                 <!-- Paso 2 -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative">
+                <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative flex flex-col justify-between">
                     <span class="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">Paso 2</span>
-                    <h3 class="font-bold text-slate-900 text-lg mt-2 mb-2">Práctica e Interacción Dinámica</h3>
-                    <p class="text-sm text-slate-600 leading-relaxed mb-4">
-                        Resolución de trabajos prácticos con asistencia pedagógica, balanzas de equivalencia y preguntas aleatorias por eje temático.
-                    </p>
-                    <span class="text-xs text-blue-600 font-semibold">&check; Formatos adaptativos y variados</span>
+                    <div>
+                        <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-4 mt-2">
+                            <i data-lucide="calculator"></i>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-xl mb-2">Práctica Dinámica Guíada</h3>
+                        <p class="text-sm text-slate-600 leading-relaxed mb-4">
+                            Ejercitación mediante balanzas de equivalencia, cuestionarios analíticos y ejercicios aleatorios por eje conceptual para consolidar procedimientos.
+                        </p>
+                    </div>
+                    <span class="text-xs text-blue-600 font-semibold">&check; Formatos interactivos y adaptativos</span>
                 </div>
 
                 <!-- Paso 3 -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative">
+                <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative flex flex-col justify-between">
                     <span class="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">Paso 3</span>
-                    <h3 class="font-bold text-slate-900 text-lg mt-2 mb-2">Evaluación Diagnóstica de Bloom</h3>
-                    <p class="text-sm text-slate-600 leading-relaxed mb-4">
-                        Medición de niveles cognitivos: desde el reconocimiento básico hasta la aplicación de algoritmos y la modelización de problemas reales.
-                    </p>
+                    <div>
+                        <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-4 mt-2">
+                            <i data-lucide="brain"></i>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-xl mb-2">Evaluación Diagnóstica</h3>
+                        <p class="text-sm text-slate-600 leading-relaxed mb-4">
+                            Medición de habilidades cognitivas (Taxonomía de Bloom): desde la comprensión conceptual hasta la resolución de problemas y análisis de errores.
+                        </p>
+                    </div>
                     <span class="text-xs text-blue-600 font-semibold">&check; Informes analíticos inmediatos</span>
                 </div>
             </div>
 
             <!-- NIVELES DE BLOOM APLICADOS -->
             <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 class="text-xl font-bold text-slate-900 mb-6 text-center">Estructura Cognitiva de las Evaluaciones</h3>
+                <h3 class="text-xl font-bold text-slate-900 mb-6 text-center">Estructura de Niveles Cognitivos de Bloom</h3>
                 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <span class="text-xs font-bold text-blue-600 uppercase">Nivel 1 & 2</span>
                         <h4 class="font-bold text-slate-900 mt-1 mb-1">Recordar y Comprender</h4>
-                        <p class="text-xs text-slate-600">Lectura gráfica, símbolos e identificación de propiedades algebraicas.</p>
+                        <p class="text-xs text-slate-600">Lectura gráfica, lenguaje simbólico y propiedades algebraicas.</p>
                     </div>
                     <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <span class="text-xs font-bold text-blue-600 uppercase">Nivel 3</span>
                         <h4 class="font-bold text-slate-900 mt-1 mb-1">Aplicar Algoritmos</h4>
-                        <p class="text-xs text-slate-600">Resolución de ecuaciones, balanzas y procedimientos paso a paso.</p>
+                        <p class="text-xs text-slate-600">Resolución de ecuaciones, balanzas y cálculo procedural paso a paso.</p>
                     </div>
                     <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <span class="text-xs font-bold text-blue-600 uppercase">Nivel 4</span>
                         <h4 class="font-bold text-slate-900 mt-1 mb-1">Analizar Errores</h4>
-                        <p class="text-xs text-slate-600">Detección de inconsistencias lógicas y fallos procedimentales.</p>
+                        <p class="text-xs text-slate-600">Detección automatizada de fallos conceptuales y de razonamiento.</p>
                     </div>
                     <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <span class="text-xs font-bold text-blue-600 uppercase">Nivel 5 & 6</span>
@@ -180,120 +147,66 @@
             </div>
         </div>
     </section>
-   <!-- TAXONOMÍA Y METODOLOGÍA (BASADO EN TAXONOMÍA DE BLOOM) -->
-    <section id="taxonomia" class="py-20 bg-slate-100 border-y border-slate-200">
+
+    <!-- BENEFICIOS CLAVE -->
+    <section id="caracteristicas" class="py-20 bg-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center max-w-3xl mx-auto mb-16">
-                <span class="text-xs font-bold text-blue-600 uppercase tracking-widest bg-blue-100 px-3 py-1 rounded-full">Fundamentación Didáctica</span>
-                <h2 class="text-3xl font-extrabold text-slate-900 mt-4">Evaluación por Niveles Cognitivos de la Taxonomía de Bloom</h2>
-                <p class="mt-4 text-slate-600 leading-relaxed">
-                    Nuestra arquitectura algorítmica no mide memorización repetitiva; evalúa la progresión de las habilidades del pensamiento matemático estructuradas según el marco pedagógico de Anderson y Krathwohl.
-                </p>
+                <h2 class="text-3xl font-bold text-slate-900">Solución Integral para la Gestión Docente</h2>
+                <p class="mt-4 text-slate-600">Garantizá rigor académico, ahorrá horas de corrección y mantené el control del aprendizaje.</p>
             </div>
 
-            <!-- GRID DE NIVELES COGNITIVOS -->
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                <!-- Nivel 1 -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Nivel 1 & 2 Bloom</span>
-                            <i data-lucide="book-open" class="text-blue-500 w-5 h-5"></i>
-                        </div>
-                        <h3 class="font-bold text-slate-900 text-lg mb-2">Recordar y Comprender</h3>
-                        <p class="text-xs text-slate-600 leading-relaxed">
-                            Interpretación de lenguaje simbólico, propiedades algebraicas y lectura de gráficos. Reconocimiento de conceptos fundamentales.
-                        </p>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+                        <i data-lucide="zap"></i>
                     </div>
-                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
-                        <strong>Formatos:</strong> Verdadero/Falso con justificación y Opción Múltiple conceptual.
-                    </div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Corrección Automatizada</h3>
+                    <p class="text-sm text-slate-600">Procesamiento inmediato de notas e informes diagnósticos para el docente.</p>
                 </div>
 
-                <!-- Nivel 2 -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Nivel 3 Bloom</span>
-                            <i data-lucide="calculator" class="text-blue-500 w-5 h-5"></i>
-                        </div>
-                        <h3 class="font-bold text-slate-900 text-lg mb-2">Aplicación Procedimental</h3>
-                        <p class="text-xs text-slate-600 leading-relaxed">
-                            Ejecución precisa de algoritmos, resolución de ecuaciones, operaciones combinadas y manipulación algebraica directa.
-                        </p>
+                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+                        <i data-lucide="shuffle"></i>
                     </div>
-                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
-                        <strong>Formatos:</strong> Balanzas de equivalencia y Cuestionarios Analíticos (CA).
-                    </div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Reactivos Anticopia</h3>
+                    <p class="text-sm text-slate-600">Generación aleatoria de preguntas por eje. Imposible copiar respuestas entre alumnos.</p>
                 </div>
 
-                <!-- Nivel 3 -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Nivel 4 Bloom</span>
-                            <i data-lucide="binary" class="text-blue-500 w-5 h-5"></i>
-                        </div>
-                        <h3 class="font-bold text-slate-900 text-lg mb-2">Análisis de Errores</h3>
-                        <p class="text-xs text-slate-600 leading-relaxed">
-                            Desglose de estrategias de resolución, detección automatizada de fallos procedimentales e inconsistencias lógicas.
-                        </p>
+                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+                        <i data-lucide="shield-alert"></i>
                     </div>
-                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
-                        <strong>Formatos:</strong> Detección de pasos erróneos e ítems de respuesta múltiple crítica.
-                    </div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Control de Fugas</h3>
+                    <p class="text-sm text-slate-600">Supervisión continua de foco de pantalla e intentos de salida durante la prueba.</p>
                 </div>
 
-                <!-- Nivel 4 -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Nivel 5 & 6 Bloom</span>
-                            <i data-lucide="lightbulb" class="text-blue-500 w-5 h-5"></i>
-                        </div>
-                        <h3 class="font-bold text-slate-900 text-lg mb-2">Modelización y Evaluación</h3>
-                        <p class="text-xs text-slate-600 leading-relaxed">
-                            Transferencia de conocimientos a problemas del mundo real mediante parámetros y variables que cambian en cada intento.
-                        </p>
+                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+                        <i data-lucide="bar-chart-3"></i>
                     </div>
-                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
-                        <strong>Formatos:</strong> Problemas contextualizados con aleatorización de datos.
-                    </div>
-                </div>
-            </div>
-
-            <!-- DETALLE DE DIAGNÓSTICO INSTITUCIONAL -->
-            <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-4xl mx-auto">
-                <div class="flex flex-col md:flex-row gap-6 items-center">
-                    <div class="p-4 bg-blue-600 text-white rounded-2xl flex items-center justify-center shrink-0">
-                        <i data-lucide="file-line" class="w-10 h-10"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-lg font-bold text-slate-900 mb-1">Informe Diagnóstico Institucional Inmediato</h4>
-                        <p class="text-sm text-slate-600 leading-relaxed">
-                            A diferencia de los cuestionarios tradicionales, el motor procesa el rendimiento ponderado por nivel de complejidad cognitiva. Al finalizar, el docente obtiene una matriz clara que indica si el grupo falla en la <strong>comprensión del concepto</strong> o en la <strong>ejecución del algoritmo</strong>, permitiendo planificar intervenciones pedagógicas precisas.
-                        </p>
-                    </div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Reportes Analíticos</h3>
+                    <p class="text-sm text-slate-600">Estadísticas por curso e institución para planificar refuerzos pedagógicos.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- TABLA DE PLANES Y PRECIOS -->
-    <section id="planes" class="py-20 bg-white">
+    <!-- TABLA DE PLANES -->
+    <section id="planes" class="py-20 bg-slate-100 border-t border-slate-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center max-w-3xl mx-auto mb-16">
                 <h2 class="text-3xl font-bold text-slate-900">Planes adaptados a cada necesidad</h2>
-                <p class="mt-4 text-slate-600">Desde acceso libre para docentes independientes hasta licencias corporativas completas para colegios e institutos.</p>
+                <p class="mt-4 text-slate-600">Desde acceso libre para docentes independientes hasta licencias institucionales para colegios.</p>
             </div>
 
             <div class="grid md:grid-cols-3 gap-8 items-stretch">
-                <!-- Plan Freemium -->
-                <div class="p-8 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                <!-- Freemium -->
+                <div class="p-8 bg-white rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
                     <div>
                         <span class="text-xs font-bold uppercase text-slate-500 tracking-wider">Acceso Abierto</span>
                         <h3 class="text-2xl font-bold text-slate-900 mt-2">Freemium</h3>
-                        <p class="text-sm text-slate-600 mt-2">Para docentes que buscan digitalizar sus evaluaciones sin costo.</p>
+                        <p class="text-sm text-slate-600 mt-2">Para docentes que buscan digitalizar su propuesta sin costo.</p>
                         <div class="mt-6 text-3xl font-extrabold text-slate-900">$0 <span class="text-sm font-normal text-slate-500">/ siempre</span></div>
                         <ul class="mt-6 space-y-3 text-sm text-slate-600">
                             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-500"></i> Exámenes e historias ilimitadas</li>
@@ -306,7 +219,7 @@
                     </a>
                 </div>
 
-                <!-- Plan Docente Pro -->
+                <!-- Docente Pro -->
                 <div class="p-8 bg-blue-900 text-white rounded-2xl border-2 border-blue-600 flex flex-col justify-between shadow-xl relative scale-105">
                     <span class="absolute -top-3 right-6 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">Popular</span>
                     <div>
@@ -325,8 +238,8 @@
                     </a>
                 </div>
 
-                <!-- Plan Institucional -->
-                <div class="p-8 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                <!-- Institucional -->
+                <div class="p-8 bg-white rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
                     <div>
                         <span class="text-xs font-bold uppercase text-slate-500 tracking-wider">Para Instituciones</span>
                         <h3 class="text-2xl font-bold text-slate-900 mt-2">Colegios</h3>
@@ -346,7 +259,7 @@
         </div>
     </section>
 
-    <!-- CONTACTO Y FOOTER LEGAL -->
+    <!-- FOOTER LEGAL -->
     <footer id="contacto" class="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid md:grid-cols-2 gap-8 mb-12">
@@ -356,16 +269,16 @@
                         Aula Virtual
                     </div>
                     <p class="text-sm max-w-sm">
-                        Plataforma pedagógica para la transformación digital del proceso de evaluación en matemática.
+                        Ecosistema metodológico para la transformación digital de la enseñanza y evaluación de matemática.
                     </p>
                 </div>
                 <div>
                     <h4 class="text-white font-bold text-sm mb-4">Contacto Institucional</h4>
-                    <p class="text-sm mb-2">Atención a colegios y consultas docentes.</p>
+                    <p class="text-sm">Atención a colegios y consultas docentes.</p>
                 </div>
             </div>
 
-            <!-- LEGALES PARA ADSENSE (OBLIGATORIO) -->
+            <!-- LEGALES PARA ADSENSE -->
             <div class="pt-8 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center text-xs gap-4">
                 <p>&copy; 2026 Aula Virtual. Todos los derechos reservados.</p>
                 <div class="flex gap-6">
@@ -376,7 +289,6 @@
         </div>
     </footer>
 
-    <!-- Script de Inicialización de Íconos -->
     <script>
         lucide.createIcons();
     </script>
