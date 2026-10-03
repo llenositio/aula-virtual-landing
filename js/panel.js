@@ -98,6 +98,10 @@ if (btnVolverCursos) {
     });
 }
 
+import { supabase, guardarNominaCurso, generarPinAlumno } from './db.js';
+
+// ... (se mantienen los selectores anteriores)
+
 // VER DETALLE DE UN CURSO Y SUS ALUMNOS
 async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
     seccionDashboard.classList.add('d-none');
@@ -105,7 +109,7 @@ async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
 
     detalleTituloCurso.textContent = `${institucion} - ${anioDivision}`;
     detalleSubtituloCurso.textContent = `Modalidad: ${modalidad}`;
-    tablaAlumnosBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Cargando alumnos...</td></tr>`;
+    tablaAlumnosBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Cargando alumnos...</td></tr>`;
 
     try {
         const { data: alumnos, error } = await supabase
@@ -117,7 +121,7 @@ async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
         if (error) throw error;
 
         if (!alumnos || alumnos.length === 0) {
-            tablaAlumnosBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No hay alumnos inscriptos en este curso.</td></tr>`;
+            tablaAlumnosBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No hay alumnos inscriptos en este curso.</td></tr>`;
             return;
         }
 
@@ -126,15 +130,33 @@ async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
                 <td class="fw-bold">${index + 1}</td>
                 <td>${al.apellido}</td>
                 <td>${al.nombre}</td>
-                <td><code>${al.pin || 'Sin PIN'}</code></td>
+                <td><code class="fs-6">${al.pin ? al.pin : 'Sin PIN'}</code></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-secondary btn-generar-pin" data-id="${al.id}">
+                        ${al.pin ? 'Regenerar PIN' : 'Generar PIN'}
+                    </button>
+                </td>
             </tr>
         `).join('');
 
+        // EVENTOS PARA GENERAR PIN INDIVIDUAL
+        document.querySelectorAll('.btn-generar-pin').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const alumnoId = e.currentTarget.dataset.id;
+                try {
+                    const nuevoPin = await generarPinAlumno(alumnoId);
+                    alert(`Nuevo PIN generado con éxito: ${nuevoPin}`);
+                    verDetalleCurso(cursoId, institucion, anioDivision, modalidad);
+                } catch (err) {
+                    alert('Error al generar PIN: ' + err.message);
+                }
+            });
+        });
+
     } catch (err) {
-        tablaAlumnosBody.innerHTML = `<tr><td colspan="4" class="text-danger">Error al cargar alumnos: ${err.message}</td></tr>`;
+        tablaAlumnosBody.innerHTML = `<tr><td colspan="5" class="text-danger">Error al cargar alumnos: ${err.message}</td></tr>`;
     }
 }
-
 // CARGAR LISTA DE CURSOS DESDE SUPABASE
 async function cargarCursos(profesorId) {
     if (!contenedorCursos) return;
