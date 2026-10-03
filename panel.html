@@ -82,5 +82,45 @@
 
     <script type="module" src="js/panel.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- MODAL CREAR CURSO Y CARGA MASIVA DE ALUMNOS -->
+<div class="modal fade" id="modalCrearCurso" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold">Crear Nuevo Curso y Cargar Nómina</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCrearCurso">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Institución / Escuela</label>
+                            <input type="text" id="cursoInstitucion" class="form-control" required placeholder="Ej: Escuela Técnica N°1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Año y División</label>
+                            <input type="text" id="cursoAnioDivision" class="form-control" required placeholder="Ej: 4° A">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Modalidad</label>
+                            <input type="text" id="cursoModalidad" class="form-control" required placeholder="Ej: Programación">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Carga Masiva de Alumnos (Pega la lista de Excel/Word)</label>
+                        <small class="text-muted d-block mb-1">Formato: Un alumno por línea. Ejemplo: <code>PÉREZ, Juan</code> o <code>Perez Juan</code></small>
+                        <textarea id="nominaRaw" class="form-control" rows="6" placeholder="GONZALEZ, Maria&#10;RODRIGUEZ, Lucas&#10;MARTINEZ, Sofia"></textarea>
+                    </div>
+
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary fw-bold">Guardar Curso y Alumnos</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
