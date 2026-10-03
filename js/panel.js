@@ -3,8 +3,8 @@ import { supabase, guardarNominaCurso } from './db.js';
 // ELEMENTOS DEL DOM
 const seccionAuth = document.getElementById('seccionAuth');
 const seccionDashboard = document.getElementById('seccionDashboard');
-const contenedorCursos = document.getElementById('contenedorCursos');
 const seccionDetalleCurso = document.getElementById('seccionDetalleCurso');
+const contenedorCursos = document.getElementById('contenedorCursos');
 const btnVolverCursos = document.getElementById('btnVolverCursos');
 const detalleTituloCurso = document.getElementById('detalleTituloCurso');
 const detalleSubtituloCurso = document.getElementById('detalleSubtituloCurso');
@@ -24,82 +24,88 @@ const btnCerrarSesion = document.getElementById('btnCerrarSesion');
 let esModoRegistro = false;
 
 // CAMBIAR ENTRE LOGIN Y REGISTRO
-toggleAuthMode.addEventListener('click', (e) => {
-    e.preventDefault();
-    esModoRegistro = !esModoRegistro;
+if (toggleAuthMode) {
+    toggleAuthMode.addEventListener('click', (e) => {
+        e.preventDefault();
+        esModoRegistro = !esModoRegistro;
 
-    if (esModoRegistro) {
-        authTitulo.textContent = 'Crear Cuenta Docente';
-        btnAuthSubmit.textContent = 'Registrarse';
-        camposRegistro.classList.remove('d-none');
-        toggleAuthMode.textContent = '¿Ya tenés cuenta? Iniciá sesión acá';
-    } else {
-        authTitulo.textContent = 'Iniciar Sesión';
-        btnAuthSubmit.textContent = 'Ingresar';
-        camposRegistro.classList.add('d-none');
-        toggleAuthMode.textContent = '¿No tenés cuenta? Registrate acá';
-    }
-});
+        if (esModoRegistro) {
+            authTitulo.textContent = 'Crear Cuenta Docente';
+            btnAuthSubmit.textContent = 'Registrarse';
+            camposRegistro.classList.remove('d-none');
+            toggleAuthMode.textContent = '¿Ya tenés cuenta? Iniciá sesión acá';
+        } else {
+            authTitulo.textContent = 'Iniciar Sesión';
+            btnAuthSubmit.textContent = 'Ingresar';
+            camposRegistro.classList.add('d-none');
+            toggleAuthMode.textContent = '¿No tenés cuenta? Registrate acá';
+        }
+    });
+}
 
 // MANEJAR LOGIN Y REGISTRO CON SUPABASE
-formAuth.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = authEmail.value;
-    const password = authPassword.value;
+if (formAuth) {
+    formAuth.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = authEmail.value;
+        const password = authPassword.value;
 
-    try {
-        if (esModoRegistro) {
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        nombre: authNombre.value,
-                        apellido: authApellido.value
+        try {
+            if (esModoRegistro) {
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            nombre: authNombre.value,
+                            apellido: authApellido.value
+                        }
                     }
-                }
-            });
+                });
 
-            if (error) throw error;
-            alert('¡Registro exitoso! Ya podés ingresar.');
-            toggleAuthMode.click();
+                if (error) throw error;
+                alert('¡Registro exitoso! Ya podés ingresar.');
+                toggleAuthMode.click();
 
-        } else {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password
-            });
+            } else {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
 
-            if (error) throw error;
-            actualizarInterfaz(data.user);
+                if (error) throw error;
+                actualizarInterfaz(data.user);
+            }
+        } catch (err) {
+            alert('Error: ' + err.message);
         }
-    } catch (err) {
-        alert('Error: ' + err.message);
-    }
-});
+    });
+}
 
 // CERRAR SESIÓN
-btnCerrarSesion.addEventListener('click', async () => {
-    await supabase.auth.signOut();
-    actualizarInterfaz(null);
-});
+if (btnCerrarSesion) {
+    btnCerrarSesion.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        actualizarInterfaz(null);
+    });
+}
 
 // VOLVER A LA LISTA DE CURSOS
 if (btnVolverCursos) {
     btnVolverCursos.addEventListener('click', () => {
-        if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
-        if (seccionDashboard) seccionDashboard.classList.remove('d-none');
+        seccionDetalleCurso.classList.add('d-none');
+        seccionDashboard.classList.remove('d-none');
     });
 }
 
 // VER DETALLE DE UN CURSO Y SUS ALUMNOS
 async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
-    if (seccionDashboard) seccionDashboard.classList.add('d-none');
-    if (seccionDetalleCurso) seccionDetalleCurso.classList.remove('d-none');
+    seccionDashboard.classList.add('d-none');
+    seccionDetalleCurso.classList.remove('d-none');
 
-    if (detalleTituloCurso) detalleTituloCurso.textContent = `${institucion} - ${anioDivision}`;
-    if (detalleSubtituloCurso) detalleSubtituloCurso.textContent = `Modalidad: ${modalidad}`;
-    if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Cargando alumnos...</td></tr>`;
+    detalleTituloCurso.textContent = `${institucion} - ${anioDivision}`;
+    detalleSubtituloCurso.textContent = `Modalidad: ${modalidad}`;
+    tablaAlumnosBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Cargando alumnos...</td></tr>`;
 
     try {
         const { data: alumnos, error } = await supabase
@@ -194,15 +200,16 @@ async function cargarCursos(profesorId) {
 // CONTROL DE INTERFAZ SEGÚN ESTADO DE SESIÓN
 function actualizarInterfaz(usuario) {
     if (usuario) {
-        if (seccionAuth) seccionAuth.classList.add('d-none');
-        if (seccionDashboard) seccionDashboard.classList.remove('d-none');
-        if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
+        seccionAuth.classList.add('d-none');
+        seccionDashboard.classList.remove('d-none');
+        seccionDetalleCurso.classList.add('d-none');
+        btnCerrarSesion.classList.remove('d-none');
         cargarCursos(usuario.id);
     } else {
-        if (seccionAuth) seccionAuth.classList.remove('d-none');
-        if (seccionDashboard) seccionDashboard.classList.add('d-none');
-        if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
-        if (btnCerrarSesion) btnCerrarSesion.classList.add('d-none');
+        seccionAuth.classList.remove('d-none');
+        seccionDashboard.classList.add('d-none');
+        seccionDetalleCurso.classList.add('d-none');
+        btnCerrarSesion.classList.add('d-none');
     }
 }
 
