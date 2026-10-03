@@ -1,4 +1,4 @@
-import { supabase } from './db.js';
+import { supabase, guardarNominaCurso } from './db.js';
 
 // ELEMENTOS DEL DOM
 const seccionAuth = document.getElementById('seccionAuth');
@@ -99,3 +99,59 @@ async function chequearSesion() {
 }
 
 chequearSesion();
+
+// MANEJO DE CREACIÓN DE CURSO Y NÓMINA (AL FINAL DEL ARCHIVO)
+const formCrearCurso = document.getElementById('formCrearCurso');
+
+if (formCrearCurso) {
+    formCrearCurso.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return alert("Debés estar autenticado.");
+
+        const institucion = document.getElementById('cursoInstitucion').value;
+        const anioDivision = document.getElementById('cursoAnioDivision').value;
+        const modalidad = document.getElementById('cursoModalidad').value;
+        const rawText = document.getElementById('nominaRaw').value;
+
+        try {
+            // 1. Crear el curso en Supabase
+            const codigoRef = 'CURSO-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            
+            const { data: curso, error: errCurso } = await supabase
+                .from('cursos')
+                .insert([{
+                    profesor_id: session.user.id,
+                    institucion: institucion,
+                    modalidad: modalidad,
+                    anio_division: anioDivision,
+                    codigo_ref: codigoRef
+                }])
+                .select()
+                .single();
+
+            if (errCurso) throw errCurso;
+
+            // 2. Procesar el texto de alumnos
+            const lineas = rawText.split('\n').filter(linea => linea.trim() !== '');
+            const alumnos = lineas.map(linea => {
+                let partes = linea.includes(',') ? linea.split(',') : linea.split(' ');
+                let apellido = partes[0] || 'SIN APELLIDO';
+                let nombre = partes.slice(1).join(' ') || 'SIN NOMBRE';
+                return { apellido, nombre };
+            });
+
+            // 3. Guardar nómina normalizada
+            if (alumnos.length > 0) {
+                await guardarNominaCurso(curso.id, alumnos);
+            }
+
+            alert('¡Curso y nómina de alumnos guardados con éxito!');
+            location.reload();
+
+        } catch (err) {
+            alert('Error al crear el curso: ' + err.message);
+        }
+    });
+}
