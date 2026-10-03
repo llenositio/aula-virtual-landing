@@ -13,6 +13,7 @@ const camposRegistro = document.getElementById('camposRegistro');
 const btnAuthSubmit = document.getElementById('btnAuthSubmit');
 const toggleAuthMode = document.getElementById('toggleAuthMode');
 const btnCerrarSesion = document.getElementById('btnCerrarSesion');
+const contenedorCursos = document.getElementById('contenedorCursos');
 
 let esModoRegistro = false;
 
@@ -42,7 +43,6 @@ formAuth.addEventListener('submit', async (e) => {
 
     try {
         if (esModoRegistro) {
-            // REGISTRO
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
@@ -59,7 +59,6 @@ formAuth.addEventListener('submit', async (e) => {
             toggleAuthMode.click();
 
         } else {
-            // LOGIN
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password
@@ -79,12 +78,56 @@ btnCerrarSesion.addEventListener('click', async () => {
     actualizarInterfaz(null);
 });
 
+// CARGAR LISTA DE CURSOS DESDE SUPABASE
+async function cargarCursos(profesorId) {
+    if (!contenedorCursos) return;
+
+    try {
+        const { data: cursos, error } = await supabase
+            .from('cursos')
+            .select('*, alumnos(count)')
+            .eq('profesor_id', profesorId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (cursos.length === 0) {
+            contenedorCursos.innerHTML = `
+                <div class="col-12 text-center text-muted py-5">
+                    <p>No tenés cursos creados todavía. ¡Creá el primero!</p>
+                </div>`;
+            return;
+        }
+
+        contenedorCursos.innerHTML = cursos.map(c => `
+            <div class="col-md-4 mb-4">
+                <div class="card card-custom h-100 p-3 border-0 shadow-sm">
+                    <div class="card-body d-flex flex-column justify-content-between">
+                        <div>
+                            <span class="badge bg-primary mb-2">${c.modalidad}</span>
+                            <h4 class="card-title fw-bold text-dark mb-1">${c.institucion}</h4>
+                            <p class="text-secondary fw-semibold mb-3">Año / División: ${c.anio_division}</p>
+                            <p class="small text-muted mb-1"><strong>Código Ref:</strong> <code>${c.codigo_ref}</code></p>
+                            <p class="small text-muted"><strong>Alumnos Inscriptos:</strong> ${c.alumnos ? c.alumnos[0].count : 0}</p>
+                        </div>
+                        <button class="btn btn-outline-primary btn-sm w-100 fw-bold mt-3">Ver Curso & Evaluaciones</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (err) {
+        contenedorCursos.innerHTML = `<div class="col-12 alert alert-danger">Error al cargar cursos: ${err.message}</div>`;
+    }
+}
+
 // CONTROL DE INTERFAZ SEGÚN ESTADO DE SESIÓN
 function actualizarInterfaz(usuario) {
     if (usuario) {
         seccionAuth.classList.add('d-none');
         seccionDashboard.classList.remove('d-none');
         btnCerrarSesion.classList.remove('d-none');
+        cargarCursos(usuario.id);
     } else {
         seccionAuth.classList.remove('d-none');
         seccionDashboard.classList.add('d-none');
@@ -92,7 +135,7 @@ function actualizarInterfaz(usuario) {
     }
 }
 
-// COMPROBAR SESIÓN AL CARGAR LA PÁGINA
+// COMPROBAR SESIÓN AL CARGAR PÁGINA
 async function chequearSesion() {
     const { data: { session } } = await supabase.auth.getSession();
     actualizarInterfaz(session ? session.user : null);
@@ -100,7 +143,7 @@ async function chequearSesion() {
 
 chequearSesion();
 
-// MANEJO DE CREACIÓN DE CURSO Y NÓMINA (AL FINAL DEL ARCHIVO)
+// MANEJO DE CREACIÓN DE CURSO Y NÓMINA
 const formCrearCurso = document.getElementById('formCrearCurso');
 
 if (formCrearCurso) {
@@ -116,7 +159,6 @@ if (formCrearCurso) {
         const rawText = document.getElementById('nominaRaw').value;
 
         try {
-            // 1. Crear el curso en Supabase
             const codigoRef = 'CURSO-' + Math.random().toString(36).substring(2, 8).toUpperCase();
             
             const { data: curso, error: errCurso } = await supabase
@@ -133,7 +175,6 @@ if (formCrearCurso) {
 
             if (errCurso) throw errCurso;
 
-            // 2. Procesar el texto de alumnos
             const lineas = rawText.split('\n').filter(linea => linea.trim() !== '');
             const alumnos = lineas.map(linea => {
                 let partes = linea.includes(',') ? linea.split(',') : linea.split(' ');
@@ -142,7 +183,6 @@ if (formCrearCurso) {
                 return { apellido, nombre };
             });
 
-            // 3. Guardar nómina normalizada
             if (alumnos.length > 0) {
                 await guardarNominaCurso(curso.id, alumnos);
             }
