@@ -17,7 +17,14 @@ export function normalizarAlumno(apellido, nombre) {
 }
 
 /**
- * Guarda un lote de alumnos asociados a un curso.
+ * Genera un PIN numérico de 4 dígitos de forma aleatoria (ej: "4829")
+ */
+function generarPinRandom() {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+}
+
+/**
+ * Guarda un lote de alumnos asociados a un curso, asignando un PIN automático a cada uno.
  */
 export async function guardarNominaCurso(cursoId, listaAlumnos) {
     const alumnosNormalizados = listaAlumnos.map(al => {
@@ -26,7 +33,7 @@ export async function guardarNominaCurso(cursoId, listaAlumnos) {
             curso_id: cursoId,
             apellido: apellido,
             nombre: nombre,
-            pin: al.pin || null,
+            pin: al.pin || generarPinRandom(), // Asigna el PIN si viene o genera uno automáticamente
             email_tutor: al.email_tutor || null,
             telefono_tutor: al.telefono_tutor || null
         };
@@ -38,4 +45,20 @@ export async function guardarNominaCurso(cursoId, listaAlumnos) {
 
     if (error) throw new Error("Error al guardar la nómina: " + error.message);
     return data;
+}
+
+/**
+ * Genera y actualiza el PIN de un alumno individual en la base de datos.
+ */
+export async function generarPinAlumno(alumnoId) {
+    const nuevoPin = generarPinRandom();
+    const { data, error } = await supabase
+        .from('alumnos')
+        .update({ pin: nuevoPin })
+        .eq('id', alumnoId)
+        .select()
+        .single();
+
+    if (error) throw new Error("Error al actualizar el PIN: " + error.message);
+    return nuevoPin;
 }
