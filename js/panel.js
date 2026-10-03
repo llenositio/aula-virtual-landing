@@ -3,6 +3,13 @@ import { supabase, guardarNominaCurso } from './db.js';
 // ELEMENTOS DEL DOM
 const seccionAuth = document.getElementById('seccionAuth');
 const seccionDashboard = document.getElementById('seccionDashboard');
+const contenedorCursos = document.getElementById('contenedorCursos');
+const seccionDetalleCurso = document.getElementById('seccionDetalleCurso');
+const btnVolverCursos = document.getElementById('btnVolverCursos');
+const detalleTituloCurso = document.getElementById('detalleTituloCurso');
+const detalleSubtituloCurso = document.getElementById('detalleSubtituloCurso');
+const tablaAlumnosBody = document.getElementById('tablaAlumnosBody');
+
 const formAuth = document.getElementById('formAuth');
 const authTitulo = document.getElementById('authTitulo');
 const authEmail = document.getElementById('authEmail');
@@ -13,7 +20,6 @@ const camposRegistro = document.getElementById('camposRegistro');
 const btnAuthSubmit = document.getElementById('btnAuthSubmit');
 const toggleAuthMode = document.getElementById('toggleAuthMode');
 const btnCerrarSesion = document.getElementById('btnCerrarSesion');
-const contenedorCursos = document.getElementById('contenedorCursos');
 
 let esModoRegistro = false;
 
@@ -78,6 +84,51 @@ btnCerrarSesion.addEventListener('click', async () => {
     actualizarInterfaz(null);
 });
 
+// VOLVER A LA LISTA DE CURSOS
+if (btnVolverCursos) {
+    btnVolverCursos.addEventListener('click', () => {
+        if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
+        if (seccionDashboard) seccionDashboard.classList.remove('d-none');
+    });
+}
+
+// VER DETALLE DE UN CURSO Y SUS ALUMNOS
+async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
+    if (seccionDashboard) seccionDashboard.classList.add('d-none');
+    if (seccionDetalleCurso) seccionDetalleCurso.classList.remove('d-none');
+
+    if (detalleTituloCurso) detalleTituloCurso.textContent = `${institucion} - ${anioDivision}`;
+    if (detalleSubtituloCurso) detalleSubtituloCurso.textContent = `Modalidad: ${modalidad}`;
+    if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Cargando alumnos...</td></tr>`;
+
+    try {
+        const { data: alumnos, error } = await supabase
+            .from('alumnos')
+            .select('*')
+            .eq('curso_id', cursoId)
+            .order('apellido', { ascending: true });
+
+        if (error) throw error;
+
+        if (!alumnos || alumnos.length === 0) {
+            tablaAlumnosBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No hay alumnos inscriptos en este curso.</td></tr>`;
+            return;
+        }
+
+        tablaAlumnosBody.innerHTML = alumnos.map((al, index) => `
+            <tr>
+                <td class="fw-bold">${index + 1}</td>
+                <td>${al.apellido}</td>
+                <td>${al.nombre}</td>
+                <td><code>${al.pin || 'Sin PIN'}</code></td>
+            </tr>
+        `).join('');
+
+    } catch (err) {
+        tablaAlumnosBody.innerHTML = `<tr><td colspan="4" class="text-danger">Error al cargar alumnos: ${err.message}</td></tr>`;
+    }
+}
+
 // CARGAR LISTA DE CURSOS DESDE SUPABASE
 async function cargarCursos(profesorId) {
     if (!contenedorCursos) return;
@@ -91,7 +142,7 @@ async function cargarCursos(profesorId) {
 
         if (error) throw error;
 
-        if (cursos.length === 0) {
+        if (!cursos || cursos.length === 0) {
             contenedorCursos.innerHTML = `
                 <div class="col-12 text-center text-muted py-5">
                     <p>No tenés cursos creados todavía. ¡Creá el primero!</p>
@@ -110,11 +161,30 @@ async function cargarCursos(profesorId) {
                             <p class="small text-muted mb-1"><strong>Código Ref:</strong> <code>${c.codigo_ref}</code></p>
                             <p class="small text-muted"><strong>Alumnos Inscriptos:</strong> ${c.alumnos ? c.alumnos[0].count : 0}</p>
                         </div>
-                        <button class="btn btn-outline-primary btn-sm w-100 fw-bold mt-3">Ver Curso & Evaluaciones</button>
+                        <button class="btn btn-outline-primary btn-sm w-100 fw-bold mt-3 btn-ver-curso" 
+                                data-id="${c.id}" 
+                                data-inst="${c.institucion}" 
+                                data-anio="${c.anio_division}" 
+                                data-mod="${c.modalidad}">
+                            Ver Curso & Evaluaciones
+                        </button>
                     </div>
                 </div>
             </div>
         `).join('');
+
+        // ASIGNAR EVENTO CLICK A CADA BOTÓN DE CURSO
+        document.querySelectorAll('.btn-ver-curso').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const target = e.currentTarget;
+                verDetalleCurso(
+                    target.dataset.id,
+                    target.dataset.inst,
+                    target.dataset.anio,
+                    target.dataset.mod
+                );
+            });
+        });
 
     } catch (err) {
         contenedorCursos.innerHTML = `<div class="col-12 alert alert-danger">Error al cargar cursos: ${err.message}</div>`;
@@ -124,14 +194,15 @@ async function cargarCursos(profesorId) {
 // CONTROL DE INTERFAZ SEGÚN ESTADO DE SESIÓN
 function actualizarInterfaz(usuario) {
     if (usuario) {
-        seccionAuth.classList.add('d-none');
-        seccionDashboard.classList.remove('d-none');
-        btnCerrarSesion.classList.remove('d-none');
+        if (seccionAuth) seccionAuth.classList.add('d-none');
+        if (seccionDashboard) seccionDashboard.classList.remove('d-none');
+        if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
         cargarCursos(usuario.id);
     } else {
-        seccionAuth.classList.remove('d-none');
-        seccionDashboard.classList.add('d-none');
-        btnCerrarSesion.classList.add('d-none');
+        if (seccionAuth) seccionAuth.classList.remove('d-none');
+        if (seccionDashboard) seccionDashboard.classList.add('d-none');
+        if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
+        if (btnCerrarSesion) btnCerrarSesion.classList.add('d-none');
     }
 }
 
