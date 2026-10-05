@@ -24,7 +24,7 @@ if (btnGoogleLogin) {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: window.location.origin + '/alumno.html'
+                    redirectTo: window.location.origin + '/aula-virtual-landing/alumno.html'
                 }
             });
 
@@ -56,7 +56,7 @@ if (formAlumnoAlt) {
                 return;
             }
 
-            // Intento B: Si falla la clave estándar, verificar si usó su correo + PIN asignado por el docente
+            // Intento B: Verificar si usó su correo + PIN asignado por el docente
             const { data: alumnoPin, error: pinError } = await supabase
                 .from('alumnos')
                 .select('*, cursos(*)')
@@ -68,10 +68,10 @@ if (formAlumnoAlt) {
                 throw new Error('Credenciales incorrectas. Verificá tu correo y contraseña/PIN.');
             }
 
-            // Guardar sesión temporal del alumno por PIN
+            // Guardar sesión temporal del alumno por PIN y redirigir
             localStorage.setItem('alumnoSesion', JSON.stringify(alumnoPin));
             alert(`¡Bienvenido/a ${alumnoPin.nombre} ${alumnoPin.apellido}!`);
-            // window.location.href = 'aula.html'; // Redirección al aula
+            window.location.href = 'aula.html';
 
         } catch (err) {
             mostrarError(err.message);
@@ -104,7 +104,7 @@ async function verificarCursoAlumno(email) {
 
         localStorage.setItem('alumnoSesion', JSON.stringify(alumno));
         alert(`¡Bienvenido/a ${alumno.nombre} ${alumno.apellido}!`);
-        // window.location.href = 'aula.html'; // Redirección al aula
+        window.location.href = 'aula.html';
     } catch (err) {
         mostrarError('Error al validar la suscripción al curso: ' + err.message);
     }
