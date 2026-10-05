@@ -20,6 +20,7 @@ const camposRegistro = document.getElementById('camposRegistro');
 const btnAuthSubmit = document.getElementById('btnAuthSubmit');
 const toggleAuthMode = document.getElementById('toggleAuthMode');
 const btnCerrarSesion = document.getElementById('btnCerrarSesion');
+const btnGoogleAuth = document.getElementById('btnGoogleAuth');
 
 let esModoRegistro = false;
 
@@ -43,7 +44,24 @@ if (toggleAuthMode) {
     });
 }
 
-// MANEJAR LOGIN Y REGISTRO CON SUPABASE
+// AUTENTICACIÓN CON GOOGLE (OAuth)
+if (btnGoogleAuth) {
+    btnGoogleAuth.addEventListener('click', async () => {
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin + window.location.pathname
+                }
+            });
+            if (error) throw error;
+        } catch (err) {
+            alert('Error al iniciar sesión con Google: ' + err.message);
+        }
+    });
+}
+
+// MANEJAR LOGIN Y REGISTRO CON CORREO / CONTRASEÑA
 if (formAuth) {
     formAuth.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -57,8 +75,8 @@ if (formAuth) {
                     password,
                     options: {
                         data: {
-                            nombre: authNombre.value,
-                            apellido: authApellido.value
+                            nombre: authNombre ? authNombre.value : '',
+                            apellido: authApellido ? authApellido.value : ''
                         }
                     }
                 });
@@ -232,13 +250,17 @@ function actualizarInterfaz(usuario) {
     }
 }
 
-// COMPROBAR SESIÓN AL CARGAR PÁGINA
-async function chequearSesion() {
+// ESCUCHAR CAMBIOS Y COMPROBAR SESIÓN EN TIEMPO REAL
+async function inicializarSesion() {
     const { data: { session } } = await supabase.auth.getSession();
     actualizarInterfaz(session ? session.user : null);
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+        actualizarInterfaz(session ? session.user : null);
+    });
 }
 
-chequearSesion();
+inicializarSesion();
 
 // MANEJO DE CREACIÓN DE CURSO Y NÓMINA
 const formCrearCurso = document.getElementById('formCrearCurso');
@@ -275,8 +297,8 @@ if (formCrearCurso) {
             const lineas = rawText.split('\n').filter(linea => linea.trim() !== '');
             const alumnos = lineas.map(linea => {
                 let partes = linea.includes(',') ? linea.split(',') : linea.split(' ');
-                let apellido = partes[0] || 'SIN APELLIDO';
-                let nombre = partes.slice(1).join(' ') || 'SIN NOMBRE';
+                let apellido = partes[0] ? partes[0].trim() : 'SIN APELLIDO';
+                let nombre = partes.slice(1).join(' ').trim() || 'SIN NOMBRE';
                 return { apellido, nombre };
             });
 
@@ -285,7 +307,16 @@ if (formCrearCurso) {
             }
 
             alert('¡Curso y nómina de alumnos guardados con éxito!');
-            location.reload();
+            
+            // Ocultar modal si Bootstrap está activo
+            const modalElement = document.getElementById('modalCrearCurso');
+            if (modalElement) {
+                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                if (modalInstance) modalInstance.hide();
+            }
+            
+            formCrearCurso.reset();
+            cargarCursos(session.user.id);
 
         } catch (err) {
             alert('Error al crear el curso: ' + err.message);
