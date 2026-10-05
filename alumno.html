@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aula Virtual | Ingreso de Alumnos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex align-items-center justify-content-center min-vh-100">
+
+    <div class="card shadow border-0 p-4" style="max-width: 420px; width: 100%;">
+        <h3 class="text-center fw-bold mb-1">Aula Virtual</h3>
+        <p class="text-center text-muted small mb-4">Ingreso de Estudiantes</p>
+
+        <!-- CAMINO PRINCIPAL: GOOGLE -->
+        <button id="btnGoogleLogin" class="btn btn-outline-danger w-100 fw-bold d-flex align-items-center justify-content-center gap-2 py-2 mb-3 shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-google" viewBox="0 0 16 16">
+                <path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.626c0 2.434-.87 4.492-2.384 5.885h.002C11.978 15.292 10.158 16 8 16A8 8 0 1 1 8 0c2.27 0 4.226.837 5.71 2.21l-2.022 1.986A5.922 5.922 0 0 0 8 2.651C5.04 2.651 2.65 5.04 2.65 8s2.39 5.349 5.35 5.349c2.81 0 4.885-1.636 5.253-3.953H8V6.558h7.545z"/>
+            </svg>
+            Ingresar con Google
+        </button>
+
+        <!-- SEPARADOR -->
+        <div class="d-flex align-items-center my-3">
+            <hr class="flex-grow-1 m-0">
+            <span class="px-2 text-muted small">O con tu cuenta / PIN</span>
+            <hr class="flex-grow-1 m-0">
+        </div>
+
+        <!-- CAMINO ALTERNATIVO: EMAIL / PIN -->
+        <form id="formAlumnoAlt">
+            <div class="mb-3">
+                <label for="inputCorreo" class="form-label fw-semibold small">Correo Electrónico</label>
+                <input type="email" id="inputCorreo" class="form-control" placeholder="alumno@ejemplo.com" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="inputClavePin" class="form-label fw-semibold small">Contraseña o PIN asignado</label>
+                <input type="password" id="inputClavePin" class="form-control" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" id="btnAltSubmit" class="btn btn-primary w-100 fw-bold py-2">Ingresar</button>
+        </form>
+
+        <div id="alertaError" class="alert alert-danger mt-3 d-none small text-center" role="alert"></div>
+    </div>
+
+    <script type="module" src="js/alumno.js"></script>
+</body>
+</html>
