@@ -335,6 +335,7 @@ const formAgregarAlumnos = document.getElementById('formAgregarAlumnos');
 
 if (formAgregarAlumnos) {
     formAgregarAlumnos.addEventListener('submit', async (e) => {
+        // 1. Prevenimos la recarga nativa de la página (evita el ?# en la URL)
         e.preventDefault();
 
         if (!cursoActualId) {
@@ -344,6 +345,7 @@ if (formAgregarAlumnos) {
         const rawText = document.getElementById('nominaEditarRaw').value;
 
         try {
+            // 2. Procesamos el texto línea por línea
             const lineas = rawText.split('\n').filter(linea => linea.trim() !== '');
             const alumnos = lineas.map(linea => {
                 let partes = linea.includes(',') ? linea.split(',') : linea.split(' ');
@@ -356,16 +358,19 @@ if (formAgregarAlumnos) {
                 return alert('Por favor, ingresá al menos un alumno.');
             }
 
+            // 3. Guardamos los alumnos en Supabase
             await guardarNominaCurso(cursoActualId, alumnos);
 
-            alert('¡Alumnos agregados con éxito!');
+            alert('¡Alumnos cargados con éxito!');
 
+            // 4. Cerramos la ventana emergente
             const modalElement = document.getElementById('modalInscribirAlumnos');
             if (modalElement) {
                 const modalInstance = bootstrap.Modal.getInstance(modalElement);
                 if (modalInstance) modalInstance.hide();
             }
 
+            // 5. Limpiamos el cuadro de texto y refrescamos la tabla en pantalla
             formAgregarAlumnos.reset();
 
             if (cursoActualInfo) {
