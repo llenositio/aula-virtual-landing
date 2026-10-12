@@ -23,6 +23,8 @@ const btnCerrarSesion = document.getElementById('btnCerrarSesion');
 const btnGoogleAuth = document.getElementById('btnGoogleAuth');
 
 let esModoRegistro = false;
+let cursoActualId = null;
+let cursoActualInfo = null;
 
 // CAMBIAR ENTRE LOGIN Y REGISTRO
 if (toggleAuthMode) {
@@ -111,6 +113,8 @@ if (btnCerrarSesion) {
 // VOLVER A LA LISTA DE CURSOS
 if (btnVolverCursos) {
     btnVolverCursos.addEventListener('click', () => {
+        cursoActualId = null;
+        cursoActualInfo = null;
         if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
         if (seccionDashboard) seccionDashboard.classList.remove('d-none');
     });
@@ -118,6 +122,9 @@ if (btnVolverCursos) {
 
 // VER DETALLE DE UN CURSO Y SUS ALUMNOS
 async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
+    cursoActualId = cursoId;
+    cursoActualInfo = { institucion, anioDivision, modalidad };
+
     if (seccionDashboard) seccionDashboard.classList.add('d-none');
     if (seccionDetalleCurso) seccionDetalleCurso.classList.remove('d-none');
 
@@ -262,7 +269,7 @@ async function inicializarSesion() {
 
 inicializarSesion();
 
-// MANEJO DE CREACIÓN DE CURSO Y NÓMINA
+// MANEJO DE CREACIÓN DE CURSO Y NÓMINA INICIAL
 const formCrearCurso = document.getElementById('formCrearCurso');
 
 if (formCrearCurso) {
@@ -308,7 +315,6 @@ if (formCrearCurso) {
 
             alert('¡Curso y nómina de alumnos guardados con éxito!');
             
-            // Ocultar modal si Bootstrap está activo
             const modalElement = document.getElementById('modalCrearCurso');
             if (modalElement) {
                 const modalInstance = bootstrap.Modal.getInstance(modalElement);
@@ -320,6 +326,59 @@ if (formCrearCurso) {
 
         } catch (err) {
             alert('Error al crear el curso: ' + err.message);
+        }
+    });
+}
+
+// MANEJO DE AGREGAR ALUMNOS A UN CURSO EXISTENTE
+const formAgregarAlumnos = document.getElementById('formAgregarAlumnos');
+
+if (formAgregarAlumnos) {
+    formAgregarAlumnos.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (!cursoActualId) {
+            return alert('Error: no hay un curso seleccionado.');
+        }
+
+        const rawText = document.getElementById('nominaEditarRaw').value;
+
+        try {
+            const lineas = rawText.split('\n').filter(linea => linea.trim() !== '');
+            const alumnos = lineas.map(linea => {
+                let partes = linea.includes(',') ? linea.split(',') : linea.split(' ');
+                let apellido = partes[0] ? partes[0].trim() : 'SIN APELLIDO';
+                let nombre = partes.slice(1).join(' ').trim() || 'SIN NOMBRE';
+                return { apellido, nombre };
+            });
+
+            if (alumnos.length === 0) {
+                return alert('Por favor, ingresá al menos un alumno.');
+            }
+
+            await guardarNominaCurso(cursoActualId, alumnos);
+
+            alert('¡Alumnos agregados con éxito!');
+
+            const modalElement = document.getElementById('modalInscribirAlumnos');
+            if (modalElement) {
+                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                if (modalInstance) modalInstance.hide();
+            }
+
+            formAgregarAlumnos.reset();
+
+            if (cursoActualInfo) {
+                verDetalleCurso(
+                    cursoActualId,
+                    cursoActualInfo.institucion,
+                    cursoActualInfo.anioDivision,
+                    cursoActualInfo.modalidad
+                );
+            }
+
+        } catch (err) {
+            alert('Error al agregar alumnos: ' + err.message);
         }
     });
 }
