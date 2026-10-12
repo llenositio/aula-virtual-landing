@@ -26,24 +26,29 @@ function generarPinRandom() {
 /**
  * Guarda un lote de alumnos asociados a un curso, asignando un PIN automático a cada uno.
  */
-export async function guardarNominaCurso(cursoId, listaAlumnos) {
-    const alumnosNormalizados = listaAlumnos.map(al => {
-        const { apellido, nombre } = normalizarAlumno(al.apellido, al.nombre);
+export async function guardarNominaCurso(cursoId, alumnos) {
+    const filas = alumnos.map(al => {
+        // Genera un PIN aleatorio de 6 dígitos
+        const pin = Math.floor(100000 + Math.random() * 900000).toString();
+        
         return {
             curso_id: cursoId,
-            apellido: apellido,
-            nombre: nombre,
-            pin: al.pin || generarPinRandom(), // Asigna el PIN si viene o genera uno automáticamente
-            email_tutor: al.email_tutor || null,
-            telefono_tutor: al.telefono_tutor || null
+            apellido: al.apellido,
+            nombre: al.nombre,
+            email_tutor: al.emailTutor || null,
+            pin: pin
         };
     });
 
     const { data, error } = await supabase
         .from('alumnos')
-        .insert(alumnosNormalizados);
+        .insert(filas)
+        .select();
 
-    if (error) throw new Error("Error al guardar la nómina: " + error.message);
+    if (error) {
+        throw new Error("Error al guardar la nómina: " + error.message);
+    }
+
     return data;
 }
 
