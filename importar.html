@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Importador de TPs - Carga Masiva</title>
+    <title>Importador al Banco Global de TPs</title>
     <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/db.js"></script>
@@ -13,41 +13,43 @@
         label { font-weight: bold; display: block; margin-bottom: 5px; }
         input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         textarea { height: 180px; font-family: monospace; font-size: 13px; }
-        button { background: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; }
+        button { background: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; }
         button:hover { background: #218838; }
         .info { background: #e9ecef; padding: 10px; border-left: 4px solid #17a2b8; margin-bottom: 15px; font-size: 14px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>📥 Importador Masivo de TPs desde Google Sheets</h2>
-    <p>Completá los datos del TP y pegá las columnas de tu planilla directamente.</p>
+    <h2>📥 Cargador al Banco Global de Preguntas</h2>
+    <p>Registrá el contenido conceptual en la biblioteca para que cualquier docente pueda asignarlo a sus cursos.</p>
 
-    <div class="form-group">
-        <label>Código Único del TP:</label>
-        <input type="text" id="cod_tp" value="CBMTP-1-MAT-001" placeholder="Ej: CBMTP-1-MAT-001">
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Código Interno del TP:</label>
+            <input type="text" id="cod_tp" value="CBMTP-1-MAT-001" placeholder="Ej: CBMTP-1-MAT-001 o TP-MAT-ALG-N1-001">
+        </div>
+        <div class="form-group">
+            <label>Título del Tema (Sin "TP X"):</label>
+            <input type="text" id="titulo_humano" value="Razonamiento Deductivo y Contraejemplos" placeholder="Ej: Razonamiento Deductivo y Contraejemplos">
+        </div>
     </div>
-    <div class="form-group">
-        <label>Título en Humano:</label>
-        <input type="text" id="titulo_humano" value="TP 1: Razonamiento Deductivo y Contraejemplos">
-    </div>
-    <div class="form-group">
-        <label>Especialidad / Nivel:</label>
-        <input type="text" id="especialidad_nivel" value="CBMTP">
-    </div>
-    <div class="form-group">
-        <label>Año:</label>
-        <input type="number" id="anio" value="1">
-    </div>
-    <div class="form-group">
-        <label>Curso ID al que se asigna:</label>
-        <input type="text" id="curso_id" value="ET24DE17 - 1° 1°">
+
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Especialidad / Nivel:</label>
+            <input type="text" id="especialidad_nivel" value="CBMTP" placeholder="Ej: CBMTP, STP, ORIENT">
+        </div>
+        <div class="form-group">
+            <label>Año:</label>
+            <input type="number" id="anio" value="1" placeholder="Ej: 1">
+        </div>
     </div>
 
     <div class="info">
         <strong>📋 Instrucciones:</strong><br>
-        En tu Google Sheets, seleccioná y copiá las celdas desde la <strong>Columna K (Instrucciones)</strong> hasta la <strong>Columna P (Tipo)</strong> y pegalas acá abajo.
+        En tu Google Sheets, seleccioná y copiá las celdas desde la <strong>Columna K (Instrucciones)</strong> hasta la <strong>Columna P (Tipo)</strong> y pegalas en el cuadro de abajo.
     </div>
 
     <div class="form-group">
@@ -55,7 +57,7 @@
         <textarea id="datos_sheets" placeholder="Pegá acá las filas copiadas desde Google Sheets..."></textarea>
     </div>
 
-    <button onclick="procesarYSubir()">🚀 Cargar TP a Supabase</button>
+    <button onclick="procesarYSubir()">🚀 Cargar al Banco Global en Supabase</button>
     <div id="resultado" style="margin-top: 15px; font-weight: bold;"></div>
 </div>
 
@@ -65,17 +67,16 @@
         const tituloHumano = document.getElementById('titulo_humano').value.trim();
         const especialidadNivel = document.getElementById('especialidad_nivel').value.trim();
         const anio = parseInt(document.getElementById('anio').value);
-        const cursoId = document.getElementById('curso_id').value.trim();
         const rawText = document.getElementById('datos_sheets').value.trim();
         const resDiv = document.getElementById('resultado');
 
-        if (!rawText || !codTp || !cursoId) {
-            alert('Por favor completá los datos y pegá las celdas de la planilla.');
+        if (!rawText || !codTp || !tituloHumano) {
+            alert('Por favor completá el código, el título conceptual y pegá las celdas de la planilla.');
             return;
         }
 
         resDiv.style.color = 'blue';
-        resDiv.innerText = 'Procesando e importando...';
+        resDiv.innerText = 'Procesando e importando al banco global...';
 
         const filas = rawText.split('\n');
         const preguntasAInsertar = [];
@@ -106,7 +107,6 @@
         });
 
         try {
-            // Usa el cliente de Supabase instanciado en db.js o global
             const client = window.supabaseClient || supabase;
 
             const { error: errPreguntas } = await client
@@ -115,18 +115,8 @@
 
             if (errPreguntas) throw errPreguntas;
 
-            const { error: errCurso } = await client
-                .from('curso_evaluaciones')
-                .insert([{
-                    curso_id: cursoId,
-                    cod_tp: codTp,
-                    estado: 'activo'
-                }]);
-
-            if (errCurso) throw errCurso;
-
             resDiv.style.color = 'green';
-            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios e integraron al curso.`;
+            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios al Banco Global bajo el código [${codTp}].`;
         } catch (err) {
             console.error(err);
             resDiv.style.color = 'red';
