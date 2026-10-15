@@ -5,8 +5,6 @@
     <title>Cargador al Banco Global de Preguntas</title>
     <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Carga de tu archivo de configuración db.js -->
-    <script src="js/db.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 30px; background: #f4f6f9; }
         .card { background: white; padding: 25px; border-radius: 8px; max-width: 850px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -86,62 +84,23 @@
 </div>
 
 <script>
-    // Obtener la instancia de Supabase proveniente de db.js
-    function getSupabaseClient() {
-        if (window.dbClient) return window.dbClient;
-        if (window.supabaseClient) return window.supabaseClient;
-        if (window.supabase && typeof window.supabase.from === 'function') return window.supabase;
-        return null;
-    }
+    // ==// =========================================================================
+    // CONFIGURACIÓN DIRECTA DE SUPABASE
+    // =========================================================================
+    const SUPABASE_URL = 'https://bpwxxodhiswltefhqbol.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwd3h4b2RoaXN3bHRlZmhxYm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc3NjQsImV4cCI6MjEwNjYxMzc2NH0.tVs4JpCyJFAcakyIHMCV49xiuzNgNr2SeG1S5iUeF48'; 
+    // =========================================================================
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        const client = getSupabaseClient();
-        if (!client) return;
-
-        try {
-            const { data, error } = await client
-                .from('banco_preguntas')
-                .select('especialidad_nivel');
-
-            if (!error && data) {
-                const datalist = document.getElementById('lista_especialidades');
-                const usadas = new Set();
-
-                data.forEach(item => {
-                    if (item.especialidad_nivel) {
-                        const partes = item.especialidad_nivel.split(' - ');
-                        const esp = partes.length > 1 ? partes[1] : item.especialidad_nivel;
-                        usadas.add(esp.trim());
-                    }
-                });
-
-                usadas.forEach(esp => {
-                    if (!Array.from(datalist.options).some(opt => opt.value === esp)) {
-                        const option = document.createElement('option');
-                        option.value = esp;
-                        datalist.appendChild(option);
-                    }
-                });
-            }
-        } catch (e) {
-            console.log('Sugerencias cargadas localmente.');
-        }
-    });
+    // Crear la conexión directa
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     async function procesarYSubir() {
-        const client = getSupabaseClient();
-        const resDiv = document.getElementById('resultado');
-
-        if (!client) {
-            alert('No se pudo encontrar el cliente de Supabase configurado en db.js.');
-            return;
-        }
-
         const codTp = document.getElementById('cod_tp').value.trim();
         const tituloHumano = document.getElementById('titulo_humano').value.trim();
         const especialidadLibre = document.getElementById('especialidad_libre').value.trim();
         const anio = parseInt(document.getElementById('anio').value);
         const rawText = document.getElementById('datos_sheets').value.trim();
+        const resDiv = document.getElementById('resultado');
 
         const escuelasSel = Array.from(document.querySelectorAll('input[name="tipo_escuela"]:checked'))
                                  .map(cb => cb.value);
@@ -190,7 +149,7 @@
         });
 
         try {
-            const { error: errPreguntas } = await client
+            const { error: errPreguntas } = await supabaseClient
                 .from('banco_preguntas')
                 .insert(preguntasAInsertar);
 
