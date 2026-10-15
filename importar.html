@@ -11,20 +11,24 @@
         .card { background: white; padding: 25px; border-radius: 8px; max-width: 850px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 15px; }
         label { font-weight: bold; display: block; margin-bottom: 5px; }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         textarea { height: 180px; font-family: monospace; font-size: 13px; }
         button { background: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
         button:hover { background: #218838; }
         .info { background: #e9ecef; padding: 10px; border-left: 4px solid #17a2b8; margin-bottom: 15px; font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+        
+        /* Contenedor de Checkboxes */
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 12px; background: #f8f9fa; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .checkbox-group label { font-weight: normal; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px; margin: 0; }
+        .checkbox-group input { cursor: pointer; width: auto; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h2>📥 Cargador al Banco Global de Preguntas</h2>
-    <p>Registrá el contenido conceptual en la biblioteca categorizado por tipo de escuela, especialidad y año.</p>
+    <p>Registrá el contenido conceptual en la biblioteca asignando múltiples escuelas y especialidades.</p>
 
     <!-- Fila 1: Código y Título -->
     <div class="grid-2">
@@ -38,32 +42,33 @@
         </div>
     </div>
 
-    <!-- Fila 2: Tipo Escuela, Especialidad y Año -->
-    <div class="grid-3">
-        <div class="form-group">
-            <label>Tipo de Escuela:</label>
-            <select id="tipo_escuela">
-                <option value="TECNICA" selected>Técnica</option>
-                <option value="MEDIA">Media / Secundaria Orientada</option>
-                <option value="AMBAS">Ambas (Transversal)</option>
-            </select>
+    <!-- Multi-Selección 1: Tipo de Escuela -->
+    <div class="form-group">
+        <label>Tipo de Escuela (Podés marcar más de una):</label>
+        <div class="checkbox-group">
+            <label><input type="checkbox" name="tipo_escuela" value="TECNICA" checked> Técnica</label>
+            <label><input type="checkbox" name="tipo_escuela" value="MEDIA" checked> Media / Secundaria Orientada</label>
+            <label><input type="checkbox" name="tipo_escuela" value="OTRA"> Otra / Adultos</label>
         </div>
-        <div class="form-group">
-            <label>Especialidad / Modalidad:</label>
-            <select id="especialidad_nivel">
-                <option value="CBMTP" selected>CBMTP (Ciclo Básico TP)</option>
-                <option value="STP">STP (Ciclo Superior TP general)</option>
-                <option value="GADO">GADO (Gestión y Adm. de Organ.)</option>
-                <option value="CSC">CSC (Ciencias Sociales y Com.)</option>
-                <option value="CSO">CSO (Ciencias Sociales y Orient.)</option>
-                <option value="ORIENT">Orientada General</option>
-                <option value="OTRO">Otra / Genérica</option>
-            </select>
+    </div>
+
+    <!-- Multi-Selección 2: Especialidades -->
+    <div class="form-group">
+        <label>Especialidades / Orientaciones Destino:</label>
+        <div class="checkbox-group">
+            <label><input type="checkbox" name="especialidad" value="CBMTP" checked> CBMTP (Ciclo Básico TP)</label>
+            <label><input type="checkbox" name="especialidad" value="STP"> STP (Ciclo Superior TP)</label>
+            <label><input type="checkbox" name="especialidad" value="GADO"> GADO (Gestión y Adm.)</label>
+            <label><input type="checkbox" name="especialidad" value="CSC"> CSC (Soc. y Com.)</label>
+            <label><input type="checkbox" name="especialidad" value="CSO"> CSO (Soc. y Orient.)</label>
+            <label><input type="checkbox" name="especialidad" value="ORIENT"> Orientada General</label>
         </div>
-        <div class="form-group">
-            <label>Año:</label>
-            <input type="number" id="anio" value="1" min="1" max="7" placeholder="Ej: 1">
-        </div>
+    </div>
+
+    <!-- Año -->
+    <div class="form-group">
+        <label>Año sugerido:</label>
+        <input type="number" id="anio" value="1" min="1" max="7">
     </div>
 
     <div class="info">
@@ -84,19 +89,33 @@
     async function procesarYSubir() {
         const codTp = document.getElementById('cod_tp').value.trim();
         const tituloHumano = document.getElementById('titulo_humano').value.trim();
-        const tipoEscuela = document.getElementById('tipo_escuela').value;
-        const especialidadNivel = document.getElementById('especialidad_nivel').value;
         const anio = parseInt(document.getElementById('anio').value);
         const rawText = document.getElementById('datos_sheets').value.trim();
         const resDiv = document.getElementById('resultado');
+
+        // Obtener valores seleccionados de Tipo de Escuela
+        const escuelasSel = Array.from(document.querySelectorAll('input[name="tipo_escuela"]:checked'))
+                                 .map(cb => cb.value);
+
+        // Obtener valores seleccionados de Especialidad
+        const especSel = Array.from(document.querySelectorAll('input[name="especialidad"]:checked'))
+                              .map(cb => cb.value);
 
         if (!rawText || !codTp || !tituloHumano) {
             alert('Por favor completá el código, el título conceptual y pegá las celdas de la planilla.');
             return;
         }
 
+        if (escuelasSel.length === 0 || especSel.length === 0) {
+            alert('Seleccioná al menos un Tipo de Escuela y una Especialidad.');
+            return;
+        }
+
         resDiv.style.color = 'blue';
         resDiv.innerText = 'Procesando e importando al banco global...';
+
+        // Unificamos las etiquetas seleccionadas (ejemplo: "TECNICA,MEDIA - CBMTP,GADO")
+        const etiquetaEspecialidad = `${escuelasSel.join(',')} - ${especSel.join(',')}`;
 
         const filas = rawText.split('\n');
         const preguntasAInsertar = [];
@@ -114,7 +133,7 @@
                     preguntasAInsertar.push({
                         cod_tp: codTp,
                         titulo_humano: tituloHumano,
-                        especialidad_nivel: `${tipoEscuela} - ${especialidadNivel}`,
+                        especialidad_nivel: etiquetaEspecialidad,
                         anio: anio,
                         instrucciones: instruccion,
                         opciones: opciones,
@@ -136,7 +155,7 @@
             if (errPreguntas) throw errPreguntas;
 
             resDiv.style.color = 'green';
-            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios al Banco Global [${tipoEscuela} - ${especialidadNivel} - ${anio}° Año] bajo el código [${codTp}].`;
+            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios etiquetados para [${etiquetaEspecialidad}] con código [${codTp}].`;
         } catch (err) {
             console.error(err);
             resDiv.style.color = 'red';
