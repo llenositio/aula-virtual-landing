@@ -63,7 +63,7 @@ if (btnGoogleAuth) {
     });
 }
 
-// MANEJAR LOGIN Y REGISTRO CON CORREO / CONTRASEÑA
+// MANEJAR LOGIN Y REGISTRO
 if (formAuth) {
     formAuth.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -120,6 +120,36 @@ if (btnVolverCursos) {
     });
 }
 
+// PARSER INTELIGENTE DE LÍNEAS DE ALUMNOS (Extrae apellido, nombre y email del tutor)
+function parsearLineaAlumno(linea) {
+    const partes = linea.split(',').map(p => p.trim());
+    let apellido = 'SIN APELLIDO';
+    let nombre = 'SIN NOMBRE';
+    let emailTutor = null;
+
+    if (partes.length >= 3) {
+        apellido = partes[0];
+        nombre = partes[1];
+        emailTutor = partes[2] && partes[2].includes('@') ? partes[2] : null;
+    } else if (partes.length === 2) {
+        apellido = partes[0];
+        if (partes[1].includes('@')) {
+            const subPartes = partes[0].split(' ');
+            apellido = subPartes[0] || 'SIN APELLIDO';
+            nombre = subPartes.slice(1).join(' ') || 'SIN NOMBRE';
+            emailTutor = partes[1];
+        } else {
+            nombre = partes[1];
+        }
+    } else {
+        const palabras = linea.trim().split(/\s+/);
+        apellido = palabras[0] || 'SIN APELLIDO';
+        nombre = palabras.slice(1).join(' ') || 'SIN NOMBRE';
+    }
+
+    return { apellido, nombre, emailTutor };
+}
+
 // VER DETALLE DE UN CURSO Y SUS ALUMNOS
 async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
     cursoActualId = cursoId;
@@ -130,7 +160,7 @@ async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
 
     if (detalleTituloCurso) detalleTituloCurso.textContent = `${institucion} - ${anioDivision}`;
     if (detalleSubtituloCurso) detalleSubtituloCurso.textContent = `Modalidad: ${modalidad}`;
-    if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Cargando alumnos...</td></tr>`;
+    if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Cargando alumnos...</td></tr>`;
 
     try {
         const { data: alumnos, error } = await supabase
@@ -142,7 +172,7 @@ async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
         if (error) throw error;
 
         if (!alumnos || alumnos.length === 0) {
-            tablaAlumnosBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No hay alumnos inscriptos en este curso.</td></tr>`;
+            tablaAlumnosBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No hay alumnos inscriptos en este curso.</td></tr>`;
             return;
         }
 
@@ -151,16 +181,23 @@ async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
                 <td class="fw-bold">${index + 1}</td>
                 <td>${al.apellido}</td>
                 <td>${al.nombre}</td>
+                <td>${al.email_tutor ? `<span class="badge bg-light text-dark border">${al.email_tutor}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
                 <td><code class="fs-6">${al.pin ? al.pin : 'Sin PIN'}</code></td>
-                <td>
-                    <button class="btn btn-sm btn-outline-secondary btn-generar-pin" data-id="${al.id}">
-                        ${al.pin ? 'Regenerar PIN' : 'Generar PIN'}
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-secondary btn-generar-pin me-1" data-id="${al.id}" title="Regenerar PIN">
+                        ${al.pin ? '🔄 PIN' : '🔑 Crear PIN'}
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary btn-editar-alumno me-1" data-id="${al.id}" data-apellido="${al.apellido}" data-nombre="${al.nombre}" data-email="${al.email_tutor || ''}" title="Editar Alumno">
+                        ✏️
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger btn-eliminar-alumno" data-id="${al.id}" data-nombre="${al.apellido}, ${al.nombre}" title="Eliminar Alumno">
+                        🗑️
                     </button>
                 </td>
             </tr>
         `).join('');
 
-        // EVENTOS PARA GENERAR PIN INDIVIDUAL
+        // EVENTOS DE LA TABLA
         document.querySelectorAll('.btn-generar-pin').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const alumnoId = e.currentTarget.dataset.id;
@@ -174,12 +211,71 @@ async function verDetalleCurso(cursoId, institucion, anioDivision, modalidad) {
             });
         });
 
+        document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const target = e.currentTarget;
+                const id = target.dataset.id;
+                const apellidoActual = target.dataset.apellido;
+                const nombreActual = target.dataset.nombre;
+                const emailActual = target.dataset.email;
+
+                const nuevoApellido = prompt("Apellido:", apellidoActual);
+                if (nuevoApellido === null) return;
+
+                const nuevoNombre = prompt("Nombre:", nombreActual);
+                if (nuevoNombre === null) return;
+
+                const nuevoEmail = prompt("Email del Tutor (opcional):", emailActual);
+                if (nuevoEmail === null) return;
+
+                try {
+                    const { error } = await supabase
+                        .from('alumnos')
+                        .update({
+                            apellido: nuevoApellido.trim().toUpperCase(),
+                            nombre: nuevoNombre.trim(),
+                            email_tutor: nuevoEmail.trim() || null
+                        })
+                        .eq('id', id);
+
+                    if (error) throw error;
+                    alert('Alumno actualizado correctamente.');
+                    verDetalleCurso(cursoId, institucion, anioDivision, modalidad);
+                } catch (err) {
+                    alert('Error al actualizar alumno: ' + err.message);
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-eliminar-alumno').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const target = e.currentTarget;
+                const id = target.dataset.id;
+                const nombreCompleto = target.dataset.nombre;
+
+                if (confirm(`¿Estás seguro de que querés eliminar a ${nombreCompleto}?`)) {
+                    try {
+                        const { error } = await supabase
+                            .from('alumnos')
+                            .delete()
+                            .eq('id', id);
+
+                        if (error) throw error;
+                        alert('Alumno eliminado.');
+                        verDetalleCurso(cursoId, institucion, anioDivision, modalidad);
+                    } catch (err) {
+                        alert('Error al eliminar alumno: ' + err.message);
+                    }
+                }
+            });
+        });
+
     } catch (err) {
-        if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="5" class="text-danger">Error al cargar alumnos: ${err.message}</td></tr>`;
+        if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="6" class="text-danger">Error al cargar alumnos: ${err.message}</td></tr>`;
     }
 }
 
-// CARGAR LISTA DE CURSOS DESDE SUPABASE
+// CARGAR LISTA DE CURSOS
 async function cargarCursos(profesorId) {
     if (!contenedorCursos) return;
 
@@ -223,7 +319,6 @@ async function cargarCursos(profesorId) {
             </div>
         `).join('');
 
-        // ASIGNAR EVENTO CLICK A CADA BOTÓN DE CURSO
         document.querySelectorAll('.btn-ver-curso').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const target = e.currentTarget;
@@ -241,7 +336,7 @@ async function cargarCursos(profesorId) {
     }
 }
 
-// CONTROL DE INTERFAZ SEGÚN ESTADO DE SESIÓN
+// CONTROL DE INTERFAZ SEGÚN SESIÓN
 function actualizarInterfaz(usuario) {
     if (usuario) {
         if (seccionAuth) seccionAuth.classList.add('d-none');
@@ -257,7 +352,7 @@ function actualizarInterfaz(usuario) {
     }
 }
 
-// ESCUCHAR CAMBIOS Y COMPROBAR SESIÓN EN TIEMPO REAL
+// INICIALIZAR SESIÓN
 async function inicializarSesion() {
     const { data: { session } } = await supabase.auth.getSession();
     actualizarInterfaz(session ? session.user : null);
@@ -269,7 +364,7 @@ async function inicializarSesion() {
 
 inicializarSesion();
 
-// MANEJO DE CREACIÓN DE CURSO Y NÓMINA INICIAL
+// CREAR NUEVO CURSO CON NÓMINA INICIAL
 const formCrearCurso = document.getElementById('formCrearCurso');
 
 if (formCrearCurso) {
@@ -302,12 +397,7 @@ if (formCrearCurso) {
             if (errCurso) throw errCurso;
 
             const lineas = rawText.split('\n').filter(linea => linea.trim() !== '');
-            const alumnos = lineas.map(linea => {
-                let partes = linea.includes(',') ? linea.split(',') : linea.split(' ');
-                let apellido = partes[0] ? partes[0].trim() : 'SIN APELLIDO';
-                let nombre = partes.slice(1).join(' ').trim() || 'SIN NOMBRE';
-                return { apellido, nombre };
-            });
+            const alumnos = lineas.map(parsearLineaAlumno);
 
             if (alumnos.length > 0) {
                 await guardarNominaCurso(curso.id, alumnos);
@@ -330,12 +420,11 @@ if (formCrearCurso) {
     });
 }
 
-// MANEJO DE AGREGAR ALUMNOS A UN CURSO EXISTENTE
+// AGREGAR ALUMNOS A CURSO EXISTENTE
 const formAgregarAlumnos = document.getElementById('formAgregarAlumnos');
 
 if (formAgregarAlumnos) {
     formAgregarAlumnos.addEventListener('submit', async (e) => {
-        // 1. Prevenimos la recarga nativa de la página (evita el ?# en la URL)
         e.preventDefault();
 
         if (!cursoActualId) {
@@ -345,32 +434,23 @@ if (formAgregarAlumnos) {
         const rawText = document.getElementById('nominaEditarRaw').value;
 
         try {
-            // 2. Procesamos el texto línea por línea
             const lineas = rawText.split('\n').filter(linea => linea.trim() !== '');
-            const alumnos = lineas.map(linea => {
-                let partes = linea.includes(',') ? linea.split(',') : linea.split(' ');
-                let apellido = partes[0] ? partes[0].trim() : 'SIN APELLIDO';
-                let nombre = partes.slice(1).join(' ').trim() || 'SIN NOMBRE';
-                return { apellido, nombre };
-            });
+            const alumnos = lineas.map(parsearLineaAlumno);
 
             if (alumnos.length === 0) {
                 return alert('Por favor, ingresá al menos un alumno.');
             }
 
-            // 3. Guardamos los alumnos en Supabase
             await guardarNominaCurso(cursoActualId, alumnos);
 
             alert('¡Alumnos cargados con éxito!');
 
-            // 4. Cerramos la ventana emergente
             const modalElement = document.getElementById('modalInscribirAlumnos');
             if (modalElement) {
                 const modalInstance = bootstrap.Modal.getInstance(modalElement);
                 if (modalInstance) modalInstance.hide();
             }
 
-            // 5. Limpiamos el cuadro de texto y refrescamos la tabla en pantalla
             formAgregarAlumnos.reset();
 
             if (cursoActualInfo) {
