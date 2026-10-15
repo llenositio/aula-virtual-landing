@@ -34,6 +34,7 @@ const btnGoogleAuth = document.getElementById('btnGoogleAuth');
 let esModoRegistro = false;
 let cursoActualId = null;
 let cursoActualInfo = null;
+let bancoTPsMemoria = []; // Caché local del banco de TPs para filtrado rápido
 
 // =========================================================================
 // AUTENTICACIÓN
@@ -421,7 +422,7 @@ if (formAgregarAlumnos) {
 }
 
 // =========================================================================
-// ASIGNACIÓN DE TRABAJOS PRÁCTICOS (TAXONOMÍA DE BLOOM)
+// ASIGNACIÓN DE TRABAJOS PRÁCTICOS (BANCO GLOBAL Y TAXONOMÍA DE BLOOM)
 // =========================================================================
 async function cargarTPsAsignadosCurso(cursoId) {
     if (!tablaTPsAsignadosBody) return;
@@ -454,7 +455,7 @@ async function cargarTPsAsignadosCurso(cursoId) {
 
             tablaTPsAsignadosBody.innerHTML += `
                 <tr>
-                    <td class="fw-bold">${asig.cod_tp}</td>
+                    <td class="fw-bold"><code>${asig.cod_tp}</code></td>
                     <td>${titulo}</td>
                     <td><span class="badge bg-info text-dark">${bloom}</span></td>
                     <td class="text-end">
@@ -484,36 +485,154 @@ async function cargarTPsAsignadosCurso(cursoId) {
     }
 }
 
-const formAsignarTP = document.getElementById('formAsignarTP');
-if (formAsignarTP) {
-    formAsignarTP.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const codTp = document.getElementById('inputCodTPAsignar').value.trim();
+// Cargar catálogo de TPs únicos desde Supabase al abrir el Modal
+async function cargarBancoGlobal() {
+    const contenedor = document.getElementById('listaBancoTPs');
+    if (!contenedor) return;
 
-        if (!codTp || !cursoActualId) return;
+    contenedor.innerHTML = `<div class="list-group-item text-center text-muted py-3 small">Cargando catálogo del Banco Global...</div>`;
 
-        try {
-            const { error } = await supabase
-                .from('curso_evaluaciones')
-                .insert([{
-                    curso_id: cursoActualId,
-                    cod_tp: codTp
-                }]);
+    try {
+        const { data, error } = await supabase
+            .from('banco_preguntas')
+            .select('cod_tp, titulo_humano, nivel_bloom')
+            .order('cod_tp');
 
-            if (error) throw error;
+        if (error) throw error;
 
-            const modalEl = document.getElementById('modalAsignarTP');
-            if (modalEl) {
-                const modalInstance = bootstrap.Modal.getInstance(modalEl);
-                if (modalInstance) modalInstance.hide();
+        // Filtrar duplicados por cod_tp para tener la lista de TPs únicos
+        const vistos = new Set();
+        bancoTPsMemoria = (data || []).filter(item => {
+            if (item.cod_tp && !vistos.has(item.cod_tp)) {
+                vistos.add(item.cod_tp);
+                return true;
             }
+            return false;
+        });
 
-            formAsignarTP.reset();
-            alert(`¡TP "${codTp}" asignado correctamente al curso!`);
-            cargarTPsAsignadosCurso(cursoActualId);
+        renderizarBancoTPs(bancoTPsMemoria);
 
-        } catch (err) {
-            alert('Error al asignar TP: ' + err.message);
-        }
+    } catch (err) {
+        contenedor.innerHTML = `<div class="list-group-item text-center text-danger py-3 small">Error al obtener el Banco Global: ${err.message}</div>`;
+    }
+}
+
+// Renderizar filas de TPs en el modal
+function renderizarBancoTPs(lista) {
+    const contenedor = document.getElementById('listaBancoTPs');
+    const contador = document.getElementById('cantTPsEncontrados');
+    if (!contenedor) return;
+
+    if (contador) contador.textContent = `${lista.length} disponibles`;
+
+    if (lista.length === 0) {
+        contenedor.innerHTML = `<div class="list-group-item text-center text-muted py-4 small">No se encontraron TPs con los criterios ingresados.</div>`;
+        return;
+    }
+
+    contenedor.innerHTML = lista.map(tp => `
+        <div class="list-group-item d-flex justify-content-between align-items-center py-3">
+            <div>
+                <div class="fw-bold text-dark mb-1">
+                    ${tp.titulo_humano || 'Sin Título'}
+                    <span class="badge bg-primary text-white ms-2">${tp.nivel_bloom || 'Sin nivel'}</span>
+                </div>
+                <div class="small text-muted">
+                    Código: <code>${tp.cod_tp}</code>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary fw-bold btn-seleccionar-tp" data-cod="${tp.cod_tp}">
+                + Asignar a este Curso
+            </button>
+        </div>
+    `).join('');
+
+    // Eventos de asignación en 1 clic
+    document.querySelectorAll('.btn-seleccionar-tp').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const codTp = e.currentTarget.dataset.cod;
+            ejecutarAsignacionTP(codTp);
+        });
     });
 }
+
+// Aplicar filtros manuales (Buscador y Nivel de Bloom)
+function aplicarFiltrosBanco() {
+    const filtroTexto = (document.getElementById('filtroTextoTP')?.value || '').toLowerCase();
+    const filtroBloom = document.getElementById('filtroBloomTP')?.value || '';
+
+    const resultado = bancoTPsMemoria.filter(tp => {
+        const coincideTexto = (tp.titulo_humano || '').toLowerCase().includes(filtroTexto) || 
+                              (tp.cod_tp || '').toLowerCase().includes(filtroTexto);
+        const coincideBloom = !filtroBloom || tp.nivel_bloom === filtroBloom;
+
+        return coincideTexto && coincideBloom;
+    });
+
+    renderizarBancoTPs(resultado);
+}
+
+// Motor de Sugerencias por Temario / Programa
+function analizarProgramaDocente() {
+    const textoPrograma = (document.getElementById('inputProgramaDocente')?.value || '').toLowerCase().trim();
+    if (!textoPrograma) {
+        renderizarBancoTPs(bancoTPsMemoria);
+        return;
+    }
+
+    const palabrasClave = textoPrograma.split(/\s+/).filter(p => p.length > 3);
+
+    const sugerencias = bancoTPsMemoria.filter(tp => {
+        const titulo = (tp.titulo_humano || '').toLowerCase();
+        const cod = (tp.cod_tp || '').toLowerCase();
+
+        return palabrasClave.some(palabra => titulo.includes(palabra) || cod.includes(palabra));
+    });
+
+    renderizarBancoTPs(sugerencias.length > 0 ? sugerencias : bancoTPsMemoria);
+}
+
+// Ejecutar el guardado en Supabase al hacer clic en "Asignar a este Curso"
+async function ejecutarAsignacionTP(codTp) {
+    if (!cursoActualId) {
+        alert('Error: No hay un curso seleccionado.');
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('curso_evaluaciones')
+            .insert([{
+                curso_id: cursoActualId,
+                cod_tp: codTp
+            }]);
+
+        if (error) throw error;
+
+        // Ocultar modal de Bootstrap
+        const modalEl = document.getElementById('modalAsignarTP');
+        if (modalEl) {
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+        }
+
+        alert(`¡TP "${codTp}" asignado correctamente al curso!`);
+        cargarTPsAsignadosCurso(cursoActualId);
+
+    } catch (err) {
+        alert('Error al asignar el TP: ' + err.message);
+    }
+}
+
+// Escuchadores de eventos para los controles del Modal
+const modalAsignarTP = document.getElementById('modalAsignarTP');
+if (modalAsignarTP) {
+    modalAsignarTP.addEventListener('show.bs.modal', () => {
+        cargarBancoGlobal();
+    });
+}
+
+document.getElementById('filtroTextoTP')?.addEventListener('input', aplicarFiltrosBanco);
+document.getElementById('filtroBloomTP')?.addEventListener('change', aplicarFiltrosBanco);
+document.getElementById('filtroAnioTP')?.addEventListener('change', aplicarFiltrosBanco);
+document.getElementById('btnAnalizarPrograma')?.addEventListener('click', analizarProgramaDocente);
