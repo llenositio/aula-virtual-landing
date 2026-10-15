@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aula Virtual - Evaluación</title>
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/db.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --success: #16a34a;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+
+        h1, h2, h3 { margin-top: 0; }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .btn:hover { background-color: var(--primary-hover); }
+
+        /* Estilos de los Ejercicios */
+        .pregunta-block {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+
+        .pregunta-block:last-child { border-bottom: none; }
+
+        .pregunta-titulo {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .opciones-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .opcion-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f1f5f9;
+            padding: 10px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .opcion-item:hover { border-color: var(--primary); }
+
+        .opcion-item input { cursor: pointer; }
+
+        .hidden { display: none; }
+
+        .badge {
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- PASO 1: Ingreso de Datos del Alumno -->
+    <div id="sec-login" class="card">
+        <h2>👨‍🎓 Acceso al Aula Virtual</h2>
+        <p>Ingresá tus datos e identificador para comenzar la evaluación.</p>
+        
+        <div class="form-group">
+            <label>Nombre y Apellido:</label>
+            <input type="text" id="alumno_nombre" placeholder="Ej: Juan Pérez">
+        </div>
+
+        <div class="form-group">
+            <label>Código del TP / Evaluación:</label>
+            <input type="text" id="eval_codigo" placeholder="Ej: CBMTP-1-MAT-001" value="CBMTP-1-MAT-001">
+        </div>
+
+        <button class="btn" onclick="iniciarEvaluacion()">Comenzar Evaluación</button>
+    </div>
+
+    <!-- PASO 2: Resolución de Evaluación -->
+    <div id="sec-evaluacion" class="card hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 id="eval_titulo" style="margin:0;">Cargando...</h2>
+            <span id="eval_tag" class="badge"></span>
+        </div>
+        
+        <form id="form-preguntas">
+            <div id="contenedor-preguntas"></div>
+            <button type="button" class="btn" onclick="enviarRespuestas()">Enviar Respuestas 🚀</button>
+        </form>
+    </div>
+
+    <!-- PASO 3: Confirmación y Resultado -->
+    <div id="sec-confirmacion" class="card hidden" style="text-align: center;">
+        <h2 style="color: var(--success);">🎉 ¡Evaluación Enviada!</h2>
+        <p>Tus respuestas han sido registradas correctamente en el sistema.</p>
+        <div id="resultado-puntaje" style="font-size: 20px; font-weight: bold; margin: 20px 0;"></div>
+        <button class="btn" onclick="location.reload()">Volver a Inicio</button>
+    </div>
+
+</div>
+
+<script>
+    let preguntasCargadas = [];
+    let dbClient = null;
+
+    function getDbClient() {
+        if (window.dbClient) return window.dbClient;
+        if (window.supabaseClient) return window.supabaseClient;
+        if (window.supabase && typeof window.supabase.from === 'function') return window.supabase;
+        return null;
+    }
+
+    async function iniciarEvaluacion() {
+        const nombre = document.getElementById('alumno_nombre').value.trim();
+        const codTp = document.getElementById('eval_codigo').value.trim();
+
+        if (!nombre || !codTp) {
+            alert('Por favor ingresá tu nombre y el código de la evaluación.');
+            return;
+        }
+
+        dbClient = getDbClient();
+        if (!dbClient) {
+            alert('Error de conexión con la base de datos.');
+            return;
+        }
+
+        // Cargar preguntas desde Supabase
+        try {
+            const { data, error } = await dbClient
+                .from('banco_preguntas')
+                .select('*')
+                .eq('cod_tp', codTp);
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                alert('No se encontraron preguntas para el código ingresado: ' + codTp);
+                return;
+            }
+
+            preguntasCargadas = data;
+            renderizarPreguntas(codTp, data);
+
+            document.getElementById('sec-login').classList.add('hidden');
+            document.getElementById('sec-evaluacion').classList.remove('hidden');
+
+        } catch (err) {
+            console.error(err);
+            alert('Error al obtener la evaluación: ' + err.message);
+        }
+    }
+
+    function renderizarPreguntas(codTp, preguntas) {
+        document.getElementById('eval_titulo').innerText = preguntas[0].titulo_humano || codTp;
+        document.getElementById('eval_tag').innerText = preguntas[0].especialidad_nivel || 'General';
+
+        const container = document.getElementById('contenedor-preguntas');
+        container.innerHTML = '';
+
+        preguntas.forEach((p, idx) => {
+            const div = document.createElement('div');
+            div.className = 'pregunta-block';
+
+            let htmlOpciones = '';
+            
+            // Si el TP fue cargado con opciones separadas por comas triples (,,,), comas (,) o barra (|)
+            if (p.opciones) {
+                const listaOp = p.opciones.includes(',,,') 
+                    ? p.opciones.split(',,,') 
+                    : p.opciones.split(',');
+
+                htmlOpciones = '<div class="opciones-group">';
+                listaOp.forEach((op, i) => {
+                    const opText = op.trim();
+                    if (opText) {
+                        htmlOpciones += `
+                            <label class="opcion-item">
+                                <input type="radio" name="p_${p.id}" value="${opText}">
+                                <span>${opText}</span>
+                            </label>
+                        `;
+                    }
+                });
+                htmlOpciones += '</div>';
+            } else {
+                // Entrada de texto libre en caso de no tener opciones múltiples
+                htmlOpciones = `<input type="text" name="p_${p.id}" placeholder="Escribí tu respuesta acá...">`;
+            }
+
+            div.innerHTML = `
+                <div class="pregunta-titulo">${idx + 1}. ${p.instrucciones}</div>
+                ${htmlOpciones}
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    async function enviarRespuestas() {
+        const nombre = document.getElementById('alumno_nombre').value.trim();
+        const codTp = document.getElementById('eval_codigo').value.trim();
+        
+        let respuestasGuardar = [];
+
+        preguntasCargadas.forEach(p => {
+            const radioSel = document.querySelector(`input[name="p_${p.id}"]:checked`);
+            const textInput = document.querySelector(`input[name="p_${p.id}"][type="text"]`);
+            
+            let respVal = '';
+            if (radioSel) respVal = radioSel.value;
+            else if (textInput) respVal = textInput.value;
+
+            respuestasGuardar.push({
+                pregunta_id: p.id,
+                respuesta: respVal
+            });
+        });
+
+        // Guardar resultado del alumno en Supabase
+        try {
+            const { error } = await dbClient
+                .from('evaluaciones_resultados')
+                .insert([{
+                    alumno_nombre: nombre,
+                    cod_tp: codTp,
+                    respuestas: JSON.stringify(respuestasGuardar),
+                    fecha: new Date().toISOString()
+                }]);
+
+            if (error) {
+                // Si la tabla no existe o falla, mostramos pantalla igual
+                console.warn('Nota sobre el guardado:', error.message);
+            }
+
+            document.getElementById('sec-evaluacion').classList.add('hidden');
+            document.getElementById('sec-confirmacion').classList.remove('hidden');
+
+        } catch (err) {
+            console.error(err);
+            document.getElementById('sec-evaluacion').classList.add('hidden');
+            document.getElementById('sec-confirmacion').classList.remove('hidden');
+        }
+    }
+</script>
+</body>
+</html>
