@@ -10,12 +10,13 @@
         .card { background: white; padding: 25px; border-radius: 8px; max-width: 850px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 15px; }
         label { font-weight: bold; display: block; margin-bottom: 5px; }
-        input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         textarea { height: 180px; font-family: monospace; font-size: 13px; }
         button { background: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
         button:hover { background: #218838; }
         .info { background: #e9ecef; padding: 10px; border-left: 4px solid #17a2b8; margin-bottom: 15px; font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
         
         .checkbox-group { display: flex; flex-wrap: wrap; gap: 15px; background: #f8f9fa; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; }
         .checkbox-group label { font-weight: normal; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0; }
@@ -50,11 +51,11 @@
         </div>
     </div>
 
-    <!-- Fila 2: Especialidades con Autocompletado y Año -->
-    <div class="grid-2">
+    <!-- Fila 2: Especialidades, Año y Taxonomía de Bloom -->
+    <div class="grid-3">
         <div class="form-group">
-            <label>Especialidad / Orientación (Sugerencias o nueva):</label>
-            <input type="text" id="especialidad_libre" list="lista_especialidades" value="CBMTP" placeholder="Escribí o seleccioná una especialidad...">
+            <label>Especialidad / Orientación:</label>
+            <input type="text" id="especialidad_libre" list="lista_especialidades" value="CBMTP" placeholder="Escribí o seleccioná...">
             <datalist id="lista_especialidades">
                 <option value="CBMTP"></option>
                 <option value="STP"></option>
@@ -66,6 +67,17 @@
         <div class="form-group">
             <label>Año sugerido:</label>
             <input type="number" id="anio" value="1" min="1" max="7">
+        </div>
+        <div class="form-group">
+            <label>Nivel Taxonomía de Bloom:</label>
+            <select id="nivel_bloom">
+                <option value="Recordar">1. Recordar</option>
+                <option value="Comprender" selected>2. Comprender</option>
+                <option value="Aplicar">3. Aplicar</option>
+                <option value="Analizar">4. Analizar</option>
+                <option value="Evaluar">5. Evaluar</option>
+                <option value="Crear">6. Crear</option>
+            </select>
         </div>
     </div>
 
@@ -84,14 +96,13 @@
 </div>
 
 <script>
-    // ==// =========================================================================
+    // =========================================================================
     // CONFIGURACIÓN DIRECTA DE SUPABASE
     // =========================================================================
     const SUPABASE_URL = 'https://bpwxxodhiswltefhqbol.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwd3h4b2RoaXN3bHRlZmhxYm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc3NjQsImV4cCI6MjEwNjYxMzc2NH0.tVs4JpCyJFAcakyIHMCV49xiuzNgNr2SeG1S5iUeF48'; 
     // =========================================================================
 
-    // Crear la conexión directa
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     async function procesarYSubir() {
@@ -99,11 +110,12 @@
         const tituloHumano = document.getElementById('titulo_humano').value.trim();
         const especialidadLibre = document.getElementById('especialidad_libre').value.trim();
         const anio = parseInt(document.getElementById('anio').value);
+        const nivelBloom = document.getElementById('nivel_bloom').value;
         const rawText = document.getElementById('datos_sheets').value.trim();
         const resDiv = document.getElementById('resultado');
 
         const escuelasSel = Array.from(document.querySelectorAll('input[name="tipo_escuela"]:checked'))
-                                 .map(cb => cb.value);
+                                   .map(cb => cb.value);
 
         if (!rawText || !codTp || !tituloHumano) {
             alert('Por favor completá el código, el título conceptual y pegá las celdas de la planilla.');
@@ -142,7 +154,8 @@
                         opciones: opciones,
                         retroalimentacion: retroalimentacion,
                         puntos: puntos,
-                        tipo: tipo
+                        tipo: tipo,
+                        nivel_bloom: nivelBloom
                     });
                 }
             }
@@ -156,7 +169,7 @@
             if (errPreguntas) throw errPreguntas;
 
             resDiv.style.color = 'green';
-            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios al Banco Global bajo la etiqueta [${etiquetaEspecialidad}] y código [${codTp}].`;
+            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios al Banco Global bajo la etiqueta [${etiquetaEspecialidad}], código [${codTp}] y Nivel de Bloom [${nivelBloom}].`;
         } catch (err) {
             console.error(err);
             resDiv.style.color = 'red';
