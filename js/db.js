@@ -17,28 +17,46 @@ export function normalizarAlumno(apellido, nombre) {
 }
 
 /**
- * Genera un PIN numérico de 4 dígitos de forma aleatoria (ej: "4829")
+ * Genera un PIN aleatorio de 6 dígitos que no exista actualmente en el curso.
  */
-function generarPinRandom() {
-    return Math.floor(1000 + Math.random() * 9000).toString();
+async function generarPinUnicoCurso(cursoId) {
+    let pinValido = false;
+    let pin = '';
+
+    while (!pinValido) {
+        pin = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Verificamos si ya existe ese PIN en este curso
+        const { data } = await supabase
+            .from('alumnos')
+            .select('id')
+            .eq('curso_id', cursoId)
+            .eq('pin', pin)
+            .maybeSingle();
+
+        if (!data) {
+            pinValido = true;
+        }
+    }
+    return pin;
 }
 
 /**
- * Guarda un lote de alumnos asociados a un curso, asignando un PIN automático a cada uno.
+ * Guarda un lote de alumnos asociados a un curso, asignando un PIN único a cada uno.
  */
 export async function guardarNominaCurso(cursoId, alumnos) {
-    const filas = alumnos.map(al => {
-        // Genera un PIN aleatorio de 6 dígitos
-        const pin = Math.floor(100000 + Math.random() * 900000).toString();
-        
-        return {
+    const filas = [];
+
+    for (const al of alumnos) {
+        const pin = await generarPinUnicoCurso(cursoId);
+        filas.push({
             curso_id: cursoId,
             apellido: al.apellido,
             nombre: al.nombre,
             email_tutor: al.emailTutor || null,
             pin: pin
-        };
-    });
+        });
+    }
 
     const { data, error } = await supabase
         .from('alumnos')
@@ -53,10 +71,21 @@ export async function guardarNominaCurso(cursoId, alumnos) {
 }
 
 /**
- * Genera y actualiza el PIN de un alumno individual en la base de datos.
+ * Genera y actualiza un PIN único para un alumno individual.
  */
 export async function generarPinAlumno(alumnoId) {
-    const nuevoPin = generarPinRandom();
+    const { data: alumno, error: errAlumno } = await supabase
+        .from('alumnos')
+        .select('curso_id')
+        .eq('id', alumnoId)
+        .single();
+
+    if (errAlumno || !alumno) {
+        throw new Error("No se encontró el alumno especificado.");
+    }
+
+    const nuevoPin = await generarPinUnicoCurso(alumno.curso_id);
+
     const { data, error } = await supabase
         .from('alumnos')
         .update({ pin: nuevoPin })
