@@ -6,7 +6,6 @@
     <title>Aula Virtual - Evaluación</title>
     <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/db.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -42,7 +41,7 @@
             border: 1px solid var(--border);
         }
 
-        h1, h2, h3 { margin-top: 0; }
+        h2 { margin-top: 0; }
 
         .form-group {
             margin-bottom: 15px;
@@ -55,7 +54,7 @@
             font-size: 14px;
         }
 
-        input[type="text"], input[type="number"] {
+        input[type="text"] {
             width: 100%;
             padding: 12px;
             border: 1px solid var(--border);
@@ -79,7 +78,6 @@
 
         .btn:hover { background-color: var(--primary-hover); }
 
-        /* Estilos de los Ejercicios */
         .pregunta-block {
             border-bottom: 1px solid var(--border);
             padding-bottom: 20px;
@@ -113,8 +111,6 @@
 
         .opcion-item:hover { border-color: var(--primary); }
 
-        .opcion-item input { cursor: pointer; }
-
         .hidden { display: none; }
 
         .badge {
@@ -131,7 +127,7 @@
 
 <div class="container">
 
-    <!-- PASO 1: Ingreso de Datos del Alumno -->
+    <!-- PASO 1: Ingreso del Alumno -->
     <div id="sec-login" class="card">
         <h2>👨‍🎓 Acceso al Aula Virtual</h2>
         <p>Ingresá tus datos e identificador para comenzar la evaluación.</p>
@@ -149,7 +145,7 @@
         <button class="btn" onclick="iniciarEvaluacion()">Comenzar Evaluación</button>
     </div>
 
-    <!-- PASO 2: Resolución de Evaluación -->
+    <!-- PASO 2: Evaluación -->
     <div id="sec-evaluacion" class="card hidden">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h2 id="eval_titulo" style="margin:0;">Cargando...</h2>
@@ -162,26 +158,25 @@
         </form>
     </div>
 
-    <!-- PASO 3: Confirmación y Resultado -->
+    <!-- PASO 3: Confirmación -->
     <div id="sec-confirmacion" class="card hidden" style="text-align: center;">
         <h2 style="color: var(--success);">🎉 ¡Evaluación Enviada!</h2>
         <p>Tus respuestas han sido registradas correctamente en el sistema.</p>
-        <div id="resultado-puntaje" style="font-size: 20px; font-weight: bold; margin: 20px 0;"></div>
         <button class="btn" onclick="location.reload()">Volver a Inicio</button>
     </div>
 
 </div>
 
 <script>
-    let preguntasCargadas = [];
-    let dbClient = null;
+    // =========================================================================
+    // CONFIGURACIÓN DIRECTA DE SUPABASE
+    // =========================================================================
+    const SUPABASE_URL = 'https://bpwxxodhiswltefhqbol.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwd3h4b2RoaXN3bHRlZmhxYm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc3NjQsImV4cCI6MjEwNjYxMzc2NH0.tVs4JpCyJFAcakyIHMCV49xiuzNgNr2SeG1S5iUeF48'; // Usá tu clave anon larga
+    // =========================================================================
 
-    function getDbClient() {
-        if (window.dbClient) return window.dbClient;
-        if (window.supabaseClient) return window.supabaseClient;
-        if (window.supabase && typeof window.supabase.from === 'function') return window.supabase;
-        return null;
-    }
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let preguntasCargadas = [];
 
     async function iniciarEvaluacion() {
         const nombre = document.getElementById('alumno_nombre').value.trim();
@@ -192,15 +187,8 @@
             return;
         }
 
-        dbClient = getDbClient();
-        if (!dbClient) {
-            alert('Error de conexión con la base de datos.');
-            return;
-        }
-
-        // Cargar preguntas desde Supabase
         try {
-            const { data, error } = await dbClient
+            const { data, error } = await supabaseClient
                 .from('banco_preguntas')
                 .select('*')
                 .eq('cod_tp', codTp);
@@ -236,15 +224,14 @@
             div.className = 'pregunta-block';
 
             let htmlOpciones = '';
-            
-            // Si el TP fue cargado con opciones separadas por comas triples (,,,), comas (,) o barra (|)
+
             if (p.opciones) {
                 const listaOp = p.opciones.includes(',,,') 
                     ? p.opciones.split(',,,') 
                     : p.opciones.split(',');
 
                 htmlOpciones = '<div class="opciones-group">';
-                listaOp.forEach((op, i) => {
+                listaOp.forEach((op) => {
                     const opText = op.trim();
                     if (opText) {
                         htmlOpciones += `
@@ -257,7 +244,6 @@
                 });
                 htmlOpciones += '</div>';
             } else {
-                // Entrada de texto libre en caso de no tener opciones múltiples
                 htmlOpciones = `<input type="text" name="p_${p.id}" placeholder="Escribí tu respuesta acá...">`;
             }
 
@@ -289,9 +275,8 @@
             });
         });
 
-        // Guardar resultado del alumno en Supabase
         try {
-            const { error } = await dbClient
+            await supabaseClient
                 .from('evaluaciones_resultados')
                 .insert([{
                     alumno_nombre: nombre,
@@ -299,11 +284,6 @@
                     respuestas: JSON.stringify(respuestasGuardar),
                     fecha: new Date().toISOString()
                 }]);
-
-            if (error) {
-                // Si la tabla no existe o falla, mostramos pantalla igual
-                console.warn('Nota sobre el guardado:', error.message);
-            }
 
             document.getElementById('sec-evaluacion').classList.add('hidden');
             document.getElementById('sec-confirmacion').classList.remove('hidden');
