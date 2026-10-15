@@ -18,9 +18,8 @@
         .info { background: #e9ecef; padding: 10px; border-left: 4px solid #17a2b8; margin-bottom: 15px; font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         
-        /* Contenedor de Checkboxes */
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 12px; background: #f8f9fa; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; }
-        .checkbox-group label { font-weight: normal; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px; margin: 0; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 15px; background: #f8f9fa; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .checkbox-group label { font-weight: normal; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0; }
         .checkbox-group input { cursor: pointer; width: auto; }
     </style>
 </head>
@@ -28,9 +27,9 @@
 
 <div class="card">
     <h2>📥 Cargador al Banco Global de Preguntas</h2>
-    <p>Registrá el contenido conceptual en la biblioteca asignando múltiples escuelas y especialidades.</p>
+    <p>Registrá el contenido conceptual en la biblioteca clasificándolo libremente según tus necesidades.</p>
 
-    <!-- Fila 1: Código y Título -->
+    <!-- Fila 1: Código e Identificador -->
     <div class="grid-2">
         <div class="form-group">
             <label>Código Interno del TP:</label>
@@ -42,38 +41,40 @@
         </div>
     </div>
 
-    <!-- Multi-Selección 1: Tipo de Escuela -->
+    <!-- Selección de Tipo de Escuela -->
     <div class="form-group">
-        <label>Tipo de Escuela (Podés marcar más de una):</label>
+        <label>Tipo de Escuela / Modalidad (Marcar las que apliquen):</label>
         <div class="checkbox-group">
             <label><input type="checkbox" name="tipo_escuela" value="TECNICA" checked> Técnica</label>
             <label><input type="checkbox" name="tipo_escuela" value="MEDIA" checked> Media / Secundaria Orientada</label>
-            <label><input type="checkbox" name="tipo_escuela" value="OTRA"> Otra / Adultos</label>
+            <label><input type="checkbox" name="tipo_escuela" value="ADULTOS"> Adultos / CENS</label>
         </div>
     </div>
 
-    <!-- Multi-Selección 2: Especialidades -->
-    <div class="form-group">
-        <label>Especialidades / Orientaciones Destino:</label>
-        <div class="checkbox-group">
-            <label><input type="checkbox" name="especialidad" value="CBMTP" checked> CBMTP (Ciclo Básico TP)</label>
-            <label><input type="checkbox" name="especialidad" value="STP"> STP (Ciclo Superior TP)</label>
-            <label><input type="checkbox" name="especialidad" value="GADO"> GADO (Gestión y Adm.)</label>
-            <label><input type="checkbox" name="especialidad" value="CSC"> CSC (Soc. y Com.)</label>
-            <label><input type="checkbox" name="especialidad" value="CSO"> CSO (Soc. y Orient.)</label>
-            <label><input type="checkbox" name="especialidad" value="ORIENT"> Orientada General</label>
+    <!-- Fila 2: Especialidades con Autocompletado y Año -->
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Especialidad / Orientación (Sugerencias o nueva):</label>
+            <!-- Conectado al datalist por ID -->
+            <input type="text" id="especialidad_libre" list="lista_especialidades" value="CBMTP" placeholder="Escribí o seleccioná una especialidad...">
+            <datalist id="lista_especialidades">
+                <!-- Se poblará automáticamente desde Supabase y con valores sugeridos -->
+                <option value="CBMTP"></option>
+                <option value="STP"></option>
+                <option value="GADO"></option>
+                <option value="CSC"></option>
+                <option value="CSO"></option>
+            </datalist>
         </div>
-    </div>
-
-    <!-- Año -->
-    <div class="form-group">
-        <label>Año sugerido:</label>
-        <input type="number" id="anio" value="1" min="1" max="7">
+        <div class="form-group">
+            <label>Año sugerido:</label>
+            <input type="number" id="anio" value="1" min="1" max="7">
+        </div>
     </div>
 
     <div class="info">
-        <strong>📋 Instrucciones:</strong><br>
-        En tu Google Sheets, seleccioná y copiá las celdas desde la <strong>Columna K (Instrucciones)</strong> hasta la <strong>Columna P (Tipo)</strong> y pegalas en el cuadro de abajo.
+        <strong>📋 Instrucciones de Pegado:</strong><br>
+        En tu Google Sheets, seleccioná y copiá las celdas desde la <strong>Columna K (Instrucciones)</strong> hasta la <strong>Columna P (Tipo)</strong> y pegalas directamente en el recuadro.
     </div>
 
     <div class="form-group">
@@ -86,36 +87,66 @@
 </div>
 
 <script>
+    // Al cargar la página, se busca en Supabase las especialidades ya usadas para agregarlas a las sugerencias
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const client = window.supabaseClient || supabase;
+            const { data, error } = await client
+                .from('banco_preguntas')
+                .select('especialidad_nivel');
+
+            if (!error && data) {
+                const datalist = document.getElementById('lista_especialidades');
+                const usadas = new Set();
+
+                data.forEach(item => {
+                    if (item.especialidad_nivel) {
+                        // Extraer solo la parte de especialidad si contiene guión
+                        const partes = item.especialidad_nivel.split(' - ');
+                        const esp = partes.length > 1 ? partes[1] : item.especialidad_nivel;
+                        usadas.add(esp.trim());
+                    }
+                });
+
+                usadas.forEach(esp => {
+                    // Evitar duplicar opciones ya existentes en el HTML
+                    if (!Array.from(datalist.options).some(opt => opt.value === esp)) {
+                        const option = document.createElement('option');
+                        option.value = esp;
+                        datalist.appendChild(option);
+                    }
+                });
+            }
+        } catch (e) {
+            console.log('Cargando con lista de sugerencias local.');
+        }
+    });
+
     async function procesarYSubir() {
         const codTp = document.getElementById('cod_tp').value.trim();
         const tituloHumano = document.getElementById('titulo_humano').value.trim();
+        const especialidadLibre = document.getElementById('especialidad_libre').value.trim();
         const anio = parseInt(document.getElementById('anio').value);
         const rawText = document.getElementById('datos_sheets').value.trim();
         const resDiv = document.getElementById('resultado');
 
-        // Obtener valores seleccionados de Tipo de Escuela
         const escuelasSel = Array.from(document.querySelectorAll('input[name="tipo_escuela"]:checked'))
                                  .map(cb => cb.value);
-
-        // Obtener valores seleccionados de Especialidad
-        const especSel = Array.from(document.querySelectorAll('input[name="especialidad"]:checked'))
-                              .map(cb => cb.value);
 
         if (!rawText || !codTp || !tituloHumano) {
             alert('Por favor completá el código, el título conceptual y pegá las celdas de la planilla.');
             return;
         }
 
-        if (escuelasSel.length === 0 || especSel.length === 0) {
-            alert('Seleccioná al menos un Tipo de Escuela y una Especialidad.');
+        if (escuelasSel.length === 0) {
+            alert('Seleccioná al menos un Tipo de Escuela.');
             return;
         }
 
         resDiv.style.color = 'blue';
         resDiv.innerText = 'Procesando e importando al banco global...';
 
-        // Unificamos las etiquetas seleccionadas (ejemplo: "TECNICA,MEDIA - CBMTP,GADO")
-        const etiquetaEspecialidad = `${escuelasSel.join(',')} - ${especSel.join(',')}`;
+        const etiquetaEspecialidad = `${escuelasSel.join(',')}${especialidadLibre ? ' - ' + especialidadLibre : ''}`;
 
         const filas = rawText.split('\n');
         const preguntasAInsertar = [];
@@ -155,7 +186,7 @@
             if (errPreguntas) throw errPreguntas;
 
             resDiv.style.color = 'green';
-            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios etiquetados para [${etiquetaEspecialidad}] con código [${codTp}].`;
+            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios al Banco Global bajo la etiqueta [${etiquetaEspecialidad}] y código [${codTp}].`;
         } catch (err) {
             console.error(err);
             resDiv.style.color = 'red';
