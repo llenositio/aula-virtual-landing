@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Importador de TPs - Carga Masiva</title>
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/db.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; background: #f4f6f9; }
+        .card { background: white; padding: 25px; border-radius: 8px; max-width: 800px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        textarea { height: 180px; font-family: monospace; font-size: 13px; }
+        button { background: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #218838; }
+        .info { background: #e9ecef; padding: 10px; border-left: 4px solid #17a2b8; margin-bottom: 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>📥 Importador Masivo de TPs desde Google Sheets</h2>
+    <p>Completá los datos del TP y pegá las columnas de tu planilla directamente.</p>
+
+    <div class="form-group">
+        <label>Código Único del TP:</label>
+        <input type="text" id="cod_tp" value="CBMTP-1-MAT-001" placeholder="Ej: CBMTP-1-MAT-001">
+    </div>
+    <div class="form-group">
+        <label>Título en Humano:</label>
+        <input type="text" id="titulo_humano" value="TP 1: Razonamiento Deductivo y Contraejemplos">
+    </div>
+    <div class="form-group">
+        <label>Especialidad / Nivel:</label>
+        <input type="text" id="especialidad_nivel" value="CBMTP">
+    </div>
+    <div class="form-group">
+        <label>Año:</label>
+        <input type="number" id="anio" value="1">
+    </div>
+    <div class="form-group">
+        <label>Curso ID al que se asigna:</label>
+        <input type="text" id="curso_id" value="ET24DE17 - 1° 1°">
+    </div>
+
+    <div class="info">
+        <strong>📋 Instrucciones:</strong><br>
+        En tu Google Sheets, seleccioná y copiá las celdas desde la <strong>Columna K (Instrucciones)</strong> hasta la <strong>Columna P (Tipo)</strong> y pegalas acá abajo.
+    </div>
+
+    <div class="form-group">
+        <label>Pegar Celdas de Sheets (K a P):</label>
+        <textarea id="datos_sheets" placeholder="Pegá acá las filas copiadas desde Google Sheets..."></textarea>
+    </div>
+
+    <button onclick="procesarYSubir()">🚀 Cargar TP a Supabase</button>
+    <div id="resultado" style="margin-top: 15px; font-weight: bold;"></div>
+</div>
+
+<script>
+    async function procesarYSubir() {
+        const codTp = document.getElementById('cod_tp').value.trim();
+        const tituloHumano = document.getElementById('titulo_humano').value.trim();
+        const especialidadNivel = document.getElementById('especialidad_nivel').value.trim();
+        const anio = parseInt(document.getElementById('anio').value);
+        const cursoId = document.getElementById('curso_id').value.trim();
+        const rawText = document.getElementById('datos_sheets').value.trim();
+        const resDiv = document.getElementById('resultado');
+
+        if (!rawText || !codTp || !cursoId) {
+            alert('Por favor completá los datos y pegá las celdas de la planilla.');
+            return;
+        }
+
+        resDiv.style.color = 'blue';
+        resDiv.innerText = 'Procesando e importando...';
+
+        const filas = rawText.split('\n');
+        const preguntasAInsertar = [];
+
+        filas.forEach((fila) => {
+            const columnas = fila.split('\t');
+            if (columnas.length >= 2) {
+                const instruccion = columnas[0] ? columnas[0].trim() : '';
+                const opciones = columnas[1] ? columnas[1].trim() : '';
+                const retroalimentacion = columnas[2] ? columnas[2].trim() : '';
+                const puntos = columnas[3] ? parseInt(columnas[3].trim()) || 10 : 10;
+                const tipo = columnas[columnas.length - 1] ? columnas[columnas.length - 1].trim().toUpperCase() : 'OM';
+
+                if (instruccion) {
+                    preguntasAInsertar.push({
+                        cod_tp: codTp,
+                        titulo_humano: tituloHumano,
+                        especialidad_nivel: especialidadNivel,
+                        anio: anio,
+                        instrucciones: instruccion,
+                        opciones: opciones,
+                        retroalimentacion: retroalimentacion,
+                        puntos: puntos,
+                        tipo: tipo
+                    });
+                }
+            }
+        });
+
+        try {
+            // Usa el cliente de Supabase instanciado en db.js o global
+            const client = window.supabaseClient || supabase;
+
+            const { error: errPreguntas } = await client
+                .from('banco_preguntas')
+                .insert(preguntasAInsertar);
+
+            if (errPreguntas) throw errPreguntas;
+
+            const { error: errCurso } = await client
+                .from('curso_evaluaciones')
+                .insert([{
+                    curso_id: cursoId,
+                    cod_tp: codTp,
+                    estado: 'activo'
+                }]);
+
+            if (errCurso) throw errCurso;
+
+            resDiv.style.color = 'green';
+            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios e integraron al curso.`;
+        } catch (err) {
+            console.error(err);
+            resDiv.style.color = 'red';
+            resDiv.innerText = '❌ Error al subir a Supabase: ' + err.message;
+        }
+    }
+</script>
+</body>
+</html>
