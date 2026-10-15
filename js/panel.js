@@ -443,11 +443,21 @@ async function cargarTPsAsignadosCurso(cursoId) {
 
         tablaTPsAsignadosBody.innerHTML = '';
         for (const asig of asignaciones) {
-            const { data: preg } = await supabase
+            // Intentar buscar metadata en banco_preguntas o tps_matematica
+            let { data: preg } = await supabase
                 .from('banco_preguntas')
                 .select('titulo_humano, nivel_bloom')
                 .eq('cod_tp', asig.cod_tp)
                 .limit(1);
+
+            if (!preg || preg.length === 0) {
+                const resFallback = await supabase
+                    .from('tps_matematica')
+                    .select('titulo_humano, nivel_bloom')
+                    .eq('cod_tp', asig.cod_tp)
+                    .limit(1);
+                preg = resFallback.data;
+            }
 
             const item = (preg && preg.length > 0) ? preg[0] : null;
             const titulo = item ? item.titulo_humano : 'TP en Banco Global';
@@ -493,10 +503,23 @@ async function cargarBancoGlobal() {
     contenedor.innerHTML = `<div class="list-group-item text-center text-muted py-3 small">Cargando catálogo del Banco Global...</div>`;
 
     try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('banco_preguntas')
             .select('cod_tp, titulo_humano, nivel_bloom')
             .order('cod_tp');
+
+        // Fallback a tps_matematica si la primera tabla está vacía o no existe
+        if (error || !data || data.length === 0) {
+            const resFallback = await supabase
+                .from('tps_matematica')
+                .select('cod_tp, titulo_humano, nivel_bloom')
+                .order('cod_tp');
+
+            if (!resFallback.error && resFallback.data && resFallback.data.length > 0) {
+                data = resFallback.data;
+                error = null;
+            }
+        }
 
         if (error) throw error;
 
@@ -513,7 +536,7 @@ async function cargarBancoGlobal() {
         renderizarBancoTPs(bancoTPsMemoria);
 
     } catch (err) {
-        contenedor.innerHTML = `<div class="list-group-item text-center text-danger py-3 small">Error al obtener el Banco Global: ${err.message}</div>`;
+        contenedor.innerHTML = `<div class="list-group-item text-center text-danger py-3 small">Error al conectar con el Banco Global: ${err.message || 'Verificar tablas en Supabase'}</div>`;
     }
 }
 
