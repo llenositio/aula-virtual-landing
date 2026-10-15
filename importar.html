@@ -2,33 +2,35 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Importador al Banco Global de TPs</title>
+    <title>Cargador al Banco Global de Preguntas</title>
     <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/db.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 30px; background: #f4f6f9; }
-        .card { background: white; padding: 25px; border-radius: 8px; max-width: 800px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .card { background: white; padding: 25px; border-radius: 8px; max-width: 850px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 15px; }
         label { font-weight: bold; display: block; margin-bottom: 5px; }
-        input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         textarea { height: 180px; font-family: monospace; font-size: 13px; }
-        button { background: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; }
+        button { background: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
         button:hover { background: #218838; }
         .info { background: #e9ecef; padding: 10px; border-left: 4px solid #17a2b8; margin-bottom: 15px; font-size: 14px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h2>📥 Cargador al Banco Global de Preguntas</h2>
-    <p>Registrá el contenido conceptual en la biblioteca para que cualquier docente pueda asignarlo a sus cursos.</p>
+    <p>Registrá el contenido conceptual en la biblioteca categorizado por tipo de escuela, especialidad y año.</p>
 
+    <!-- Fila 1: Código y Título -->
     <div class="grid-2">
         <div class="form-group">
             <label>Código Interno del TP:</label>
-            <input type="text" id="cod_tp" value="CBMTP-1-MAT-001" placeholder="Ej: CBMTP-1-MAT-001 o TP-MAT-ALG-N1-001">
+            <input type="text" id="cod_tp" value="CBMTP-1-MAT-001" placeholder="Ej: CBMTP-1-MAT-001">
         </div>
         <div class="form-group">
             <label>Título del Tema (Sin "TP X"):</label>
@@ -36,14 +38,31 @@
         </div>
     </div>
 
-    <div class="grid-2">
+    <!-- Fila 2: Tipo Escuela, Especialidad y Año -->
+    <div class="grid-3">
         <div class="form-group">
-            <label>Especialidad / Nivel:</label>
-            <input type="text" id="especialidad_nivel" value="CBMTP" placeholder="Ej: CBMTP, STP, ORIENT">
+            <label>Tipo de Escuela:</label>
+            <select id="tipo_escuela">
+                <option value="TECNICA" selected>Técnica</option>
+                <option value="MEDIA">Media / Secundaria Orientada</option>
+                <option value="AMBAS">Ambas (Transversal)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Especialidad / Modalidad:</label>
+            <select id="especialidad_nivel">
+                <option value="CBMTP" selected>CBMTP (Ciclo Básico TP)</option>
+                <option value="STP">STP (Ciclo Superior TP general)</option>
+                <option value="GADO">GADO (Gestión y Adm. de Organ.)</option>
+                <option value="CSC">CSC (Ciencias Sociales y Com.)</option>
+                <option value="CSO">CSO (Ciencias Sociales y Orient.)</option>
+                <option value="ORIENT">Orientada General</option>
+                <option value="OTRO">Otra / Genérica</option>
+            </select>
         </div>
         <div class="form-group">
             <label>Año:</label>
-            <input type="number" id="anio" value="1" placeholder="Ej: 1">
+            <input type="number" id="anio" value="1" min="1" max="7" placeholder="Ej: 1">
         </div>
     </div>
 
@@ -65,7 +84,8 @@
     async function procesarYSubir() {
         const codTp = document.getElementById('cod_tp').value.trim();
         const tituloHumano = document.getElementById('titulo_humano').value.trim();
-        const especialidadNivel = document.getElementById('especialidad_nivel').value.trim();
+        const tipoEscuela = document.getElementById('tipo_escuela').value;
+        const especialidadNivel = document.getElementById('especialidad_nivel').value;
         const anio = parseInt(document.getElementById('anio').value);
         const rawText = document.getElementById('datos_sheets').value.trim();
         const resDiv = document.getElementById('resultado');
@@ -94,7 +114,7 @@
                     preguntasAInsertar.push({
                         cod_tp: codTp,
                         titulo_humano: tituloHumano,
-                        especialidad_nivel: especialidadNivel,
+                        especialidad_nivel: `${tipoEscuela} - ${especialidadNivel}`,
                         anio: anio,
                         instrucciones: instruccion,
                         opciones: opciones,
@@ -116,7 +136,7 @@
             if (errPreguntas) throw errPreguntas;
 
             resDiv.style.color = 'green';
-            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios al Banco Global bajo el código [${codTp}].`;
+            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios al Banco Global [${tipoEscuela} - ${especialidadNivel} - ${anio}° Año] bajo el código [${codTp}].`;
         } catch (err) {
             console.error(err);
             resDiv.style.color = 'red';
