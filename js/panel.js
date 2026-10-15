@@ -356,7 +356,18 @@ async function cargarAlumnosCurso(cursoId) {
                     <td>${al.email ? `<span class="badge bg-light text-dark border">${al.email}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
                     <td><code class="fs-6">Sin PIN</code></td>
                     <td class="text-end">
-                        <button class="btn btn-sm btn-outline-danger btn-eliminar-alumno" data-id="${al.id}" data-nombre="${al.nombre}" title="Eliminar Alumno">
+                        <button class="btn btn-sm btn-outline-primary me-1 btn-editar-alumno" 
+                                data-id="${al.id}" 
+                                data-apellido="${apellido}" 
+                                data-nombre="${nombre}" 
+                                data-email="${al.email || ''}" 
+                                title="Editar Alumno">
+                            ✏️ Editar
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger btn-eliminar-alumno" 
+                                data-id="${al.id}" 
+                                data-nombre="${al.nombre}" 
+                                title="Eliminar Alumno">
                             🗑️ Quitar
                         </button>
                     </td>
@@ -364,6 +375,24 @@ async function cargarAlumnosCurso(cursoId) {
             `;
         }).join('');
 
+        // Evento para Abrir Modal de Edición
+        document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const ds = e.currentTarget.dataset;
+                document.getElementById('editAlumnoId').value = ds.id;
+                document.getElementById('editAlumnoApellido').value = ds.apellido !== '-' ? ds.apellido : '';
+                document.getElementById('editAlumnoNombre').value = ds.nombre !== '-' ? ds.nombre : '';
+                document.getElementById('editAlumnoEmail').value = ds.email;
+
+                const modalEl = document.getElementById('modalEditarAlumno');
+                if (modalEl) {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                }
+            });
+        });
+
+        // Evento para Eliminar Alumno
         document.querySelectorAll('.btn-eliminar-alumno').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const target = e.currentTarget;
@@ -388,39 +417,44 @@ async function cargarAlumnosCurso(cursoId) {
     }
 }
 
-const formAgregarAlumnos = document.getElementById('formAgregarAlumnos');
-if (formAgregarAlumnos) {
-    formAgregarAlumnos.addEventListener('submit', async (e) => {
+// Handler Formulario de Edición de Alumnos
+const formEditarAlumno = document.getElementById('formEditarAlumno');
+if (formEditarAlumno) {
+    formEditarAlumno.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        if (!cursoActualId) return alert('Error: no hay un curso seleccionado.');
+        const id = document.getElementById('editAlumnoId').value;
+        const apellido = document.getElementById('editAlumnoApellido').value.trim().toUpperCase();
+        const nombre = document.getElementById('editAlumnoNombre').value.trim();
+        const email = document.getElementById('editAlumnoEmail').value.trim();
 
-        const rawText = document.getElementById('nominaEditarRaw').value;
+        const nombreCompleto = `${apellido}, ${nombre}`;
 
         try {
-            const lineas = rawText.split('\n').filter(linea => linea.trim() !== '');
-            const alumnos = lineas.map(parsearLineaAlumno);
+            const { error } = await supabase
+                .from('alumnos')
+                .update({
+                    nombre: nombreCompleto,
+                    email: email || null
+                })
+                .eq('id', id);
 
-            if (alumnos.length === 0) return alert('Por favor, ingresá al menos un alumno.');
+            if (error) throw error;
 
-            await guardarNominaCurso(cursoActualId, alumnos);
-            alert('¡Alumnos cargados con éxito!');
-
-            const modalElement = document.getElementById('modalInscribirAlumnos');
-            if (modalElement) {
-                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            const modalEl = document.getElementById('modalEditarAlumno');
+            if (modalEl) {
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
                 if (modalInstance) modalInstance.hide();
             }
 
-            formAgregarAlumnos.reset();
-            cargarAlumnosCurso(cursoActualId);
+            alert('¡Datos del alumno actualizados correctamente!');
+            if (cursoActualId) cargarAlumnosCurso(cursoActualId);
 
         } catch (err) {
-            alert('Error al agregar alumnos: ' + err.message);
+            alert('Error al actualizar alumno: ' + err.message);
         }
     });
 }
-
 // =========================================================================
 // ASIGNACIÓN DE TRABAJOS PRÁCTICOS (BANCO GLOBAL Y TAXONOMÍA DE BLOOM)
 // =========================================================================
