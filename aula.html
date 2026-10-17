@@ -127,7 +127,7 @@
 
 <div class="container">
 
-    <!-- PASO 1: Ingreso del Alumno (Se oculta automáticamente si hay sesión) -->
+    <!-- PASO 1: Ingreso del Alumno (Se oculta de inmediato si hay sesión iniciada) -->
     <div id="sec-login" class="card">
         <h2>👨‍🎓 Acceso al Aula Virtual</h2>
         <p>Ingresá tus datos e identificador para comenzar la evaluación.</p>
@@ -174,7 +174,6 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     let preguntasCargadas = [];
 
-    // AUTO-LOGIN Y DETECCIÓN DE TP DESDE LA URL O LOCALSTORAGE
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const codTp = urlParams.get('tp');
@@ -191,7 +190,7 @@
             if (inputCod) inputCod.value = codTp;
         }
 
-        // Si tenemos ambos datos listos, omitimos la pantalla de pedir nombre
+        // Si tenemos sesión guardada e ID de TP, inicia automáticamente la evaluación limpia
         if (sesionLocal && codTp) {
             iniciarEvaluacion();
         }
@@ -318,6 +317,5 @@
     }
 </script>
 
-<script type="module" src="js/aula.js"></script>
 </body>
 </html>
