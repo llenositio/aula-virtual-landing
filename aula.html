@@ -4,17 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aula Virtual - Evaluación</title>
-    <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --primary: #2563eb;
             --primary-hover: #1d4ed8;
-            --bg: #f8fafc;
+            --bg: #ebf0f7;
             --card-bg: #ffffff;
-            --text: #1e293b;
-            --border: #e2e8f0;
-            --success: #16a34a;
+            --text: #334155;
+            --border: #cbd5e1;
+            --btn-gray: #94a3b8;
         }
 
         body {
@@ -22,149 +21,153 @@
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 20px;
+            padding: 30px 15px;
             display: flex;
             justify-content: center;
+            align-items: flex-start;
+            min-vh: 100vh;
         }
 
         .container {
             width: 100%;
-            max-width: 800px;
+            max-width: 680px;
         }
 
         .card {
             background: var(--card-bg);
+            border-radius: 16px;
+            padding: 35px 30px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .header-tp {
+            text-align: center;
+            margin-bottom: 25px;
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 12px;
+        }
+
+        .header-tp h2 {
+            color: var(--primary);
+            font-weight: 800;
+            font-size: 1.5rem;
+            margin: 0 0 5px 0;
+        }
+
+        .header-tp p {
+            margin: 0;
+            font-size: 0.88rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .banner-img {
+            width: 100%;
             border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-            border: 1px solid var(--border);
-        }
-
-        h2 { margin-top: 0; }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        label {
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             display: block;
-            font-weight: 600;
-            margin-bottom: 6px;
-            font-size: 14px;
         }
 
-        input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-
-        .btn {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            font-weight: 600;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
-            transition: background 0.2s;
-        }
-
-        .btn:hover { background-color: var(--primary-hover); }
-
-        .pregunta-block {
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
-            margin-bottom: 20px;
-        }
-
-        .pregunta-block:last-child { border-bottom: none; }
-
-        .pregunta-titulo {
-            font-weight: 600;
-            font-size: 16px;
+        .pregunta-contador {
+            font-weight: 700;
+            color: #475569;
+            font-size: 0.95rem;
             margin-bottom: 12px;
         }
 
-        .opciones-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+        .box-pregunta {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 22px;
+            margin-bottom: 25px;
         }
 
-        .opcion-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: #f1f5f9;
-            padding: 10px 14px;
-            border-radius: 6px;
+        .consigna-texto {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #334155;
+            margin-bottom: 18px;
+            text-align: center;
+        }
+
+        .select-opcion {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #2563eb;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #1e293b;
+            background-color: #ffffff;
+            outline: none;
             cursor: pointer;
-            border: 1px solid transparent;
+            box-sizing: border-box;
         }
 
-        .opcion-item:hover { border-color: var(--primary); }
-
-        .hidden { display: none; }
-
-        .badge {
-            background: #e0e7ff;
-            color: #4338ca;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
+        .btn-siguiente {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--btn-gray);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
+
+        .btn-siguiente.activo {
+            background-color: var(--primary);
+        }
+
+        .btn-siguiente.activo:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="container">
-
-    <!-- PASO 1: Ingreso del Alumno (Se oculta de inmediato si hay sesión iniciada) -->
-    <div id="sec-login" class="card">
-        <h2>👨‍🎓 Acceso al Aula Virtual</h2>
-        <p>Ingresá tus datos e identificador para comenzar la evaluación.</p>
+    <div class="card">
         
-        <div class="form-group">
-            <label>Nombre y Apellido:</label>
-            <input type="text" id="alumno_nombre" placeholder="Ej: Juan Pérez">
+        <!-- ENCABEZADO -->
+        <div class="header-tp">
+            <h2 id="tituloTP">TP Nº 001 - U1</h2>
+            <p id="subtituloTP">Escuela: ET24DE17 - Curso: 1° 1</p>
         </div>
 
-        <div class="form-group">
-            <label>Código del TP / Evaluación:</label>
-            <input type="text" id="eval_codigo" placeholder="Ej: CBMTP-1-MAT-001" value="CBMTP-1-MAT-001">
+        <!-- BANNER AULA VIRTUAL -->
+        <img src="https://i.imgur.com/8Q9Z5Xm.png" alt="Aula Virtual llenositio" class="banner-img" onerror="this.style.display='none'">
+
+        <!-- SECCIÓN PREGUNTA INTERACTIVA (UNA A LA VEZ) -->
+        <div id="secPregunta">
+            <div id="contadorTexto" class="pregunta-contador">Pregunta 1 de 10</div>
+
+            <div class="box-pregunta">
+                <div id="textoConsigna" class="consigna-texto">Cargando consigna...</div>
+                
+                <select id="selectRespuesta" class="select-opcion">
+                    <option value="">-- Selecciona una opción --</option>
+                </select>
+            </div>
+
+            <button id="btnNavegacion" class="btn-siguiente" disabled>SIGUIENTE</button>
         </div>
 
-        <button class="btn" onclick="iniciarEvaluacion()">Comenzar Evaluación</button>
-    </div>
-
-    <!-- PASO 2: Evaluación -->
-    <div id="sec-evaluacion" class="card hidden">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h2 id="eval_titulo" style="margin:0;">Cargando...</h2>
-            <span id="eval_tag" class="badge"></span>
+        <!-- PANTALLA DE FINALIZACIÓN -->
+        <div id="secFin" class="text-center hidden" style="padding: 20px 0;">
+            <h2 style="color: #16a34a; font-size: 1.8rem; margin-bottom: 10px;">🎉 ¡TP Completado!</h2>
+            <p style="color: #64748b; margin-bottom: 25px;">Tus respuestas fueron guardadas correctamente.</p>
+            <button class="btn-siguiente activo" onclick="window.location.href='alumno.html'">VOLVER AL PORTAL</button>
         </div>
-        
-        <form id="form-preguntas">
-            <div id="contenedor-preguntas"></div>
-            <button type="button" class="btn" onclick="enviarRespuestas()">Enviar Respuestas 🚀</button>
-        </form>
-    </div>
 
-    <!-- PASO 3: Confirmación -->
-    <div id="sec-confirmacion" class="card hidden" style="text-align: center;">
-        <h2 style="color: var(--success);">🎉 ¡Evaluación Enviada!</h2>
-        <p>Tus respuestas han sido registradas correctamente en el sistema.</p>
-        <button class="btn" onclick="window.location.href='alumno.html'">Volver al Portal</button>
     </div>
-
 </div>
 
 <script>
@@ -172,39 +175,30 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwd3h4b2RoaXN3bHRlZmhxYm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc3NjQsImV4cCI6MjEwNjYxMzc2NH0.tVs4JpCyJFAcakyIHMCV49xiuzNgNr2SeG1S5iUeF48';
 
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    let preguntasCargadas = [];
 
-    document.addEventListener('DOMContentLoaded', () => {
+    let preguntas = [];
+    let indiceActual = 0;
+    let respuestasGuardadas = {};
+    let alumnoActual = null;
+    let codTp = '';
+
+    document.addEventListener('DOMContentLoaded', async () => {
         const urlParams = new URLSearchParams(window.location.search);
-        const codTp = urlParams.get('tp');
+        codTp = urlParams.get('tp') || 'CBMTP-1-MAT-001';
+
         const sesionLocal = localStorage.getItem('alumnoSesion');
+        alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
 
-        if (sesionLocal) {
-            const alumno = JSON.parse(sesionLocal);
-            const inputNombre = document.getElementById('alumno_nombre');
-            if (inputNombre) inputNombre.value = alumno.nombre || '';
+        if (alumnoActual && alumnoActual.cursos) {
+            document.getElementById('subtituloTP').innerText = `Escuela: ${alumnoActual.cursos.escuela || 'S/E'} - Curso: ${alumnoActual.cursos.nombre || ''}`;
         }
 
-        if (codTp) {
-            const inputCod = document.getElementById('eval_codigo');
-            if (inputCod) inputCod.value = codTp;
-        }
+        document.getElementById('tituloTP').innerText = `TP ${codTp}`;
 
-        // Si tenemos sesión guardada e ID de TP, inicia automáticamente la evaluación limpia
-        if (sesionLocal && codTp) {
-            iniciarEvaluacion();
-        }
+        await cargarPreguntasSupabase();
     });
 
-    async function iniciarEvaluacion() {
-        const nombre = document.getElementById('alumno_nombre').value.trim();
-        const codTp = document.getElementById('eval_codigo').value.trim();
-
-        if (!nombre || !codTp) {
-            alert('Por favor ingresá tu nombre y el código de la evaluación.');
-            return;
-        }
-
+    async function cargarPreguntasSupabase() {
         try {
             const { data, error } = await supabaseClient
                 .from('banco_preguntas')
@@ -214,106 +208,118 @@
             if (error) throw error;
 
             if (!data || data.length === 0) {
-                alert('No se encontraron preguntas para el código ingresado: ' + codTp);
+                document.getElementById('textoConsigna').innerText = 'No hay preguntas disponibles para este TP.';
                 return;
             }
 
-            preguntasCargadas = data;
-            renderizarPreguntas(codTp, data);
+            preguntas = data;
+            if (preguntas[0].titulo_humano) {
+                document.getElementById('tituloTP').innerText = preguntas[0].titulo_humano;
+            }
 
-            document.getElementById('sec-login').classList.add('hidden');
-            document.getElementById('sec-evaluacion').classList.remove('hidden');
+            mostrarPregunta(0);
 
         } catch (err) {
-            console.error(err);
-            alert('Error al obtener la evaluación: ' + err.message);
+            alert('Error al obtener preguntas: ' + err.message);
         }
     }
 
-    function renderizarPreguntas(codTp, preguntas) {
-        document.getElementById('eval_titulo').innerText = preguntas[0].titulo_humano || codTp;
-        document.getElementById('eval_tag').innerText = preguntas[0].especialidad_nivel || 'General';
+    function mostrarPregunta(index) {
+        if (index >= preguntas.length) {
+            finalizarTP();
+            return;
+        }
 
-        const container = document.getElementById('contenedor-preguntas');
-        container.innerHTML = '';
+        const p = preguntas[index];
+        document.getElementById('contadorTexto').innerText = `Pregunta ${index + 1} de ${preguntas.length}`;
+        document.getElementById('textoConsigna').innerText = p.instrucciones || p.consigna || p.titulo_humano || '';
 
-        preguntas.forEach((p, idx) => {
-            const div = document.createElement('div');
-            div.className = 'pregunta-block';
+        const select = document.getElementById('selectRespuesta');
+        select.innerHTML = '<option value="">-- Selecciona una opción --</option>';
 
-            let htmlOpciones = '';
+        if (p.opciones) {
+            const listaOp = p.opciones.includes(',,,') ? p.opciones.split(',,,') : p.opciones.split(',');
+            listaOp.forEach(op => {
+                const optText = op.trim();
+                if (optText) {
+                    const optionEl = document.createElement('option');
+                    optionEl.value = optText;
+                    optionEl.textContent = optText;
+                    select.appendChild(optionEl);
+                }
+            });
+        }
 
-            if (p.opciones) {
-                const listaOp = p.opciones.includes(',,,') 
-                    ? p.opciones.split(',,,') 
-                    : p.opciones.split(',');
+        // Restaurar respuesta seleccionada previamente si existiera
+        if (respuestasGuardadas[p.id]) {
+            select.value = respuestasGuardadas[p.id];
+            habilitarBoton(true);
+        } else {
+            habilitarBoton(false);
+        }
 
-                htmlOpciones = '<div class="opciones-group">';
-                listaOp.forEach((op) => {
-                    const opText = op.trim();
-                    if (opText) {
-                        htmlOpciones += `
-                            <label class="opcion-item">
-                                <input type="radio" name="p_${p.id}" value="${opText}">
-                                <span>${opText}</span>
-                            </label>
-                        `;
-                    }
-                });
-                htmlOpciones += '</div>';
-            } else {
-                htmlOpciones = `<input type="text" name="p_${p.id}" placeholder="Escribí tu respuesta acá...">`;
-            }
-
-            div.innerHTML = `
-                <div class="pregunta-titulo">${idx + 1}. ${p.instrucciones || p.consigna || 'Consigna'}</div>
-                ${htmlOpciones}
-            `;
-            container.appendChild(div);
-        });
+        const btn = document.getElementById('btnNavegacion');
+        btn.innerText = (index === preguntas.length - 1) ? 'FINALIZAR TP' : 'SIGUIENTE';
     }
 
-    async function enviarRespuestas() {
-        const nombre = document.getElementById('alumno_nombre').value.trim();
-        const codTp = document.getElementById('eval_codigo').value.trim();
-        const sesionLocal = localStorage.getItem('alumnoSesion');
-        const alumno = sesionLocal ? JSON.parse(sesionLocal) : null;
-        
-        let respuestasGuardar = [];
+    const selectEl = document.getElementById('selectRespuesta');
+    const btnNav = document.getElementById('btnNavegacion');
 
-        preguntasCargadas.forEach(p => {
-            const radioSel = document.querySelector(`input[name="p_${p.id}"]:checked`);
-            const textInput = document.querySelector(`input[name="p_${p.id}"][type="text"]`);
-            
-            let respVal = '';
-            if (radioSel) respVal = radioSel.value;
-            else if (textInput) respVal = textInput.value;
+    selectEl.addEventListener('change', () => {
+        const haySeleccion = selectEl.value !== '';
+        habilitarBoton(haySeleccion);
+    });
 
-            respuestasGuardar.push({
-                pregunta_id: p.id,
-                respuesta: respVal
-            });
-        });
+    function habilitarBoton(activar) {
+        if (activar) {
+            btnNav.removeAttribute('disabled');
+            btnNav.classList.add('activo');
+        } else {
+            btnNav.setAttribute('disabled', 'true');
+            btnNav.classList.remove('activo');
+        }
+    }
 
+    btnNav.addEventListener('click', async () => {
+        const pActual = preguntas[indiceActual];
+        respuestasGuardadas[pActual.id] = selectEl.value;
+
+        indiceActual++;
+        if (indiceActual < preguntas.length) {
+            mostrarPregunta(indiceActual);
+        } else {
+            await guardarResultadoFinal();
+        }
+    });
+
+    async function guardarResultadoFinal() {
         try {
+            const payloadRespuestas = Object.keys(respuestasGuardadas).map(pId => ({
+                pregunta_id: pId,
+                respuesta: respuestasGuardadas[pId]
+            }));
+
             await supabaseClient
                 .from('evaluaciones_resultados')
                 .insert([{
-                    alumno_id: alumno ? alumno.id : null,
-                    alumno_nombre: nombre,
+                    alumno_id: alumnoActual ? alumnoActual.id : null,
+                    alumno_nombre: alumnoActual ? alumnoActual.nombre : 'Anónimo',
                     cod_tp: codTp,
-                    respuestas: JSON.stringify(respuestasGuardar),
+                    respuestas: JSON.stringify(payloadRespuestas),
                     fecha: new Date().toISOString()
                 }]);
 
-            document.getElementById('sec-evaluacion').classList.add('hidden');
-            document.getElementById('sec-confirmacion').classList.remove('hidden');
+            finalizarTP();
 
         } catch (err) {
-            console.error(err);
-            document.getElementById('sec-evaluacion').classList.add('hidden');
-            document.getElementById('sec-confirmacion').classList.remove('hidden');
+            console.error('Error al guardar:', err);
+            finalizarTP();
         }
+    }
+
+    function finalizarTP() {
+        document.getElementById('secPregunta').classList.add('hidden');
+        document.getElementById('secFin').classList.remove('hidden');
     }
 </script>
 
