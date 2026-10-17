@@ -169,8 +169,8 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold">Carga Masiva de Alumnos (Pega la lista de Excel/Word)</label>
-                            <small class="text-muted d-block mb-2">Formato: Un alumno por línea. Ej: <code>PÉREZ, Juan, alumno@mail.com, tutor@gmail.com</code></small>
-                            <textarea id="nominaRaw" class="form-control" rows="8" placeholder="ALVARADO BRACHO, Aaron Alexander, aaron@mail.com, tutor.aaron@gmail.com&#10;ALVAREZ, Alejo Joaquin, , tutor.alejo@gmail.com"></textarea>
+                            <small class="text-muted d-block mb-2">Formato: Un alumno por línea (<code>APELLIDO, Nombre, email_alumno, email_tutor</code>). Si el alumno no tiene mail, dejá el espacio vacío entre comas (<code>, ,</code>).</small>
+                            <textarea id="nominaRaw" class="form-control" rows="8" placeholder="FULANO, Luis, luis.fulano@mail.com, tutor.fulano@gmail.com&#10;ZULTANO, Juan, , tutor.zultano@gmail.com"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -222,8 +222,8 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-bold">Pegar lista de Alumnos</label>
-                        <small class="text-muted d-block mb-2">Formato: Un alumno por línea. Ej: <code>PÉREZ, Juan, alumno@mail.com, tutor@gmail.com</code></small>
-                        <textarea id="nominaEditarRaw" class="form-control" rows="8" placeholder="ALVARADO BRACHO, Aaron Alexander, aaron@mail.com, tutor.aaron@gmail.com&#10;ALVAREZ, Alejo Joaquin, , tutor.alejo@gmail.com"></textarea>
+                        <small class="text-muted d-block mb-2">Formato: Un alumno por línea (<code>APELLIDO, Nombre, email_alumno, email_tutor</code>). Si el alumno no tiene mail, dejá el espacio vacío entre comas (<code>, ,</code>).</small>
+                        <textarea id="nominaEditarRaw" class="form-control" rows="8" placeholder="FULANO, Luis, luis.fulano@mail.com, tutor.fulano@gmail.com&#10;ZULTANO, Juan, , tutor.zultano@gmail.com"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
