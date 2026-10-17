@@ -151,7 +151,7 @@
             <p id="subtituloTP" class="info-alumno">Cargando datos del estudiante y curso...</p>
         </div>
 
-        <!-- BANNER AULA VIRTUAL (TU LOGO LOCAL) -->
+        <!-- BANNER AULA VIRTUAL -->
         <img src="banner.png" alt="Aula Virtual llenositio" class="banner-img" onerror="this.style.display='none'">
 
         <!-- SECCIÓN PREGUNTA INTERACTIVA -->
@@ -169,11 +169,9 @@
             <button id="btnNavegacion" class="btn-siguiente" disabled>SIGUIENTE</button>
         </div>
 
-        <!-- PANTALLA DE FINALIZACIÓN -->
+        <!-- PANTALLA DE FINALIZACIÓN Y RETROALIMENTACIÓN -->
         <div id="secFin" class="text-center hidden" style="padding: 20px 0;">
-            <h2 style="color: #16a34a; font-size: 1.8rem; margin-bottom: 10px;">🎉 ¡TP Completado!</h2>
-            <p style="color: #64748b; margin-bottom: 25px;">Tus respuestas fueron guardadas correctamente.</p>
-            <button class="btn-siguiente activo" onclick="window.location.href='alumno.html'">VOLVER AL PORTAL</button>
+            <!-- Se genera dinámicamente según la nota alcanzada -->
         </div>
 
     </div>
@@ -268,7 +266,7 @@
 
     function mostrarPregunta(index) {
         if (index >= preguntas.length) {
-            finalizarTP();
+            guardarResultadoFinal();
             return;
         }
 
@@ -335,32 +333,75 @@
 
     async function guardarResultadoFinal() {
         try {
-            const payloadRespuestas = Object.keys(respuestasGuardadas).map(pId => ({
-                pregunta_id: pId,
-                respuesta: respuestasGuardadas[pId]
-            }));
+            let aciertos = 0;
+            const totalPreguntas = preguntas.length;
 
+            // Comparar respuestas y calcular aciertos
+            const payloadRespuestas = preguntas.map(p => {
+                const respAlumno = respuestasGuardadas[p.id] || '';
+                const respCorrecta = p.respuesta_correcta || p.correcta || '';
+                const esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
+
+                if (esCorrecta) aciertos++;
+
+                return {
+                    pregunta_id: p.id,
+                    respuesta: respAlumno,
+                    correcta: respCorrecta,
+                    es_correcta: esCorrecta
+                };
+            });
+
+            // Nota sobre 10
+            const notaCalculada = Math.round((aciertos / totalPreguntas) * 10);
+            const aprobado = notaCalculada >= 6;
+
+            // Guardar intento en Supabase
             await supabaseClient
                 .from('evaluaciones_resultados')
                 .insert([{
                     alumno_id: alumnoActual ? alumnoActual.id : null,
                     alumno_nombre: alumnoActual ? alumnoActual.nombre : 'Anónimo',
                     cod_tp: codTp,
+                    nota: notaCalculada,
+                    aciertos: aciertos,
+                    total_preguntas: totalPreguntas,
                     respuestas: JSON.stringify(payloadRespuestas),
                     fecha: new Date().toISOString()
                 }]);
 
-            finalizarTP();
+            finalizarTP(notaCalculada, aciertos, totalPreguntas, aprobado);
 
         } catch (err) {
             console.error('Error al guardar:', err);
-            finalizarTP();
+            alert('Error al registrar tu entrega: ' + err.message);
         }
     }
 
-    function finalizarTP() {
+    function finalizarTP(nota, aciertos, total, aprobado) {
         document.getElementById('secPregunta').classList.add('hidden');
-        document.getElementById('secFin').classList.remove('hidden');
+        const secFin = document.getElementById('secFin');
+        secFin.classList.remove('hidden');
+
+        if (aprobado) {
+            secFin.innerHTML = `
+                <div style="font-size: 3rem; margin-bottom: 10px;">🎉</div>
+                <h2 style="color: #16a34a; font-size: 1.8rem; margin-bottom: 8px;">¡Felicitaciones! Aprobaste el TP</h2>
+                <div style="font-size: 2.2rem; font-weight: 800; color: #16a34a; margin: 15px 0;">Nota: ${nota} / 10</div>
+                <p style="color: #475569; margin-bottom: 25px;">Respondiste correctamente ${aciertos} de ${total} preguntas. Tu resultado ha sido registrado con éxito.</p>
+                <button class="btn-siguiente activo" onclick="window.location.href='alumno.html'">VOLVER AL PORTAL</button>
+            `;
+        } else {
+            secFin.innerHTML = `
+                <div style="font-size: 3rem; margin-bottom: 10px;">💪</div>
+                <h2 style="color: #ea580c; font-size: 1.8rem; margin-bottom: 8px;">Debes rehacer la evaluación</h2>
+                <div style="font-size: 2.2rem; font-weight: 800; color: #ea580c; margin: 15px 0;">Nota: ${nota} / 10</div>
+                <p style="color: #475569; margin-bottom: 20px;">Respondiste correctamente ${aciertos} de ${total} preguntas. Necesitás al menos 6/10 para aprobar.</p>
+                <button class="btn-siguiente activo" style="margin-bottom: 15px;" onclick="window.location.reload()">REHACER EVALUACIÓN</button>
+                <br>
+                <a href="alumno.html" style="color: #64748b; text-decoration: underline; font-size: 0.9rem;">Volver al Portal del Alumno</a>
+            `;
+        }
     }
 </script>
 
