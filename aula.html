@@ -332,52 +332,51 @@
     });
 
     async function guardarResultadoFinal() {
-        try {
-            let aciertos = 0;
-            const totalPreguntas = preguntas.length;
+    try {
+        let aciertos = 0;
+        const totalPreguntas = preguntas.length;
 
-            // Comparar respuestas y calcular aciertos
-            const payloadRespuestas = preguntas.map(p => {
-                const respAlumno = respuestasGuardadas[p.id] || '';
-                const respCorrecta = p.respuesta_correcta || p.correcta || '';
-                const esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
+        // Comparar respuestas y calcular aciertos
+        const payloadRespuestas = preguntas.map(p => {
+            const respAlumno = respuestasGuardadas[p.id] || '';
+            const respCorrecta = p.respuesta_correcta || p.correcta || '';
+            const esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
 
-                if (esCorrecta) aciertos++;
+            if (esCorrecta) aciertos++;
 
-                return {
-                    pregunta_id: p.id,
-                    respuesta: respAlumno,
-                    correcta: respCorrecta,
-                    es_correcta: esCorrecta
-                };
-            });
+            return {
+                pregunta_id: p.id,
+                respuesta: respAlumno,
+                correcta: respCorrecta,
+                es_correcta: esCorrecta
+            };
+        });
 
-            // Nota sobre 10
-            const notaCalculada = Math.round((aciertos / totalPreguntas) * 10);
-            const aprobado = notaCalculada >= 6;
+        // Nota sobre 10
+        const notaCalculada = Math.round((aciertos / totalPreguntas) * 10);
+        const aprobado = notaCalculada >= 6;
 
-            // Guardar intento en Supabase
-            await supabaseClient
-                .from('evaluaciones_resultados')
-                .insert([{
-                    alumno_id: alumnoActual ? alumnoActual.id : null,
-                    alumno_nombre: alumnoActual ? alumnoActual.nombre : 'Anónimo',
-                    cod_tp: codTp,
-                    nota: notaCalculada,
-                    aciertos: aciertos,
-                    total_preguntas: totalPreguntas,
-                    respuestas: JSON.stringify(payloadRespuestas),
-                    fecha: new Date().toISOString()
-                }]);
+        // Inserción limpia utilizando estrictamente el ID de la base de datos
+        await supabaseClient
+            .from('evaluaciones_resultados')
+            .insert([{
+                alumno_id: alumnoActual ? alumnoActual.id : null,
+                alumno_nombre: alumnoActual ? (alumnoActual.nombre || `${alumnoActual.apellido || ''} ${alumnoActual.nombre || ''}`.trim()) : 'Anónimo',
+                cod_tp: codTp,
+                nota: notaCalculada,
+                aciertos: aciertos,
+                total_preguntas: totalPreguntas,
+                respuestas: JSON.stringify(payloadRespuestas),
+                fecha: new Date().toISOString()
+            }]);
 
-            finalizarTP(notaCalculada, aciertos, totalPreguntas, aprobado);
+        finalizarTP(notaCalculada, aciertos, totalPreguntas, aprobado);
 
-        } catch (err) {
-            console.error('Error al guardar:', err);
-            alert('Error al registrar tu entrega: ' + err.message);
-        }
+    } catch (err) {
+        console.error('Error al guardar:', err);
+        alert('Error al registrar tu entrega: ' + err.message);
     }
-
+}
     function finalizarTP(nota, aciertos, total, aprobado) {
         document.getElementById('secPregunta').classList.add('hidden');
         const secFin = document.getElementById('secFin');
