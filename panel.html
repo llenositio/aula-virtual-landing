@@ -182,6 +182,35 @@
         </div>
     </div>
 
+<!-- Modal Editar Curso / Escuela -->
+<div class="modal fade" id="modalEditarCurso" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">✏️ Editar Datos de la Comisión</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formEditarCurso">
+                <div class="modal-body">
+                    <input type="hidden" id="editCursoId">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nombre de la Institución / Escuela:</label>
+                        <input type="text" id="editCursoEscuela" class="form-control" placeholder="Ej: ET24DE17" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nombre de la Comisión / Curso:</label>
+                        <input type="text" id="editCursoNombre" class="form-control" placeholder="Ej: 1° 1° - TM" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+    
     <!-- MODAL AGREGAR ALUMNOS A CURSO EXISTENTE -->
     <div class="modal fade" id="modalInscribirAlumnos" tabindex="-1">
         <div class="modal-dialog modal-lg">
