@@ -162,7 +162,7 @@ function parsearLineaAlumno(linea) {
         emailAlumno = partes[2] && partes[2].includes('@') ? partes[2] : null;
         emailTutor = partes[3] && partes[3].includes('@') ? partes[3] : null;
     } else if (partes.length === 3) {
-        // Formato: APELLIDO, NOMBRE, EMAIL_TUTOR
+        // Formato: APELLIDO, NOMBRE, EMAIL_TUTOR (o EMAIL_ALUMNO)
         apellido = partes[0];
         nombre = partes[1];
         if (partes[2] && partes[2].includes('@')) {
@@ -191,6 +191,45 @@ async function guardarNominaCurso(cursoId, alumnosList) {
 
     const { error } = await supabase.from('alumnos').insert(regInsert);
     if (error) throw error;
+}
+
+// Escuchador de clic para el modal "Agregar / Cargar Alumnos"
+const modalInscribirAlumnos = document.getElementById('modalInscribirAlumnos');
+if (modalInscribirAlumnos) {
+    const btnCargarModal = modalInscribirAlumnos.querySelector('.modal-footer .btn-primary') || 
+                           modalInscribirAlumnos.querySelector('.modal-footer button:not([data-bs-dismiss])');
+
+    if (btnCargarModal) {
+        btnCargarModal.addEventListener('click', async () => {
+            const textarea = modalInscribirAlumnos.querySelector('textarea');
+            if (!textarea || !textarea.value.trim()) {
+                alert('Por favor, ingresá al menos un alumno en la lista.');
+                return;
+            }
+
+            if (!cursoActualId) {
+                alert('Error: No hay ningún curso seleccionado actualmente.');
+                return;
+            }
+
+            const lineas = textarea.value.split('\n').filter(linea => linea.trim() !== '');
+            const alumnos = lineas.map(parsearLineaAlumno);
+
+            try {
+                await guardarNominaCurso(cursoActualId, alumnos);
+                alert('¡Alumnos guardados e inscriptos con éxito!');
+                
+                textarea.value = '';
+                
+                const modalInstance = bootstrap.Modal.getInstance(modalInscribirAlumnos);
+                if (modalInstance) modalInstance.hide();
+
+                cargarAlumnosCurso(cursoActualId);
+            } catch (err) {
+                alert('Error al guardar la nómina: ' + err.message);
+            }
+        });
+    }
 }
 
 // =========================================================================
@@ -493,7 +532,6 @@ async function cargarTPsAsignadosCurso(cursoId) {
 
         tablaTPsAsignadosBody.innerHTML = '';
         for (const asig of asignaciones) {
-            // Intentar buscar metadata en banco_preguntas o tps_matematica
             let { data: preg } = await supabase
                 .from('banco_preguntas')
                 .select('titulo_humano, nivel_bloom')
@@ -558,7 +596,6 @@ async function cargarBancoGlobal() {
             .select('cod_tp, titulo_humano, nivel_bloom')
             .order('cod_tp');
 
-        // Fallback a tps_matematica si la primera tabla está vacía o no existe
         if (error || !data || data.length === 0) {
             const resFallback = await supabase
                 .from('tps_matematica')
@@ -573,7 +610,6 @@ async function cargarBancoGlobal() {
 
         if (error) throw error;
 
-        // Filtrar duplicados por cod_tp para tener la lista de TPs únicos
         const vistos = new Set();
         bancoTPsMemoria = (data || []).filter(item => {
             if (item.cod_tp && !vistos.has(item.cod_tp)) {
@@ -620,7 +656,6 @@ function renderizarBancoTPs(lista) {
         </div>
     `).join('');
 
-    // Eventos de asignación en 1 clic
     document.querySelectorAll('.btn-seleccionar-tp').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const codTp = e.currentTarget.dataset.cod;
@@ -629,7 +664,7 @@ function renderizarBancoTPs(lista) {
     });
 }
 
-// Aplicar filtros manuales (Buscador y Nivel de Bloom)
+// Aplicar filtros manuales
 function aplicarFiltrosBanco() {
     const filtroTexto = (document.getElementById('filtroTextoTP')?.value || '').toLowerCase();
     const filtroBloom = document.getElementById('filtroBloomTP')?.value || '';
@@ -645,7 +680,7 @@ function aplicarFiltrosBanco() {
     renderizarBancoTPs(resultado);
 }
 
-// Motor de Sugerencias por Temario / Programa
+// Motor de Sugerencias por Temario
 function analizarProgramaDocente() {
     const textoPrograma = (document.getElementById('inputProgramaDocente')?.value || '').toLowerCase().trim();
     if (!textoPrograma) {
@@ -665,7 +700,7 @@ function analizarProgramaDocente() {
     renderizarBancoTPs(sugerencias.length > 0 ? sugerencias : bancoTPsMemoria);
 }
 
-// Ejecutar el guardado en Supabase al hacer clic en "Asignar a este Curso"
+// Ejecutar el guardado en Supabase
 async function ejecutarAsignacionTP(codTp) {
     if (!cursoActualId) {
         alert('Error: No hay un curso seleccionado.');
@@ -682,7 +717,6 @@ async function ejecutarAsignacionTP(codTp) {
 
         if (error) throw error;
 
-        // Ocultar modal de Bootstrap
         const modalEl = document.getElementById('modalAsignarTP');
         if (modalEl) {
             const modalInstance = bootstrap.Modal.getInstance(modalEl);
