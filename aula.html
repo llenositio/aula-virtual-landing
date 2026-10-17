@@ -25,7 +25,7 @@
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            min-vh: 100vh;
+            min-height: 100vh;
         }
 
         .container {
@@ -139,11 +139,11 @@
         <!-- ENCABEZADO -->
         <div class="header-tp">
             <h2 id="tituloTP">TP Nº 001 - U1</h2>
-            <p id="subtituloTP">Escuela: ET24DE17 - Curso: 1° 1</p>
+            <p id="subtituloTP">Cargando información del curso...</p>
         </div>
 
-        <!-- BANNER AULA VIRTUAL (TU LOGO PROPIO) -->
-<img src="banner.png" alt="Aula Virtual llenositio" class="banner-img">
+        <!-- BANNER AULA VIRTUAL -->
+        <img src="banner.png" alt="Aula Virtual llenositio" class="banner-img" onerror="this.style.display='none'">
 
         <!-- SECCIÓN PREGUNTA INTERACTIVA (UNA A LA VEZ) -->
         <div id="secPregunta">
@@ -189,14 +189,45 @@
         const sesionLocal = localStorage.getItem('alumnoSesion');
         alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
 
-        if (alumnoActual && alumnoActual.cursos) {
-            document.getElementById('subtituloTP').innerText = `Escuela: ${alumnoActual.cursos.escuela || 'S/E'} - Curso: ${alumnoActual.cursos.nombre || ''}`;
+        // Cargar información actualizada del curso desde Supabase
+        if (alumnoActual && alumnoActual.curso_id) {
+            await obtenerDetalleCurso(alumnoActual.curso_id);
+        } else if (alumnoActual && alumnoActual.cursos) {
+            renderizarSubtitulo(alumnoActual.cursos.escuela, alumnoActual.cursos.nombre);
+        } else {
+            document.getElementById('subtituloTP').innerText = `Evaluación: ${codTp}`;
         }
 
         document.getElementById('tituloTP').innerText = `TP ${codTp}`;
 
         await cargarPreguntasSupabase();
     });
+
+    async function obtenerDetalleCurso(cursoId) {
+        try {
+            const { data: curso } = await supabaseClient
+                .from('cursos')
+                .select('*')
+                .eq('id', cursoId)
+                .single();
+
+            if (curso) {
+                renderizarSubtitulo(curso.escuela, curso.nombre);
+            } else {
+                document.getElementById('subtituloTP').innerText = `Evaluación: ${codTp}`;
+            }
+        } catch (err) {
+            document.getElementById('subtituloTP').innerText = `Evaluación: ${codTp}`;
+        }
+    }
+
+    function renderizarSubtitulo(escuela, cursoNombre) {
+        const tieneEscuelaValida = escuela && escuela.trim() !== '' && escuela !== 'S/E';
+        const textoEscuela = tieneEscuelaValida ? `Escuela: ${escuela} - ` : '';
+        const textoCurso = cursoNombre ? `Curso: ${cursoNombre}` : '';
+
+        document.getElementById('subtituloTP').innerText = `${textoEscuela}${textoCurso}`.trim() || `Evaluación: ${codTp}`;
+    }
 
     async function cargarPreguntasSupabase() {
         try {
@@ -250,7 +281,6 @@
             });
         }
 
-        // Restaurar respuesta seleccionada previamente si existiera
         if (respuestasGuardadas[p.id]) {
             select.value = respuestasGuardadas[p.id];
             habilitarBoton(true);
