@@ -363,12 +363,30 @@ async function verDetalleCurso(cursoId, nombre, escuela) {
     if (seccionDetalleCurso) seccionDetalleCurso.classList.remove('d-none');
 
     if (detalleTituloCurso) detalleTituloCurso.textContent = nombre;
-    if (detalleSubtituloCurso) detalleSubtituloCurso.textContent = escuela ? `Escuela: ${escuela}` : '';
+    if (detalleSubtituloCurso) {
+        const textoEscuela = (escuela && escuela !== 'S/E') ? `Escuela: ${escuela}` : 'Escuela: S/E';
+        detalleSubtituloCurso.innerHTML = `
+            ${textoEscuela} 
+            <button class="btn btn-sm btn-link p-0 ms-2 text-decoration-none" id="btnAbrirEditarCurso" title="Editar Escuela/Curso">✏️ Editar datos</button>
+        `;
+    }
+
+    // Listener para abrir el modal con datos cargados
+    document.getElementById('btnAbrirEditarCurso')?.addEventListener('click', () => {
+        document.getElementById('editCursoId').value = cursoId;
+        document.getElementById('editCursoEscuela').value = (escuela && escuela !== 'S/E') ? escuela : '';
+        document.getElementById('editCursoNombre').value = nombre || '';
+
+        const modalEl = document.getElementById('modalEditarCurso');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+    });
 
     await cargarAlumnosCurso(cursoId);
     await cargarTPsAsignadosCurso(cursoId);
 }
-
 async function cargarAlumnosCurso(cursoId) {
     if (!tablaAlumnosBody) return;
     tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Cargando alumnos...</td></tr>`;
