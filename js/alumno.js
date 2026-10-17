@@ -181,7 +181,7 @@ function mostrarDashboard() {
     }
 }
 
-// 6. CARGA DE TRABAJOS PRÁCTICOS CON TAXONOMÍA DE BLOOM
+// 6. CARGA DE TRABAJOS PRÁCTICOS Y MULTI-INTENTOS CON NOTA MÁXIMA
 async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
     if (!tablaEvaluacionesAlumnoBody) return;
     tablaEvaluacionesAlumnoBody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Cargando evaluaciones asignadas...</td></tr>';
@@ -199,14 +199,26 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
             return;
         }
 
+        // Obtener TODOS los intentos guardados para este alumno
         const { data: resultados } = await supabase
             .from('evaluaciones_resultados')
             .select('*')
             .eq('alumno_id', alumnoId);
 
-        const mapaResultados = {};
+        // Agrupar intentos por cod_tp y obtener la nota más alta
+        const mapaIntentos = {};
         if (resultados) {
-            resultados.forEach(res => { mapaResultados[res.cod_tp] = res; });
+            resultados.forEach(res => {
+                const notaActual = (res.nota !== undefined && res.nota !== null) ? Number(res.nota) : 0;
+                if (!mapaIntentos[res.cod_tp]) {
+                    mapaIntentos[res.cod_tp] = { maxNota: notaActual, cantIntentos: 1 };
+                } else {
+                    mapaIntentos[res.cod_tp].cantIntentos++;
+                    if (notaActual > mapaIntentos[res.cod_tp].maxNota) {
+                        mapaIntentos[res.cod_tp].maxNota = notaActual;
+                    }
+                }
+            });
         }
 
         tablaEvaluacionesAlumnoBody.innerHTML = '';
@@ -224,16 +236,20 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
             const titulo = tpInfo ? tpInfo.titulo_humano : 'Trabajo Práctico';
             const bloom = tpInfo ? tpInfo.nivel_bloom : 'Comprender';
 
-            const resultadoPrevio = mapaResultados[asig.cod_tp];
+            const infoIntento = mapaIntentos[asig.cod_tp];
             
             let estadoHtml = '<span class="badge bg-warning text-dark">Pendiente</span>';
             let notaHtml = '<span class="text-muted">-</span>';
             let accionHtml = `<a href="aula.html?tp=${asig.cod_tp}" class="btn btn-sm btn-primary fw-bold">Resolver &rarr;</a>`;
 
-            if (resultadoPrevio) {
-                estadoHtml = '<span class="badge bg-success">Completado</span>';
-                notaHtml = `<strong class="fs-6">${resultadoPrevio.nota || 10} / 10</strong>`;
-                accionHtml = `<a href="aula.html?tp=${asig.cod_tp}" class="btn btn-sm btn-outline-secondary">Repasar</a>`;
+            if (infoIntento) {
+                const notaMax = infoIntento.maxNota;
+                const esAprobado = notaMax >= 6;
+                const colorNota = esAprobado ? 'text-success' : 'text-danger';
+
+                estadoHtml = `<span class="badge bg-success">Completado (${infoIntento.cantIntentos} ${infoIntento.cantIntentos === 1 ? 'intento' : 'intentos'})</span>`;
+                notaHtml = `<strong class="fs-6 ${colorNota}">${notaMax} / 10</strong>`;
+                accionHtml = `<a href="aula.html?tp=${asig.cod_tp}" class="btn btn-sm btn-outline-primary fw-bold">Rehacer TP 🔄</a>`;
             }
 
             tablaEvaluacionesAlumnoBody.innerHTML += `
