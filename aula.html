@@ -127,7 +127,7 @@
 
 <div class="container">
 
-    <!-- PASO 1: Ingreso del Alumno -->
+    <!-- PASO 1: Ingreso del Alumno (Se oculta automáticamente si hay sesión) -->
     <div id="sec-login" class="card">
         <h2>👨‍🎓 Acceso al Aula Virtual</h2>
         <p>Ingresá tus datos e identificador para comenzar la evaluación.</p>
@@ -162,21 +162,40 @@
     <div id="sec-confirmacion" class="card hidden" style="text-align: center;">
         <h2 style="color: var(--success);">🎉 ¡Evaluación Enviada!</h2>
         <p>Tus respuestas han sido registradas correctamente en el sistema.</p>
-        <button class="btn" onclick="location.reload()">Volver a Inicio</button>
+        <button class="btn" onclick="window.location.href='alumno.html'">Volver al Portal</button>
     </div>
 
 </div>
 
 <script>
-    // =========================================================================
-    // CONFIGURACIÓN DIRECTA DE SUPABASE
-    // =========================================================================
     const SUPABASE_URL = 'https://bpwxxodhiswltefhqbol.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwd3h4b2RoaXN3bHRlZmhxYm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc3NjQsImV4cCI6MjEwNjYxMzc2NH0.tVs4JpCyJFAcakyIHMCV49xiuzNgNr2SeG1S5iUeF48'; // Usá tu clave anon larga
-    // =========================================================================
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwd3h4b2RoaXN3bHRlZmhxYm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc3NjQsImV4cCI6MjEwNjYxMzc2NH0.tVs4JpCyJFAcakyIHMCV49xiuzNgNr2SeG1S5iUeF48';
 
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     let preguntasCargadas = [];
+
+    // AUTO-LOGIN Y DETECCIÓN DE TP DESDE LA URL O LOCALSTORAGE
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const codTp = urlParams.get('tp');
+        const sesionLocal = localStorage.getItem('alumnoSesion');
+
+        if (sesionLocal) {
+            const alumno = JSON.parse(sesionLocal);
+            const inputNombre = document.getElementById('alumno_nombre');
+            if (inputNombre) inputNombre.value = alumno.nombre || '';
+        }
+
+        if (codTp) {
+            const inputCod = document.getElementById('eval_codigo');
+            if (inputCod) inputCod.value = codTp;
+        }
+
+        // Si tenemos ambos datos listos, omitimos la pantalla de pedir nombre
+        if (sesionLocal && codTp) {
+            iniciarEvaluacion();
+        }
+    });
 
     async function iniciarEvaluacion() {
         const nombre = document.getElementById('alumno_nombre').value.trim();
@@ -248,7 +267,7 @@
             }
 
             div.innerHTML = `
-                <div class="pregunta-titulo">${idx + 1}. ${p.instrucciones}</div>
+                <div class="pregunta-titulo">${idx + 1}. ${p.instrucciones || p.consigna || 'Consigna'}</div>
                 ${htmlOpciones}
             `;
             container.appendChild(div);
@@ -258,6 +277,8 @@
     async function enviarRespuestas() {
         const nombre = document.getElementById('alumno_nombre').value.trim();
         const codTp = document.getElementById('eval_codigo').value.trim();
+        const sesionLocal = localStorage.getItem('alumnoSesion');
+        const alumno = sesionLocal ? JSON.parse(sesionLocal) : null;
         
         let respuestasGuardar = [];
 
@@ -279,6 +300,7 @@
             await supabaseClient
                 .from('evaluaciones_resultados')
                 .insert([{
+                    alumno_id: alumno ? alumno.id : null,
                     alumno_nombre: nombre,
                     cod_tp: codTp,
                     respuestas: JSON.stringify(respuestasGuardar),
@@ -295,9 +317,7 @@
         }
     }
 </script>
-    297  </script>
-298  <script type="module" src="js/aula.js"></script>
-299  </body>
-300  </html>
+
+<script type="module" src="js/aula.js"></script>
 </body>
 </html>
