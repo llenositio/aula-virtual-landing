@@ -59,20 +59,20 @@ if (btnGoogleLogin) {
     });
 }
 
-// 2. CAMINO ALTERNATIVO: LOGIN CON EMAIL Y CONTRASEÑA / PIN
+// 2. CAMINO ALTERNATIVO: LOGIN CON EMAIL / PIN (HÍBRIDO CORREGIDO)
 if (formAlumnoAlt) {
     formAlumnoAlt.addEventListener('submit', async (e) => {
         e.preventDefault();
         ocultarError();
 
-        const email = inputCorreo.value.trim();
-        const passwordOrPin = inputClavePin.value.trim();
+        const identificador = inputCorreo.value.trim().toLowerCase();
+        const pinIngresado = inputClavePin.value.trim();
 
         try {
-            // Intento A: Autenticación estándar en Supabase Auth
+            // Intento A: Supabase Auth Estándar
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email,
-                password: passwordOrPin
+                email: identificador,
+                password: pinIngresado
             });
 
             if (!authError && authData.user) {
@@ -80,19 +80,27 @@ if (formAlumnoAlt) {
                 return;
             }
 
-            // Intento B: Verificar si usó su correo + PIN asignado por el docente
-            const { data: alumnoPin, error: pinError } = await supabase
+            // Intento B: Búsqueda flexible por PIN y Correo (Alumno o Tutor)
+            const { data: alumnos, error: pinError } = await supabase
                 .from('alumnos')
                 .select('*, cursos(*)')
-                .eq('email', email)
-                .single();
+                .eq('pin', pinIngresado);
 
-            if (pinError || !alumnoPin) {
+            if (pinError || !alumnos || alumnos.length === 0) {
                 throw new Error('Credenciales incorrectas. Verificá tu correo y contraseña/PIN.');
             }
 
-            alumnoActual = alumnoPin;
-            localStorage.setItem('alumnoSesion', JSON.stringify(alumnoPin));
+            // Validar que el identificador coincida con el nombre, email de alumno o email de tutor
+            const alumnoCoincidente = alumnos.find(a => {
+                const nombreL = (a.nombre || '').toLowerCase();
+                const emailAL = (a.email_alumno || '').toLowerCase();
+                const emailTL = (a.email || '').toLowerCase();
+
+                return nombreL.includes(identificador) || emailAL === identificador || emailTL === identificador;
+            }) || alumnos[0]; // Si coincide el PIN único dentro del curso, asigna
+
+            alumnoActual = alumnoCoincidente;
+            localStorage.setItem('alumnoSesion', JSON.stringify(alumnoCoincidente));
             mostrarDashboard();
 
         } catch (err) {
@@ -130,20 +138,19 @@ async function verificarSesionExistente() {
 
 async function cargarAlumnoYMostrarDashboard(email) {
     try {
-        const { data: alumno, error } = await supabase
+        const { data: alumnos, error } = await supabase
             .from('alumnos')
             .select('*, cursos(*)')
-            .eq('email', email)
-            .single();
+            .or(`email_alumno.eq.${email},email.eq.${email}`);
 
-        if (error || !alumno) {
+        if (error || !alumnos || alumnos.length === 0) {
             mostrarError('Tu correo (' + email + ') no está registrado en ningún curso activo.');
             await supabase.auth.signOut();
             return;
         }
 
-        alumnoActual = alumno;
-        localStorage.setItem('alumnoSesion', JSON.stringify(alumno));
+        alumnoActual = alumnos[0];
+        localStorage.setItem('alumnoSesion', JSON.stringify(alumnoActual));
         mostrarDashboard();
     } catch (err) {
         mostrarError('Error al validar el curso del alumno: ' + err.message);
