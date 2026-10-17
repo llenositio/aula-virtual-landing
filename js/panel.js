@@ -146,42 +146,47 @@ async function inicializarSesion() {
 inicializarSesion();
 
 // =========================================================================
-// NÓMINA DE ALUMNOS (PARSER Y GUARDADO)
+// NÓMINA DE ALUMNOS (PARSER Y GUARDADO CON DUAL-EMAIL Y PIN)
 // =========================================================================
 function parsearLineaAlumno(linea) {
     const partes = linea.split(',').map(p => p.trim());
     let apellido = 'SIN APELLIDO';
     let nombre = 'SIN NOMBRE';
+    let emailAlumno = null;
     let emailTutor = null;
 
-    if (partes.length >= 3) {
+    if (partes.length >= 4) {
+        // Formato: APELLIDO, NOMBRE, EMAIL_ALUMNO, EMAIL_TUTOR
         apellido = partes[0];
         nombre = partes[1];
-        emailTutor = partes[2] && partes[2].includes('@') ? partes[2] : null;
+        emailAlumno = partes[2] && partes[2].includes('@') ? partes[2] : null;
+        emailTutor = partes[3] && partes[3].includes('@') ? partes[3] : null;
+    } else if (partes.length === 3) {
+        // Formato: APELLIDO, NOMBRE, EMAIL_TUTOR
+        apellido = partes[0];
+        nombre = partes[1];
+        if (partes[2] && partes[2].includes('@')) {
+            emailTutor = partes[2];
+        }
     } else if (partes.length === 2) {
         apellido = partes[0];
-        if (partes[1].includes('@')) {
-            const subPartes = partes[0].split(' ');
-            apellido = subPartes[0] || 'SIN APELLIDO';
-            nombre = subPartes.slice(1).join(' ') || 'SIN NOMBRE';
-            emailTutor = partes[1];
-        } else {
-            nombre = partes[1];
-        }
+        nombre = partes[1];
     } else {
         const palabras = linea.trim().split(/\s+/);
         apellido = palabras[0] || 'SIN APELLIDO';
         nombre = palabras.slice(1).join(' ') || 'SIN NOMBRE';
     }
 
-    return { apellido, nombre, emailTutor };
+    return { apellido, nombre, emailAlumno, emailTutor };
 }
 
 async function guardarNominaCurso(cursoId, alumnosList) {
     const regInsert = alumnosList.map(a => ({
         curso_id: cursoId,
         nombre: `${a.apellido.toUpperCase()}, ${a.nombre}`,
-        email: a.emailTutor
+        email_alumno: a.emailAlumno,
+        email: a.emailTutor,
+        pin: Math.floor(1000 + Math.random() * 9000).toString() // Genera PIN automático de 4 dígitos
     }));
 
     const { error } = await supabase.from('alumnos').insert(regInsert);
@@ -300,7 +305,7 @@ if (formCrearCurso) {
 }
 
 // =========================================================================
-// DETALLE DEL CURSO Y NÓMINA DE ALUMNOS
+// DETALLE DEL CURSO Y NÓMINA DE ALUMNOS (CON AMBOS MAILS Y PIN)
 // =========================================================================
 if (btnVolverCursos) {
     btnVolverCursos.addEventListener('click', () => {
@@ -327,7 +332,7 @@ async function verDetalleCurso(cursoId, nombre, escuela) {
 
 async function cargarAlumnosCurso(cursoId) {
     if (!tablaAlumnosBody) return;
-    tablaAlumnosBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Cargando alumnos...</td></tr>`;
+    tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Cargando alumnos...</td></tr>`;
 
     try {
         const { data: alumnos, error } = await supabase
@@ -339,7 +344,7 @@ async function cargarAlumnosCurso(cursoId) {
         if (error) throw error;
 
         if (!alumnos || alumnos.length === 0) {
-            tablaAlumnosBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No hay alumnos inscriptos en este curso.</td></tr>`;
+            tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">No hay alumnos inscriptos en este curso.</td></tr>`;
             return;
         }
 
@@ -347,20 +352,24 @@ async function cargarAlumnosCurso(cursoId) {
             const partes = al.nombre ? al.nombre.split(',') : ['', ''];
             const apellido = partes[0] ? partes[0].trim() : al.nombre;
             const nombre = partes[1] ? partes[1].trim() : '-';
+            const pinMostrar = al.pin || 'Sin PIN';
 
             return `
                 <tr>
                     <td class="fw-bold">${index + 1}</td>
                     <td>${apellido}</td>
                     <td>${nombre}</td>
+                    <td>${al.email_alumno ? `<span class="badge bg-light text-dark border">${al.email_alumno}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
                     <td>${al.email ? `<span class="badge bg-light text-dark border">${al.email}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
-                    <td><code class="fs-6">Sin PIN</code></td>
+                    <td><code class="fs-6 fw-bold text-primary bg-light px-2 py-1 rounded border">${pinMostrar}</code></td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-outline-primary me-1 btn-editar-alumno" 
                                 data-id="${al.id}" 
                                 data-apellido="${apellido}" 
                                 data-nombre="${nombre}" 
-                                data-email="${al.email || ''}" 
+                                data-emailalumno="${al.email_alumno || ''}" 
+                                data-emailtutor="${al.email || ''}" 
+                                data-pin="${al.pin || ''}" 
                                 title="Editar Alumno">
                             ✏️ Editar
                         </button>
@@ -382,7 +391,9 @@ async function cargarAlumnosCurso(cursoId) {
                 document.getElementById('editAlumnoId').value = ds.id;
                 document.getElementById('editAlumnoApellido').value = ds.apellido !== '-' ? ds.apellido : '';
                 document.getElementById('editAlumnoNombre').value = ds.nombre !== '-' ? ds.nombre : '';
-                document.getElementById('editAlumnoEmail').value = ds.email;
+                document.getElementById('editAlumnoEmail').value = ds.emailalumno;
+                document.getElementById('editTutorEmail').value = ds.emailtutor;
+                document.getElementById('editAlumnoPin').value = ds.pin;
 
                 const modalEl = document.getElementById('modalEditarAlumno');
                 if (modalEl) {
@@ -413,7 +424,7 @@ async function cargarAlumnosCurso(cursoId) {
         });
 
     } catch (err) {
-        if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="6" class="text-danger">Error al cargar alumnos: ${err.message}</td></tr>`;
+        if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-danger">Error al cargar alumnos: ${err.message}</td></tr>`;
     }
 }
 
@@ -426,7 +437,9 @@ if (formEditarAlumno) {
         const id = document.getElementById('editAlumnoId').value;
         const apellido = document.getElementById('editAlumnoApellido').value.trim().toUpperCase();
         const nombre = document.getElementById('editAlumnoNombre').value.trim();
-        const email = document.getElementById('editAlumnoEmail').value.trim();
+        const emailAlumno = document.getElementById('editAlumnoEmail').value.trim();
+        const emailTutor = document.getElementById('editTutorEmail').value.trim();
+        const pin = document.getElementById('editAlumnoPin').value.trim();
 
         const nombreCompleto = `${apellido}, ${nombre}`;
 
@@ -435,7 +448,9 @@ if (formEditarAlumno) {
                 .from('alumnos')
                 .update({
                     nombre: nombreCompleto,
-                    email: email || null
+                    email_alumno: emailAlumno || null,
+                    email: emailTutor || null,
+                    pin: pin || Math.floor(1000 + Math.random() * 9000).toString()
                 })
                 .eq('id', id);
 
@@ -455,6 +470,7 @@ if (formEditarAlumno) {
         }
     });
 }
+
 // =========================================================================
 // ASIGNACIÓN DE TRABAJOS PRÁCTICOS (BANCO GLOBAL Y TAXONOMÍA DE BLOOM)
 // =========================================================================
