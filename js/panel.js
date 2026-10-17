@@ -761,3 +761,40 @@ document.getElementById('filtroTextoTP')?.addEventListener('input', aplicarFiltr
 document.getElementById('filtroBloomTP')?.addEventListener('change', aplicarFiltrosBanco);
 document.getElementById('filtroAnioTP')?.addEventListener('change', aplicarFiltrosBanco);
 document.getElementById('btnAnalizarPrograma')?.addEventListener('click', analizarProgramaDocente);
+// Handler para Guardar los Cambios del Curso/Escuela
+const formEditarCurso = document.getElementById('formEditarCurso');
+if (formEditarCurso) {
+    formEditarCurso.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const cursoId = document.getElementById('editCursoId').value;
+        const nuevaEscuela = document.getElementById('editCursoEscuela').value.trim();
+        const nuevoNombre = document.getElementById('editCursoNombre').value.trim();
+
+        try {
+            const { error } = await supabase
+                .from('cursos')
+                .update({
+                    escuela: nuevaEscuela || 'S/E',
+                    nombre: nuevoNombre
+                })
+                .eq('id', cursoId);
+
+            if (error) throw error;
+
+            alert('¡Datos de la comisión actualizados con éxito!');
+
+            const modalEl = document.getElementById('modalEditarCurso');
+            if (modalEl) {
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+            }
+
+            // Actualizar la vista del detalle
+            verDetalleCurso(cursoId, nuevoNombre, nuevaEscuela);
+
+        } catch (err) {
+            alert('Error al actualizar la comisión: ' + err.message);
+        }
+    });
+}
