@@ -45,17 +45,25 @@
             text-align: center;
             margin-bottom: 25px;
             border-bottom: 3px solid var(--primary);
-            padding-bottom: 12px;
+            padding-bottom: 15px;
         }
 
         .header-tp h2 {
             color: var(--primary);
             font-weight: 800;
             font-size: 1.5rem;
-            margin: 0 0 5px 0;
+            margin: 0 0 6px 0;
         }
 
-        .header-tp p {
+        .header-tp .codigo-sub {
+            margin: 0 0 6px 0;
+            font-size: 0.9rem;
+            color: #475569;
+            font-weight: 700;
+            font-family: monospace;
+        }
+
+        .header-tp .info-alumno {
             margin: 0;
             font-size: 0.88rem;
             color: #64748b;
@@ -136,16 +144,17 @@
 <div class="container">
     <div class="card">
         
-        <!-- ENCABEZADO -->
+        <!-- ENCABEZADO PERSONALIZADO -->
         <div class="header-tp">
-            <h2 id="tituloTP">TP Nº 001 - U1</h2>
-            <p id="subtituloTP">Cargando información del curso...</p>
+            <h2 id="tituloTP">Cargando evaluación...</h2>
+            <p id="codigoTP" class="codigo-sub">CBMTP-1-MAT-001</p>
+            <p id="subtituloTP" class="info-alumno">Cargando datos del estudiante y curso...</p>
         </div>
 
-        <!-- BANNER AULA VIRTUAL -->
+        <!-- BANNER AULA VIRTUAL (TU LOGO LOCAL) -->
         <img src="banner.png" alt="Aula Virtual llenositio" class="banner-img" onerror="this.style.display='none'">
 
-        <!-- SECCIÓN PREGUNTA INTERACTIVA (UNA A LA VEZ) -->
+        <!-- SECCIÓN PREGUNTA INTERACTIVA -->
         <div id="secPregunta">
             <div id="contadorTexto" class="pregunta-contador">Pregunta 1 de 10</div>
 
@@ -186,47 +195,47 @@
         const urlParams = new URLSearchParams(window.location.search);
         codTp = urlParams.get('tp') || 'CBMTP-1-MAT-001';
 
+        document.getElementById('codigoTP').innerText = codTp;
+
         const sesionLocal = localStorage.getItem('alumnoSesion');
         alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
 
-        // Cargar información actualizada del curso desde Supabase
-        if (alumnoActual && alumnoActual.curso_id) {
-            await obtenerDetalleCurso(alumnoActual.curso_id);
-        } else if (alumnoActual && alumnoActual.cursos) {
-            renderizarSubtitulo(alumnoActual.cursos.escuela, alumnoActual.cursos.nombre);
+        if (alumnoActual) {
+            await armarEncabezadoCompleto(alumnoActual);
         } else {
-            document.getElementById('subtituloTP').innerText = `Evaluación: ${codTp}`;
+            document.getElementById('subtituloTP').innerText = 'Estudiante: - | Curso: -';
         }
-
-        document.getElementById('tituloTP').innerText = `TP ${codTp}`;
 
         await cargarPreguntasSupabase();
     });
 
-    async function obtenerDetalleCurso(cursoId) {
-        try {
-            const { data: curso } = await supabaseClient
-                .from('cursos')
-                .select('*')
-                .eq('id', cursoId)
-                .single();
+    async function armarEncabezadoCompleto(alumno) {
+        let nombreAlumno = alumno.nombre || 'Estudiante';
+        let escuelaNombre = 'S/E';
+        let cursoNombre = '1° 1';
 
-            if (curso) {
-                renderizarSubtitulo(curso.escuela, curso.nombre);
-            } else {
-                document.getElementById('subtituloTP').innerText = `Evaluación: ${codTp}`;
+        try {
+            if (alumno.curso_id) {
+                const { data: curso } = await supabaseClient
+                    .from('cursos')
+                    .select('*')
+                    .eq('id', alumno.curso_id)
+                    .single();
+
+                if (curso) {
+                    if (curso.escuela && curso.escuela !== 'S/E') escuelaNombre = curso.escuela;
+                    if (curso.nombre) cursoNombre = curso.nombre;
+                }
+            } else if (alumno.cursos) {
+                if (alumno.cursos.escuela && alumno.cursos.escuela !== 'S/E') escuelaNombre = alumno.cursos.escuela;
+                if (alumno.cursos.nombre) cursoNombre = alumno.cursos.nombre;
             }
         } catch (err) {
-            document.getElementById('subtituloTP').innerText = `Evaluación: ${codTp}`;
+            console.error('Error al obtener datos del curso:', err);
         }
-    }
 
-    function renderizarSubtitulo(escuela, cursoNombre) {
-        const tieneEscuelaValida = escuela && escuela.trim() !== '' && escuela !== 'S/E';
-        const textoEscuela = tieneEscuelaValida ? `Escuela: ${escuela} - ` : '';
-        const textoCurso = cursoNombre ? `Curso: ${cursoNombre}` : '';
-
-        document.getElementById('subtituloTP').innerText = `${textoEscuela}${textoCurso}`.trim() || `Evaluación: ${codTp}`;
+        const textoEscuela = (escuelaNombre !== 'S/E') ? `Escuela: ${escuelaNombre} - ` : '';
+        document.getElementById('subtituloTP').innerText = `Estudiante: ${nombreAlumno} | ${textoEscuela}Curso: ${cursoNombre}`;
     }
 
     async function cargarPreguntasSupabase() {
@@ -246,6 +255,8 @@
             preguntas = data;
             if (preguntas[0].titulo_humano) {
                 document.getElementById('tituloTP').innerText = preguntas[0].titulo_humano;
+            } else {
+                document.getElementById('tituloTP').innerText = 'Trabajo Práctico';
             }
 
             mostrarPregunta(0);
