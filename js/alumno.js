@@ -187,10 +187,30 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
     tablaEvaluacionesAlumnoBody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Cargando evaluaciones asignadas...</td></tr>';
 
     try {
+        // A. Recuperar el curso_id si no estaba cargado
+        let cId = cursoId;
+        if (!cId && alumnoActual) {
+            const { data: datosAlu } = await supabase
+                .from('alumnos')
+                .select('curso_id, cursos(*)')
+                .eq('id', alumnoActual.id)
+                .single();
+            if (datosAlu) {
+                cId = datosAlu.curso_id;
+                alumnoActual.curso_id = cId;
+                if (datosAlu.cursos && alumnoCursoVista) {
+                    const cNom = datosAlu.cursos.nombre || 'Sin Nombre';
+                    const eNom = datosAlu.cursos.escuela ? ` (${datosAlu.cursos.escuela})` : '';
+                    alumnoCursoVista.innerText = `Comisión: ${cNom}${eNom}`;
+                }
+            }
+        }
+
+        // B. Obtener asignaciones del curso
         const { data: asignaciones, error: errAsig } = await supabase
             .from('curso_evaluaciones')
             .select('*')
-            .eq('curso_id', cursoId);
+            .eq('curso_id', cId);
 
         if (errAsig) throw errAsig;
 
@@ -199,13 +219,19 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
             return;
         }
 
-        // Obtener TODOS los intentos guardados para este alumno
-        const { data: resultados } = await supabase
-            .from('evaluaciones_resultados')
-            .select('*')
-            .eq('alumno_id', alumnoId);
+        // C. Obtener resultados por ID del alumno o por coincidencia de nombre
+        let queryResultados = supabase.from('evaluaciones_resultados').select('*');
+        if (alumnoId) {
+            queryResultados = queryResultados.or(`alumno_id.eq.${alumnoId},alumno_nombre.ilike.%${alumnoActual ? alumnoActual.nombre : ''}%`);
+        } else if (alumnoActual && alumnoActual.nombre) {
+            queryResultados = queryResultados.ilike('alumno_nombre', `%${alumnoActual.nombre}%`);
+        }
 
-        // Agrupar intentos por cod_tp y obtener la nota más alta
+        const { data: resultados, error: errRes } = await queryResultados;
+
+        if (errRes) console.warn('Aviso sobre resultados:', errRes.message);
+
+        // D. Agrupar intentos por cod_tp y calcular la nota más alta
         const mapaIntentos = {};
         if (resultados) {
             resultados.forEach(res => {
@@ -223,6 +249,7 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
 
         tablaEvaluacionesAlumnoBody.innerHTML = '';
 
+        // E. Renderizar cada fila
         for (let i = 0; i < asignaciones.length; i++) {
             const asig = asignaciones[i];
 
