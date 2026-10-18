@@ -119,12 +119,35 @@ if (btnCerrarSesion) {
     });
 }
 
-function actualizarInterfaz(usuario) {
+async function actualizarInterfaz(usuario) {
     if (usuario) {
         if (seccionAuth) seccionAuth.classList.add('d-none');
         if (seccionDashboard) seccionDashboard.classList.remove('d-none');
         if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
         if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
+
+        // Asegurar que el profesor exista en la tabla publica 'profesores'
+        try {
+            const { data: prof, error } = await supabase
+                .from('profesores')
+                .select('id')
+                .eq('id', usuario.id)
+                .maybeSingle();
+
+            if (!prof) {
+                // Si no existe en la tabla pública, lo creamos automáticamente
+                await supabase.from('profesores').insert([{
+                    id: usuario.id,
+                    email: usuario.email,
+                    nombre: usuario.user_metadata?.full_name || usuario.user_metadata?.nombre || 'Docente',
+                    apellido: usuario.user_metadata?.apellido || 'Aula Virtual',
+                    estado_suscripcion: 'activa'
+                }]);
+            }
+        } catch (e) {
+            console.error('Error al sincronizar profesor:', e);
+        }
+
         cargarCursos(usuario.id);
     } else {
         if (seccionAuth) seccionAuth.classList.remove('d-none');
@@ -133,7 +156,6 @@ function actualizarInterfaz(usuario) {
         if (btnCerrarSesion) btnCerrarSesion.classList.add('d-none');
     }
 }
-
 async function inicializarSesion() {
     const { data: { session } } = await supabase.auth.getSession();
     actualizarInterfaz(session ? session.user : null);
