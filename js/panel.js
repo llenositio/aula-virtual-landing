@@ -121,40 +121,55 @@ if (btnCerrarSesion) {
 
 async function actualizarInterfaz(usuario) {
     if (usuario) {
-        if (seccionAuth) seccionAuth.classList.add('d-none');
-        if (seccionDashboard) seccionDashboard.classList.remove('d-none');
-        if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
-        if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
-
-        // Verificar si ya existe el perfil del docente
         try {
+            // 1. Buscamos si el email ya existe en la tabla de profesores
             const { data: prof, error } = await supabase
                 .from('profesores')
                 .select('*')
-                .eq('id', usuario.id)
+                .eq('email', usuario.email)
                 .maybeSingle();
 
+            // 2. Si NO existe el profesor con ese email, rechazamos el ingreso
             if (!prof) {
-                // Es un profesor nuevo: solicitamos sus datos reales
-                const nombreIngresado = prompt('¡Bienvenido! Por favor, ingresá tu NOMBRE para el perfil docente:', usuario.user_metadata?.full_name || '');
-                const apellidoIngresado = prompt('Por favor, ingresá tu APELLIDO:');
+                alert(`El correo ${usuario.email} no está registrado como docente en el sistema. Por favor, completá el proceso de inscripción.`);
+                
+                // Cerramos la sesión creada por Google/Auth
+                await supabase.auth.signOut();
 
-                const nombreFinal = (nombreIngresado && nombreIngresado.trim()) ? nombreIngresado.trim() : 'Docente';
-                const apellidoFinal = (apellidoIngresado && apellidoIngresado.trim()) ? apellidoIngresado.trim() : 'Aula Virtual';
+                // Cambiamos la pantalla al formulario de registro
+                if (seccionAuth) seccionAuth.classList.remove('d-none');
+                if (seccionDashboard) seccionDashboard.classList.add('d-none');
+                if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
+                if (btnCerrarSesion) btnCerrarSesion.classList.add('d-none');
 
-                await supabase.from('profesores').insert([{
-                    id: usuario.id,
-                    email: usuario.email,
-                    nombre: nombreFinal,
-                    apellido: apellidoFinal,
-                    estado_suscripcion: 'activa'
-                }]);
+                // Activamos el modo registro si existe el toggle
+                if (!esModoRegistro && toggleAuthMode) {
+                    toggleAuthMode.click();
+                }
+                return;
             }
+
+            // 3. Si existe pero su ID no coincide (por ejemplo, si borramos la tabla), actualizamos el ID
+            if (prof.id !== usuario.id) {
+                await supabase
+                    .from('profesores')
+                    .update({ id: usuario.id })
+                    .eq('email', usuario.email);
+            }
+
+            // 4. Acceso permitido al Dashboard
+            if (seccionAuth) seccionAuth.classList.add('d-none');
+            if (seccionDashboard) seccionDashboard.classList.remove('d-none');
+            if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
+            if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
+
+            cargarCursos(usuario.id);
+
         } catch (e) {
-            console.error('Error al verificar/crear perfil de profesor:', e);
+            console.error('Error al verificar credenciales del profesor:', e);
+            alert('Error al validar tu usuario: ' + e.message);
         }
 
-        cargarCursos(usuario.id);
     } else {
         if (seccionAuth) seccionAuth.classList.remove('d-none');
         if (seccionDashboard) seccionDashboard.classList.add('d-none');
