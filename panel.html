@@ -26,43 +26,49 @@
         <!-- SECCIÓN 1: LOGIN / REGISTRO -->
         <div id="seccionAuth" class="row justify-content-center">
             <div class="col-md-5">
-                <div class="card card-custom p-4 shadow border-0">
-                    <h3 id="authTitulo" class="fw-bold mb-3 text-center">Iniciar Sesión</h3>
+                <div class="card card-custom p-4 shadow border-0 text-center">
+                    <h3 id="authTitulo" class="fw-bold mb-1">Acceso Docente</h3>
+                    <p class="text-muted small mb-4">Si es tu primera vez o ya tenés cuenta, la forma más rápida es ingresar con Google.</p>
                     
-                    <button id="btnGoogleAuth" type="button" class="btn btn-outline-danger w-100 mb-3 d-flex align-items-center justify-content-center gap-2 fw-bold">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48">
+                    <!-- Botón Principal Integrado -->
+                    <button id="btnGoogleAuth" type="button" class="btn btn-outline-danger w-100 mb-3 d-flex align-items-center justify-content-center gap-2 fw-bold py-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 48 48">
                             <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
                             <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
                             <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
                             <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
                         </svg>
-                        Ingresar con Google
+                        Ingresar o Registrarse con Google
                     </button>
 
-                    <div id="separadorAuth" class="text-center text-muted small my-2">O con tu correo y contraseña</div>
+                    <div id="separadorAuth" class="position-relative my-4">
+                        <hr class="text-muted">
+                        <span class="position-absolute top-50 start-50 translate-middle bg-white px-2 text-muted small">o con correo y contraseña</span>
+                    </div>
 
-                    <form id="formAuth">
+                    <!-- Formulario Tradicional Alternative -->
+                    <form id="formAuth" class="text-start">
                         <div id="camposRegistro" class="d-none">
                             <div class="mb-3">
-                                <label class="form-label fw-bold">Nombre</label>
+                                <label class="form-label fw-bold small text-muted">Nombre</label>
                                 <input type="text" id="authNombre" class="form-control">
                             </div>
                             <div class="mb-3">
-                                <label class="form-label fw-bold">Apellido</label>
+                                <label class="form-label fw-bold small text-muted">Apellido</label>
                                 <input type="text" id="authApellido" class="form-control">
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Correo Electrónico</label>
+                            <label class="form-label fw-bold small text-muted">Correo Electrónico</label>
                             <input type="email" id="authEmail" class="form-control" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Contraseña</label>
+                            <label class="form-label fw-bold small text-muted">Contraseña</label>
                             <input type="password" id="authPassword" class="form-control" required>
                         </div>
-                        <button type="submit" id="btnAuthSubmit" class="btn btn-primary w-100 fw-bold py-2 mb-3">Ingresar</button>
+                        <button type="submit" id="btnAuthSubmit" class="btn btn-primary w-100 fw-bold py-2 mb-3">Ingresar con Contraseña</button>
                         <div class="text-center">
-                            <a href="#" id="toggleAuthMode" class="small text-decoration-none">¿No tenés cuenta? Registrate acá</a>
+                            <a href="#" id="toggleAuthMode" class="small text-decoration-none">¿Preferís crear una cuenta manual con contraseña?</a>
                         </div>
                     </form>
                 </div>
@@ -352,31 +358,32 @@
         </div>
     </div>
 
+    <!-- MODAL REGISTRO DE PERFIL DOCENTE -->
+    <div class="modal fade" id="modalCompletarPerfil" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">Completar Perfil Docente</h5>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">Es tu primer ingreso con esta cuenta. Por favor, ingresá tus datos reales para configurar tu perfil:</p>
+                    <form id="formCompletarPerfil">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">APELLIDO(S)</label>
+                            <input type="text" class="form-control" id="perfilApellido" placeholder="PERENGANO" required style="text-transform: uppercase;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre(s)</label>
+                            <input type="text" class="form-control" id="perfilNombre" placeholder="Luis Alberto" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mt-2">Guardar Perfil y Continuar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="js/panel.js"></script>
-    <!-- MODAL REGISTRO DE PERFIL DOCENTE -->
-<div class="modal fade" id="modalCompletarPerfil" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title fw-bold">Completar Perfil Docente</h5>
-      </div>
-      <div class="modal-body p-4">
-        <p class="text-muted small mb-3">Es tu primer ingreso con esta cuenta. Por favor, ingresá tus datos reales para configurar tu perfil:</p>
-        <form id="formCompletarPerfil">
-          <div class="mb-3">
-            <label class="form-label fw-bold">APELLIDO(S)</label>
-            <input type="text" class="form-control" id="perfilApellido" placeholder="PERENGANO" required style="text-transform: uppercase;">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">Nombre(s)</label>
-            <input type="text" class="form-control" id="perfilNombre" placeholder="Luis Alberto" required>
-          </div>
-          <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mt-2">Guardar Perfil y Continuar</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
 </body>
 </html>
