@@ -1,4 +1,4 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // Configuración de conexión a Supabase
 const SUPABASE_URL = 'https://bpwxxodhiswltefhqbol.supabase.co';
@@ -53,6 +53,7 @@ export async function guardarNominaCurso(cursoId, alumnos) {
             curso_id: cursoId,
             apellido: al.apellido,
             nombre: al.nombre,
+            email_alumno: al.emailAlumno || null,
             email_tutor: al.emailTutor || null,
             pin: pin
         });
