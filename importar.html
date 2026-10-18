@@ -36,7 +36,7 @@
             <input type="text" id="cod_tp" value="CBMTP-1-MAT-001" placeholder="Ej: CBMTP-1-MAT-001">
         </div>
         <div class="form-group">
-            <label>Título del Tema (Sin "TP X"):</label>
+            <label>Título del Tema / Materia:</label>
             <input type="text" id="titulo_humano" value="Razonamiento Deductivo y Contraejemplos" placeholder="Ej: Razonamiento Deductivo y Contraejemplos">
         </div>
     </div>
@@ -108,9 +108,6 @@
     async function procesarYSubir() {
         const codTp = document.getElementById('cod_tp').value.trim();
         const tituloHumano = document.getElementById('titulo_humano').value.trim();
-        const especialidadLibre = document.getElementById('especialidad_libre').value.trim();
-        const anio = parseInt(document.getElementById('anio').value);
-        const nivelBloom = document.getElementById('nivel_bloom').value;
         const rawText = document.getElementById('datos_sheets').value.trim();
         const resDiv = document.getElementById('resultado');
 
@@ -130,8 +127,6 @@
         resDiv.style.color = 'blue';
         resDiv.innerText = 'Procesando e importando al banco global...';
 
-        const etiquetaEspecialidad = `${escuelasSel.join(',')}${especialidadLibre ? ' - ' + especialidadLibre : ''}`;
-
         const filas = rawText.split('\n');
         const preguntasAInsertar = [];
 
@@ -139,23 +134,27 @@
             const columnas = fila.split('\t');
             if (columnas.length >= 2) {
                 const instruccion = columnas[0] ? columnas[0].trim() : '';
-                const opciones = columnas[1] ? columnas[1].trim() : '';
+                const opcionesTexto = columnas[1] ? columnas[1].trim() : '';
                 const retroalimentacion = columnas[2] ? columnas[2].trim() : '';
-                const puntos = columnas[3] ? parseInt(columnas[3].trim()) || 10 : 10;
-                const tipo = columnas[columnas.length - 1] ? columnas[columnas.length - 1].trim().toUpperCase() : 'OM';
+
+                // Extraer lista de opciones como Array para formato JSONB
+                let arregloOpciones = [];
+                if (opcionesTexto) {
+                    arregloOpciones = opcionesTexto.includes(',,,') 
+                        ? opcionesTexto.split(',,,').map(o => o.trim()) 
+                        : opcionesTexto.split(',').map(o => o.trim());
+                }
+
+                // Definir la respuesta correcta (primera opción o retroalimentación)
+                const respuestaCorrecta = arregloOpciones.length > 0 ? arregloOpciones[0] : retroalimentacion;
 
                 if (instruccion) {
                     preguntasAInsertar.push({
                         cod_tp: codTp,
-                        titulo_humano: tituloHumano,
-                        especialidad_nivel: etiquetaEspecialidad,
-                        anio: anio,
-                        instrucciones: instruccion,
-                        opciones: opciones,
-                        retroalimentacion: retroalimentacion,
-                        puntos: puntos,
-                        tipo: tipo,
-                        nivel_bloom: nivelBloom
+                        materia: tituloHumano,
+                        consigna: instruccion,
+                        opciones: arregloOpciones,
+                        respuesta_correcta: respuestaCorrecta
                     });
                 }
             }
@@ -169,7 +168,7 @@
             if (errPreguntas) throw errPreguntas;
 
             resDiv.style.color = 'green';
-            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios al Banco Global bajo la etiqueta [${etiquetaEspecialidad}], código [${codTp}] y Nivel de Bloom [${nivelBloom}].`;
+            resDiv.innerText = `✅ ¡Éxito! Se cargaron ${preguntasAInsertar.length} ejercicios al Banco Global bajo el código [${codTp}] y la materia/tema [${tituloHumano}].`;
         } catch (err) {
             console.error(err);
             resDiv.style.color = 'red';
