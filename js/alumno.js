@@ -72,7 +72,7 @@ if (formAlumnoAlt) {
                 .from('alumnos')
                 .select('*, cursos(*)')
                 .or(`email_alumno.eq.${mailVal},email.eq.${mailVal}`)
-                .eq('pin_acceso', pinVal);
+                .eq('pin', pinVal); // <-- CORREGIDO: Cambiado 'pin_acceso' por 'pin'
 
             if (error) throw error;
 
@@ -89,7 +89,6 @@ if (formAlumnoAlt) {
         }
     });
 }
-
 // 3. CERRAR SESIÓN
 if (btnCerrarSesionAlumno) {
     btnCerrarSesionAlumno.addEventListener('click', async () => {
