@@ -126,26 +126,32 @@ async function actualizarInterfaz(usuario) {
         if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
         if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
 
-        // Asegurar que el profesor exista en la tabla publica 'profesores'
+        // Verificar si ya existe el perfil del docente
         try {
             const { data: prof, error } = await supabase
                 .from('profesores')
-                .select('id')
+                .select('*')
                 .eq('id', usuario.id)
                 .maybeSingle();
 
             if (!prof) {
-                // Si no existe en la tabla pública, lo creamos automáticamente
+                // Es un profesor nuevo: solicitamos sus datos reales
+                const nombreIngresado = prompt('¡Bienvenido! Por favor, ingresá tu NOMBRE para el perfil docente:', usuario.user_metadata?.full_name || '');
+                const apellidoIngresado = prompt('Por favor, ingresá tu APELLIDO:');
+
+                const nombreFinal = (nombreIngresado && nombreIngresado.trim()) ? nombreIngresado.trim() : 'Docente';
+                const apellidoFinal = (apellidoIngresado && apellidoIngresado.trim()) ? apellidoIngresado.trim() : 'Aula Virtual';
+
                 await supabase.from('profesores').insert([{
                     id: usuario.id,
                     email: usuario.email,
-                    nombre: usuario.user_metadata?.full_name || usuario.user_metadata?.nombre || 'Docente',
-                    apellido: usuario.user_metadata?.apellido || 'Aula Virtual',
+                    nombre: nombreFinal,
+                    apellido: apellidoFinal,
                     estado_suscripcion: 'activa'
                 }]);
             }
         } catch (e) {
-            console.error('Error al sincronizar profesor:', e);
+            console.error('Error al verificar/crear perfil de profesor:', e);
         }
 
         cargarCursos(usuario.id);
