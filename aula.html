@@ -208,9 +208,9 @@
     });
 
     async function armarEncabezadoCompleto(alumno) {
-        let nombreAlumno = alumno.nombre || 'Estudiante';
+        let nombreAlumno = alumno.nombre ? `${alumno.apellido || ''} ${alumno.nombre}`.trim() : 'Estudiante';
         let escuelaNombre = 'S/E';
-        let cursoNombre = '1° 1';
+        let cursoNombre = 'General';
 
         try {
             if (alumno.curso_id) {
@@ -221,12 +221,12 @@
                     .single();
 
                 if (curso) {
-                    if (curso.escuela && curso.escuela !== 'S/E') escuelaNombre = curso.escuela;
-                    if (curso.nombre) cursoNombre = curso.nombre;
+                    if (curso.institucion && curso.institucion !== 'S/E') escuelaNombre = curso.institucion;
+                    if (curso.anio_division) cursoNombre = curso.anio_division;
                 }
             } else if (alumno.cursos) {
-                if (alumno.cursos.escuela && alumno.cursos.escuela !== 'S/E') escuelaNombre = alumno.cursos.escuela;
-                if (alumno.cursos.nombre) cursoNombre = alumno.cursos.nombre;
+                if (alumno.cursos.institucion && alumno.cursos.institucion !== 'S/E') escuelaNombre = alumno.cursos.institucion;
+                if (alumno.cursos.anio_division) cursoNombre = alumno.cursos.anio_division;
             }
         } catch (err) {
             console.error('Error al obtener datos del curso:', err);
@@ -251,8 +251,8 @@
             }
 
             preguntas = data;
-            if (preguntas[0].titulo_humano) {
-                document.getElementById('tituloTP').innerText = preguntas[0].titulo_humano;
+            if (preguntas[0].materia) {
+                document.getElementById('tituloTP').innerText = preguntas[0].materia;
             } else {
                 document.getElementById('tituloTP').innerText = 'Trabajo Práctico';
             }
@@ -272,15 +272,21 @@
 
         const p = preguntas[index];
         document.getElementById('contadorTexto').innerText = `Pregunta ${index + 1} de ${preguntas.length}`;
-        document.getElementById('textoConsigna').innerText = p.instrucciones || p.consigna || p.titulo_humano || '';
+        document.getElementById('textoConsigna').innerText = p.consigna || '';
 
         const select = document.getElementById('selectRespuesta');
         select.innerHTML = '<option value="">-- Selecciona una opción --</option>';
 
         if (p.opciones) {
-            const listaOp = p.opciones.includes(',,,') ? p.opciones.split(',,,') : p.opciones.split(',');
+            let listaOp = [];
+            if (Array.isArray(p.opciones)) {
+                listaOp = p.opciones;
+            } else if (typeof p.opciones === 'string') {
+                listaOp = p.opciones.includes(',,,') ? p.opciones.split(',,,') : p.opciones.split(',');
+            }
+
             listaOp.forEach(op => {
-                const optText = op.trim();
+                const optText = String(op).trim();
                 if (optText) {
                     const optionEl = document.createElement('option');
                     optionEl.value = optText;
@@ -332,51 +338,52 @@
     });
 
     async function guardarResultadoFinal() {
-    try {
-        let aciertos = 0;
-        const totalPreguntas = preguntas.length;
+        try {
+            let aciertos = 0;
+            const totalPreguntas = preguntas.length;
 
-        // Comparar respuestas y calcular aciertos
-        const payloadRespuestas = preguntas.map(p => {
-            const respAlumno = respuestasGuardadas[p.id] || '';
-            const respCorrecta = p.respuesta_correcta || p.correcta || '';
-            const esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
+            const payloadRespuestas = preguntas.map(p => {
+                const respAlumno = respuestasGuardadas[p.id] || '';
+                const respCorrecta = p.respuesta_correcta || '';
+                const esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
 
-            if (esCorrecta) aciertos++;
+                if (esCorrecta) aciertos++;
 
-            return {
-                pregunta_id: p.id,
-                respuesta: respAlumno,
-                correcta: respCorrecta,
-                es_correcta: esCorrecta
-            };
-        });
+                return {
+                    pregunta_id: p.id,
+                    respuesta: respAlumno,
+                    correcta: respCorrecta,
+                    es_correcta: esCorrecta
+                };
+            });
 
-        // Nota sobre 10
-        const notaCalculada = Math.round((aciertos / totalPreguntas) * 10);
-        const aprobado = notaCalculada >= 6;
+            const notaCalculada = Math.round((aciertos / totalPreguntas) * 10);
+            const aprobado = notaCalculada >= 6;
 
-        // Inserción limpia utilizando estrictamente el ID de la base de datos
-        await supabaseClient
-            .from('evaluaciones_resultados')
-            .insert([{
-                alumno_id: alumnoActual ? alumnoActual.id : null,
-                alumno_nombre: alumnoActual ? (alumnoActual.nombre || `${alumnoActual.apellido || ''} ${alumnoActual.nombre || ''}`.trim()) : 'Anónimo',
-                cod_tp: codTp,
-                nota: notaCalculada,
-                aciertos: aciertos,
-                total_preguntas: totalPreguntas,
-                respuestas: JSON.stringify(payloadRespuestas),
-                fecha: new Date().toISOString()
-            }]);
+            // Inserción estandarizada según el schema.sql oficial
+            const { error } = await supabaseClient
+                .from('evaluaciones_resultados')
+                .insert([{
+                    alumno_id: alumnoActual ? alumnoActual.id : null,
+                    curso_id: alumnoActual ? alumnoActual.curso_id : null,
+                    tp_codigo: codTp,
+                    nota: notaCalculada,
+                    nivel_bloom: 'Evaluación',
+                    tiempo_segundos: 0,
+                    foco_perdido: 0,
+                    detalle_respuestas: payloadRespuestas
+                }]);
 
-        finalizarTP(notaCalculada, aciertos, totalPreguntas, aprobado);
+            if (error) throw error;
 
-    } catch (err) {
-        console.error('Error al guardar:', err);
-        alert('Error al registrar tu entrega: ' + err.message);
+            finalizarTP(notaCalculada, aciertos, totalPreguntas, aprobado);
+
+        } catch (err) {
+            console.error('Error al guardar:', err);
+            alert('Error al registrar tu entrega: ' + err.message);
+        }
     }
-}
+
     function finalizarTP(nota, aciertos, total, aprobado) {
         document.getElementById('secPregunta').classList.add('hidden');
         const secFin = document.getElementById('secFin');
