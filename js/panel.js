@@ -260,15 +260,15 @@ async function cargarCursos(profesorId) {
                 <div class="card card-custom h-100 p-3 border-0 shadow-sm">
                     <div class="card-body d-flex flex-column justify-content-between">
                         <div>
-                            <span class="badge bg-primary mb-2">${c.institucion || 'S/E'}</span>
+                            <span class="badge bg-primary mb-2">${c.escuela || 'S/E'}</span>
                             <h4 class="card-title fw-bold text-dark mb-1">${c.anio_division}</h4>
-                            <p class="small text-muted mb-1"><strong>Código Ref:</strong> <code>${c.codigo_ref || '-'}</code></p>
+                            <p class="small text-muted mb-1"><strong>Código Invitación:</strong> <code>${c.codigo_invitacion || '-'}</code></p>
                             <p class="small text-muted"><strong>Alumnos Inscriptos:</strong> ${c.alumnos ? c.alumnos[0].count : 0}</p>
                         </div>
                         <button class="btn btn-outline-primary btn-sm w-100 fw-bold mt-3 btn-ver-curso" 
                                 data-id="${c.id}" 
                                 data-nombre="${c.anio_division}" 
-                                data-escuela="${c.institucion || ''}">
+                                data-escuela="${c.escuela || ''}">
                             Ver Curso & Evaluaciones
                         </button>
                     </div>
@@ -297,23 +297,23 @@ if (formCrearCurso) {
     formCrearCurso.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const institucion = document.getElementById('cursoInstitucion').value;
+        const escuela = document.getElementById('cursoInstitucion').value;
         const anioDivision = document.getElementById('cursoAnioDivision').value;
         const modalidad = document.getElementById('cursoModalidad').value;
         const rawText = document.getElementById('nominaRaw').value;
 
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const codigoRef = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const codigoInvitacion = Math.random().toString(36).substring(2, 8).toUpperCase();
 
             const { data: curso, error: errCurso } = await supabase
                 .from('cursos')
                 .insert([{
                     profesor_id: session ? session.user.id : null,
-                    institucion: institucion,
+                    escuela: escuela,
                     anio_division: anioDivision,
                     modalidad: modalidad,
-                    codigo_ref: codigoRef
+                    codigo_invitacion: codigoInvitacion
                 }])
                 .select()
                 .single();
@@ -776,7 +776,7 @@ if (formEditarCurso) {
             const { error } = await supabase
                 .from('cursos')
                 .update({
-                    institucion: nuevaEscuela || null,
+                    escuela: nuevaEscuela || null,
                     anio_division: nuevoNombre
                 })
                 .eq('id', cursoId);
@@ -795,7 +795,7 @@ if (formEditarCurso) {
             cargarCursos(session ? session.user.id : null);
 
         } catch (err) {
-            alert('Error al actualizar curso: ' + err.message);
+            alert('Error al actualizar la comisión: ' + err.message);
         }
     });
 }
