@@ -35,6 +35,7 @@ let esModoRegistro = false;
 let cursoActualId = null;
 let cursoActualInfo = null;
 let bancoTPsMemoria = []; // Caché local del banco de TPs para filtrado rápido
+let modalPerfilInstancia = null;
 
 // =========================================================================
 // AUTENTICACIÓN
@@ -121,53 +122,42 @@ if (btnCerrarSesion) {
 
 async function actualizarInterfaz(usuario) {
     if (usuario) {
+        if (seccionAuth) seccionAuth.classList.add('d-none');
+        if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
+
         try {
-            // 1. Buscamos si el email ya existe en la tabla de profesores
+            // Verificar si el profesor ya existe en la tabla pública 'profesores'
             const { data: prof, error } = await supabase
                 .from('profesores')
                 .select('*')
-                .eq('email', usuario.email)
+                .eq('id', usuario.id)
                 .maybeSingle();
 
-            // 2. Si NO existe el profesor con ese email, rechazamos el ingreso
             if (!prof) {
-                alert(`El correo ${usuario.email} no está registrado como docente en el sistema. Por favor, completá el proceso de inscripción.`);
-                
-                // Cerramos la sesión creada por Google/Auth
-                await supabase.auth.signOut();
-
-                // Cambiamos la pantalla al formulario de registro
-                if (seccionAuth) seccionAuth.classList.remove('d-none');
+                // Si no existe, ocultamos dashboard y abrimos modal de perfil
                 if (seccionDashboard) seccionDashboard.classList.add('d-none');
-                if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
-                if (btnCerrarSesion) btnCerrarSesion.classList.add('d-none');
 
-                // Activamos el modo registro si existe el toggle
-                if (!esModoRegistro && toggleAuthMode) {
-                    toggleAuthMode.click();
+                const elemNombre = document.getElementById('perfilNombre');
+                if (elemNombre && !elemNombre.value) {
+                    elemNombre.value = usuario.user_metadata?.full_name || usuario.user_metadata?.nombre || '';
+                }
+
+                const modalEl = document.getElementById('modalCompletarPerfil');
+                if (modalEl) {
+                    modalPerfilInstancia = new bootstrap.Modal(modalEl);
+                    modalPerfilInstancia.show();
                 }
                 return;
             }
 
-            // 3. Si existe pero su ID no coincide (por ejemplo, si borramos la tabla), actualizamos el ID
-            if (prof.id !== usuario.id) {
-                await supabase
-                    .from('profesores')
-                    .update({ id: usuario.id })
-                    .eq('email', usuario.email);
-            }
-
-            // 4. Acceso permitido al Dashboard
-            if (seccionAuth) seccionAuth.classList.add('d-none');
+            // Si el perfil está completo, habilitamos el Dashboard
             if (seccionDashboard) seccionDashboard.classList.remove('d-none');
             if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
-            if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
 
             cargarCursos(usuario.id);
 
         } catch (e) {
-            console.error('Error al verificar credenciales del profesor:', e);
-            alert('Error al validar tu usuario: ' + e.message);
+            console.error('Error al consultar perfil docente:', e);
         }
 
     } else {
@@ -177,6 +167,43 @@ async function actualizarInterfaz(usuario) {
         if (btnCerrarSesion) btnCerrarSesion.classList.add('d-none');
     }
 }
+
+// Handler para el Modal de Registro de Perfil
+const formCompletarPerfil = document.getElementById('formCompletarPerfil');
+if (formCompletarPerfil) {
+    formCompletarPerfil.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const apellido = document.getElementById('perfilApellido').value.trim().toUpperCase();
+        const nombre = document.getElementById('perfilNombre').value.trim();
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('No hay sesión activa.');
+
+            const { error } = await supabase.from('profesores').insert([{
+                id: session.user.id,
+                email: session.user.email,
+                nombre: nombre,
+                apellido: apellido,
+                estado_suscripcion: 'activa'
+            }]);
+
+            if (error) throw error;
+
+            if (modalPerfilInstancia) {
+                modalPerfilInstancia.hide();
+            }
+
+            alert('¡Perfil completado con éxito!');
+            actualizarInterfaz(session.user);
+
+        } catch (err) {
+            alert('Error al guardar el perfil: ' + err.message);
+        }
+    });
+}
+
 async function inicializarSesion() {
     const { data: { session } } = await supabase.auth.getSession();
     actualizarInterfaz(session ? session.user : null);
@@ -199,13 +226,11 @@ function parsearLineaAlumno(linea) {
     let emailTutor = null;
 
     if (partes.length >= 4) {
-        // Formato: APELLIDO, NOMBRE, EMAIL_ALUMNO, EMAIL_TUTOR
         apellido = partes[0];
         nombre = partes[1];
         emailAlumno = partes[2] && partes[2].includes('@') ? partes[2] : null;
         emailTutor = partes[3] && partes[3].includes('@') ? partes[3] : null;
     } else if (partes.length === 3) {
-        // Formato: APELLIDO, NOMBRE, EMAIL_TUTOR (o EMAIL_ALUMNO)
         apellido = partes[0];
         nombre = partes[1];
         if (partes[2] && partes[2].includes('@')) {
@@ -230,14 +255,13 @@ async function guardarNominaCurso(cursoId, alumnosList) {
         nombre: a.nombre,
         email_alumno: a.emailAlumno,
         email_tutor: a.emailTutor,
-        pin: Math.floor(1000 + Math.random() * 9000).toString() // Genera PIN automático de 4 dígitos
+        pin: Math.floor(1000 + Math.random() * 9000).toString()
     }));
 
     const { error } = await supabase.from('alumnos').insert(regInsert);
     if (error) throw error;
 }
 
-// Escuchador de clic para el modal "Agregar / Cargar Alumnos"
 const modalInscribirAlumnos = document.getElementById('modalInscribirAlumnos');
 if (modalInscribirAlumnos) {
     const btnCargarModal = modalInscribirAlumnos.querySelector('.modal-footer .btn-primary') || 
@@ -415,7 +439,6 @@ async function verDetalleCurso(cursoId, nombre, escuela) {
         `;
     }
 
-    // Listener para abrir el modal con datos cargados
     document.getElementById('btnAbrirEditarCurso')?.addEventListener('click', () => {
         document.getElementById('editCursoId').value = cursoId;
         document.getElementById('editCursoEscuela').value = (escuela && escuela !== 'S/E') ? escuela : '';
@@ -485,7 +508,6 @@ async function cargarAlumnosCurso(cursoId) {
             `;
         }).join('');
 
-        // Evento para Abrir Modal de Edición
         document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const ds = e.currentTarget.dataset;
@@ -504,7 +526,6 @@ async function cargarAlumnosCurso(cursoId) {
             });
         });
 
-        // Evento para Eliminar Alumno
         document.querySelectorAll('.btn-eliminar-alumno').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const target = e.currentTarget;
@@ -529,7 +550,6 @@ async function cargarAlumnosCurso(cursoId) {
     }
 }
 
-// Handler Formulario de Edición de Alumnos
 const formEditarAlumno = document.getElementById('formEditarAlumno');
 if (formEditarAlumno) {
     formEditarAlumno.addEventListener('submit', async (e) => {
@@ -572,7 +592,7 @@ if (formEditarAlumno) {
 }
 
 // =========================================================================
-// ASIGNACIÓN DE TRABAJOS PRÁCTICOS (BANCO GLOBAL Y TAXONOMÍA DE BLOOM)
+// ASIGNACIÓN DE TRABAJOS PRÁCTICOS
 // =========================================================================
 async function cargarTPsAsignadosCurso(cursoId) {
     if (!tablaTPsAsignadosBody) return;
@@ -644,7 +664,6 @@ async function cargarTPsAsignadosCurso(cursoId) {
     }
 }
 
-// Cargar catálogo de TPs únicos desde Supabase al abrir el Modal
 async function cargarBancoGlobal() {
     const contenedor = document.getElementById('listaBancoTPs');
     if (!contenedor) return;
@@ -687,7 +706,6 @@ async function cargarBancoGlobal() {
     }
 }
 
-// Renderizar filas de TPs en el modal
 function renderizarBancoTPs(lista) {
     const contenedor = document.getElementById('listaBancoTPs');
     const contador = document.getElementById('cantTPsEncontrados');
@@ -725,23 +743,17 @@ function renderizarBancoTPs(lista) {
     });
 }
 
-// Aplicar filtros manuales
 function aplicarFiltrosBanco() {
     const filtroTexto = (document.getElementById('filtroTextoTP')?.value || '').toLowerCase();
-    const filtroBloom = document.getElementById('filtroBloomTP')?.value || '';
 
     const resultado = bancoTPsMemoria.filter(tp => {
-        const coincideTexto = (tp.materia || '').toLowerCase().includes(filtroTexto) || 
-                              (tp.cod_tp || '').toLowerCase().includes(filtroTexto);
-        const coincideBloom = true; // Mantener filtro de estructura
-
-        return coincideTexto && coincideBloom;
+        return (tp.materia || '').toLowerCase().includes(filtroTexto) || 
+               (tp.cod_tp || '').toLowerCase().includes(filtroTexto);
     });
 
     renderizarBancoTPs(resultado);
 }
 
-// Motor de Sugerencias por Temario
 function analizarProgramaDocente() {
     const textoPrograma = (document.getElementById('inputProgramaDocente')?.value || '').toLowerCase().trim();
     if (!textoPrograma) {
@@ -761,7 +773,6 @@ function analizarProgramaDocente() {
     renderizarBancoTPs(sugerencias.length > 0 ? sugerencias : bancoTPsMemoria);
 }
 
-// Ejecutar el guardado en Supabase
 async function ejecutarAsignacionTP(codTp) {
     if (!cursoActualId) {
         alert('Error: No hay un curso seleccionado.');
@@ -792,7 +803,6 @@ async function ejecutarAsignacionTP(codTp) {
     }
 }
 
-// Escuchadores de eventos para los controles del Modal
 const modalAsignarTP = document.getElementById('modalAsignarTP');
 if (modalAsignarTP) {
     modalAsignarTP.addEventListener('show.bs.modal', () => {
@@ -805,7 +815,6 @@ document.getElementById('filtroBloomTP')?.addEventListener('change', aplicarFilt
 document.getElementById('filtroAnioTP')?.addEventListener('change', aplicarFiltrosBanco);
 document.getElementById('btnAnalizarPrograma')?.addEventListener('click', analizarProgramaDocente);
 
-// Handler para Guardar los Cambios del Curso/Escuela
 const formEditarCurso = document.getElementById('formEditarCurso');
 if (formEditarCurso) {
     formEditarCurso.addEventListener('submit', async (e) => {
