@@ -126,38 +126,45 @@ async function actualizarInterfaz(usuario) {
         if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
 
         try {
-            // Verificar si el profesor ya existe en la tabla pública 'profesores'
+            // 1. Consultar si el profesor existe en la tabla pública por su ID de Auth
             const { data: prof, error } = await supabase
                 .from('profesores')
                 .select('*')
                 .eq('id', usuario.id)
                 .maybeSingle();
 
-            if (!prof) {
-                // Si no existe, ocultamos dashboard y abrimos modal de perfil
+            // Si hay un error en la consulta o si no existe en la tabla 'profesores'
+            if (error || !prof) {
+                console.log('Profesor no registrado en la tabla pública. Ocultando panel y solicitando datos...');
+                
+                // Ocultar obligatoriamente el Dashboard y vistas de detalle
                 if (seccionDashboard) seccionDashboard.classList.add('d-none');
+                if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
 
+                // Sugerir el nombre si viene en los metadatos de Google
                 const elemNombre = document.getElementById('perfilNombre');
                 if (elemNombre && !elemNombre.value) {
-                    elemNombre.value = usuario.user_metadata?.full_name || usuario.user_metadata?.nombre || '';
+                    elemNombre.value = usuario.user_metadata?.full_name || usuario.user_metadata?.name || usuario.user_metadata?.nombre || '';
                 }
 
+                // Desplegar el modal emergente para completar APELLIDO y Nombre
                 const modalEl = document.getElementById('modalCompletarPerfil');
                 if (modalEl) {
                     modalPerfilInstancia = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
                     modalPerfilInstancia.show();
                 }
-                return;
+                return; // Bloquea la ejecución para que NO se muestre el dashboard
             }
 
-            // Si el perfil está completo, habilitamos el Dashboard
+            // 2. Si el perfil está confirmado en la tabla, recién permitimos ver el Dashboard
             if (seccionDashboard) seccionDashboard.classList.remove('d-none');
             if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
 
             cargarCursos(usuario.id);
 
         } catch (e) {
-            console.error('Error al consultar perfil docente:', e);
+            console.error('Error al verificar perfil docente:', e);
+            if (seccionDashboard) seccionDashboard.classList.add('d-none');
         }
 
     } else {
@@ -167,7 +174,6 @@ async function actualizarInterfaz(usuario) {
         if (btnCerrarSesion) btnCerrarSesion.classList.add('d-none');
     }
 }
-
 // Handler para el Modal de Registro de Perfil
 const formCompletarPerfil = document.getElementById('formCompletarPerfil');
 if (formCompletarPerfil) {
