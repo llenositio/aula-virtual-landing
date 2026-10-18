@@ -183,9 +183,10 @@ function parsearLineaAlumno(linea) {
 async function guardarNominaCurso(cursoId, alumnosList) {
     const regInsert = alumnosList.map(a => ({
         curso_id: cursoId,
-        nombre: `${a.apellido.toUpperCase()}, ${a.nombre}`,
+        apellido: a.apellido.toUpperCase(),
+        nombre: a.nombre,
         email_alumno: a.emailAlumno,
-        email: a.emailTutor,
+        email_tutor: a.emailTutor,
         pin: Math.floor(1000 + Math.random() * 9000).toString() // Genera PIN automático de 4 dígitos
     }));
 
@@ -259,15 +260,15 @@ async function cargarCursos(profesorId) {
                 <div class="card card-custom h-100 p-3 border-0 shadow-sm">
                     <div class="card-body d-flex flex-column justify-content-between">
                         <div>
-                            <span class="badge bg-primary mb-2">${c.escuela || 'S/E'}</span>
-                            <h4 class="card-title fw-bold text-dark mb-1">${c.nombre}</h4>
-                            <p class="small text-muted mb-1"><strong>Código Invitación:</strong> <code>${c.codigo_invitacion || '-'}</code></p>
+                            <span class="badge bg-primary mb-2">${c.institucion || 'S/E'}</span>
+                            <h4 class="card-title fw-bold text-dark mb-1">${c.anio_division}</h4>
+                            <p class="small text-muted mb-1"><strong>Código Ref:</strong> <code>${c.codigo_ref || '-'}</code></p>
                             <p class="small text-muted"><strong>Alumnos Inscriptos:</strong> ${c.alumnos ? c.alumnos[0].count : 0}</p>
                         </div>
                         <button class="btn btn-outline-primary btn-sm w-100 fw-bold mt-3 btn-ver-curso" 
                                 data-id="${c.id}" 
-                                data-nombre="${c.nombre}" 
-                                data-escuela="${c.escuela || ''}">
+                                data-nombre="${c.anio_division}" 
+                                data-escuela="${c.institucion || ''}">
                             Ver Curso & Evaluaciones
                         </button>
                     </div>
@@ -301,17 +302,18 @@ if (formCrearCurso) {
         const modalidad = document.getElementById('cursoModalidad').value;
         const rawText = document.getElementById('nominaRaw').value;
 
-        const nombreCurso = `${anioDivision} - ${modalidad}`;
-
         try {
-            const codigoInvitacion = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const { data: { session } } = await supabase.auth.getSession();
+            const codigoRef = Math.random().toString(36).substring(2, 8).toUpperCase();
 
             const { data: curso, error: errCurso } = await supabase
                 .from('cursos')
                 .insert([{
-                    nombre: nombreCurso,
-                    escuela: institucion,
-                    codigo_invitacion: codigoInvitacion
+                    profesor_id: session ? session.user.id : null,
+                    institucion: institucion,
+                    anio_division: anioDivision,
+                    modalidad: modalidad,
+                    codigo_ref: codigoRef
                 }])
                 .select()
                 .single();
@@ -334,7 +336,6 @@ if (formCrearCurso) {
             }
 
             formCrearCurso.reset();
-            const { data: { session } } = await supabase.auth.getSession();
             cargarCursos(session ? session.user.id : null);
 
         } catch (err) {
@@ -387,6 +388,7 @@ async function verDetalleCurso(cursoId, nombre, escuela) {
     await cargarAlumnosCurso(cursoId);
     await cargarTPsAsignadosCurso(cursoId);
 }
+
 async function cargarAlumnosCurso(cursoId) {
     if (!tablaAlumnosBody) return;
     tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Cargando alumnos...</td></tr>`;
@@ -396,7 +398,7 @@ async function cargarAlumnosCurso(cursoId) {
             .from('alumnos')
             .select('*')
             .eq('curso_id', cursoId)
-            .order('nombre', { ascending: true });
+            .order('apellido', { ascending: true });
 
         if (error) throw error;
 
@@ -406,9 +408,8 @@ async function cargarAlumnosCurso(cursoId) {
         }
 
         tablaAlumnosBody.innerHTML = alumnos.map((al, index) => {
-            const partes = al.nombre ? al.nombre.split(',') : ['', ''];
-            const apellido = partes[0] ? partes[0].trim() : al.nombre;
-            const nombre = partes[1] ? partes[1].trim() : '-';
+            const apellido = al.apellido || '-';
+            const nombre = al.nombre || '-';
             const pinMostrar = al.pin || 'Sin PIN';
 
             return `
@@ -417,7 +418,7 @@ async function cargarAlumnosCurso(cursoId) {
                     <td>${apellido}</td>
                     <td>${nombre}</td>
                     <td>${al.email_alumno ? `<span class="badge bg-light text-dark border">${al.email_alumno}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
-                    <td>${al.email ? `<span class="badge bg-light text-dark border">${al.email}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
+                    <td>${al.email_tutor ? `<span class="badge bg-light text-dark border">${al.email_tutor}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
                     <td><code class="fs-6 fw-bold text-primary bg-light px-2 py-1 rounded border">${pinMostrar}</code></td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-outline-primary me-1 btn-editar-alumno" 
@@ -425,14 +426,14 @@ async function cargarAlumnosCurso(cursoId) {
                                 data-apellido="${apellido}" 
                                 data-nombre="${nombre}" 
                                 data-emailalumno="${al.email_alumno || ''}" 
-                                data-emailtutor="${al.email || ''}" 
+                                data-emailtutor="${al.email_tutor || ''}" 
                                 data-pin="${al.pin || ''}" 
                                 title="Editar Alumno">
                             ✏️ Editar
                         </button>
                         <button class="btn btn-sm btn-outline-danger btn-eliminar-alumno" 
                                 data-id="${al.id}" 
-                                data-nombre="${al.nombre}" 
+                                data-nombre="${apellido}, ${nombre}" 
                                 title="Eliminar Alumno">
                             🗑️ Quitar
                         </button>
@@ -498,15 +499,14 @@ if (formEditarAlumno) {
         const emailTutor = document.getElementById('editTutorEmail').value.trim();
         const pin = document.getElementById('editAlumnoPin').value.trim();
 
-        const nombreCompleto = `${apellido}, ${nombre}`;
-
         try {
             const { error } = await supabase
                 .from('alumnos')
                 .update({
-                    nombre: nombreCompleto,
+                    apellido: apellido,
+                    nombre: nombre,
                     email_alumno: emailAlumno || null,
-                    email: emailTutor || null,
+                    email_tutor: emailTutor || null,
                     pin: pin || Math.floor(1000 + Math.random() * 9000).toString()
                 })
                 .eq('id', id);
@@ -552,22 +552,22 @@ async function cargarTPsAsignadosCurso(cursoId) {
         for (const asig of asignaciones) {
             let { data: preg } = await supabase
                 .from('banco_preguntas')
-                .select('titulo_humano, nivel_bloom')
+                .select('materia')
                 .eq('cod_tp', asig.cod_tp)
                 .limit(1);
 
             if (!preg || preg.length === 0) {
                 const resFallback = await supabase
                     .from('tps_matematica')
-                    .select('titulo_humano, nivel_bloom')
+                    .select('materia')
                     .eq('cod_tp', asig.cod_tp)
                     .limit(1);
                 preg = resFallback.data;
             }
 
             const item = (preg && preg.length > 0) ? preg[0] : null;
-            const titulo = item ? item.titulo_humano : 'TP en Banco Global';
-            const bloom = item ? item.nivel_bloom : 'Comprender';
+            const titulo = item ? item.materia : 'TP en Banco Global';
+            const bloom = 'Comprender';
 
             tablaTPsAsignadosBody.innerHTML += `
                 <tr>
@@ -611,13 +611,13 @@ async function cargarBancoGlobal() {
     try {
         let { data, error } = await supabase
             .from('banco_preguntas')
-            .select('cod_tp, titulo_humano, nivel_bloom')
+            .select('cod_tp, materia')
             .order('cod_tp');
 
         if (error || !data || data.length === 0) {
             const resFallback = await supabase
                 .from('tps_matematica')
-                .select('cod_tp, titulo_humano, nivel_bloom')
+                .select('cod_tp, materia')
                 .order('cod_tp');
 
             if (!resFallback.error && resFallback.data && resFallback.data.length > 0) {
@@ -661,8 +661,8 @@ function renderizarBancoTPs(lista) {
         <div class="list-group-item d-flex justify-content-between align-items-center py-3">
             <div>
                 <div class="fw-bold text-dark mb-1">
-                    ${tp.titulo_humano || 'Sin Título'}
-                    <span class="badge bg-primary text-white ms-2">${tp.nivel_bloom || 'Sin nivel'}</span>
+                    ${tp.materia || 'Sin Título'}
+                    <span class="badge bg-primary text-white ms-2">Comprender</span>
                 </div>
                 <div class="small text-muted">
                     Código: <code>${tp.cod_tp}</code>
@@ -688,9 +688,9 @@ function aplicarFiltrosBanco() {
     const filtroBloom = document.getElementById('filtroBloomTP')?.value || '';
 
     const resultado = bancoTPsMemoria.filter(tp => {
-        const coincideTexto = (tp.titulo_humano || '').toLowerCase().includes(filtroTexto) || 
+        const coincideTexto = (tp.materia || '').toLowerCase().includes(filtroTexto) || 
                               (tp.cod_tp || '').toLowerCase().includes(filtroTexto);
-        const coincideBloom = !filtroBloom || tp.nivel_bloom === filtroBloom;
+        const coincideBloom = true; // Mantener filtro de estructura
 
         return coincideTexto && coincideBloom;
     });
@@ -709,10 +709,10 @@ function analizarProgramaDocente() {
     const palabrasClave = textoPrograma.split(/\s+/).filter(p => p.length > 3);
 
     const sugerencias = bancoTPsMemoria.filter(tp => {
-        const titulo = (tp.titulo_humano || '').toLowerCase();
+        const materia = (tp.materia || '').toLowerCase();
         const cod = (tp.cod_tp || '').toLowerCase();
 
-        return palabrasClave.some(palabra => titulo.includes(palabra) || cod.includes(palabra));
+        return palabrasClave.some(palabra => materia.includes(palabra) || cod.includes(palabra));
     });
 
     renderizarBancoTPs(sugerencias.length > 0 ? sugerencias : bancoTPsMemoria);
@@ -761,6 +761,7 @@ document.getElementById('filtroTextoTP')?.addEventListener('input', aplicarFiltr
 document.getElementById('filtroBloomTP')?.addEventListener('change', aplicarFiltrosBanco);
 document.getElementById('filtroAnioTP')?.addEventListener('change', aplicarFiltrosBanco);
 document.getElementById('btnAnalizarPrograma')?.addEventListener('click', analizarProgramaDocente);
+
 // Handler para Guardar los Cambios del Curso/Escuela
 const formEditarCurso = document.getElementById('formEditarCurso');
 if (formEditarCurso) {
@@ -775,8 +776,8 @@ if (formEditarCurso) {
             const { error } = await supabase
                 .from('cursos')
                 .update({
-                    escuela: nuevaEscuela || 'S/E',
-                    nombre: nuevoNombre
+                    institucion: nuevaEscuela || null,
+                    anio_division: nuevoNombre
                 })
                 .eq('id', cursoId);
 
@@ -790,11 +791,11 @@ if (formEditarCurso) {
                 if (modalInstance) modalInstance.hide();
             }
 
-            // Actualizar la vista del detalle
-            verDetalleCurso(cursoId, nuevoNombre, nuevaEscuela);
+            const { data: { session } } = await supabase.auth.getSession();
+            cargarCursos(session ? session.user.id : null);
 
         } catch (err) {
-            alert('Error al actualizar la comisión: ' + err.message);
+            alert('Error al actualizar curso: ' + err.message);
         }
     });
 }
