@@ -144,7 +144,7 @@ async function actualizarInterfaz(usuario) {
 
                 const modalEl = document.getElementById('modalCompletarPerfil');
                 if (modalEl) {
-                    modalPerfilInstancia = new bootstrap.Modal(modalEl);
+                    modalPerfilInstancia = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
                     modalPerfilInstancia.show();
                 }
                 return;
@@ -181,6 +181,7 @@ if (formCompletarPerfil) {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('No hay sesión activa.');
 
+            // Insertar en la tabla profesores
             const { error } = await supabase.from('profesores').insert([{
                 id: session.user.id,
                 email: session.user.email,
@@ -191,11 +192,22 @@ if (formCompletarPerfil) {
 
             if (error) throw error;
 
-            if (modalPerfilInstancia) {
-                modalPerfilInstancia.hide();
+            // Ocultar modal y remover fondo gris de Bootstrap
+            const modalEl = document.getElementById('modalCompletarPerfil');
+            if (modalEl) {
+                const modalInstance = bootstrap.Modal.getInstance(modalEl) || modalPerfilInstancia;
+                if (modalInstance) modalInstance.hide();
             }
 
+            // Limpieza manual de capas oscuras residuales
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+
             alert('¡Perfil completado con éxito!');
+            
+            // Refrescar interfaz
             actualizarInterfaz(session.user);
 
         } catch (err) {
