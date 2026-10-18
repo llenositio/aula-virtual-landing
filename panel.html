@@ -354,5 +354,29 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="js/panel.js"></script>
+    <!-- MODAL REGISTRO DE PERFIL DOCENTE -->
+<div class="modal fade" id="modalCompletarPerfil" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold">Completar Perfil Docente</h5>
+      </div>
+      <div class="modal-body p-4">
+        <p class="text-muted small mb-3">Es tu primer ingreso con esta cuenta. Por favor, ingresá tus datos reales para configurar tu perfil:</p>
+        <form id="formCompletarPerfil">
+          <div class="mb-3">
+            <label class="form-label fw-bold">APELLIDO(S)</label>
+            <input type="text" class="form-control" id="perfilApellido" placeholder="PERENGANO" required style="text-transform: uppercase;">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Nombre(s)</label>
+            <input type="text" class="form-control" id="perfilNombre" placeholder="Luis Alberto" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mt-2">Guardar Perfil y Continuar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
