@@ -71,8 +71,8 @@ if (formAlumnoAlt) {
             const { data: alumnos, error } = await supabase
                 .from('alumnos')
                 .select('*, cursos(*)')
-                .or(`email_alumno.eq.${mailVal},email.eq.${mailVal}`)
-                .eq('pin', pinVal); // <-- CORREGIDO: Cambiado 'pin_acceso' por 'pin'
+                .eq('email_alumno', mailVal)
+                .eq('pin', pinVal);
 
             if (error) throw error;
 
@@ -89,6 +89,7 @@ if (formAlumnoAlt) {
         }
     });
 }
+
 // 3. CERRAR SESIÓN
 if (btnCerrarSesionAlumno) {
     btnCerrarSesionAlumno.addEventListener('click', async () => {
@@ -101,12 +102,10 @@ if (btnCerrarSesionAlumno) {
 
 // 4. COMPROBAR SESIÓN AUTOMÁTICA
 async function verificarSesionExistente() {
-    // Si viene la respuesta con el token de Google en la URL (#access_token), onAuthStateChange se encarga
     if (window.location.hash.includes('access_token')) {
         return;
     }
 
-    // A. Prioridad a la sesión guardada localmente por su ID único
     const sesionLocal = localStorage.getItem('alumnoSesion');
     if (sesionLocal) {
         const temp = JSON.parse(sesionLocal);
@@ -116,7 +115,6 @@ async function verificarSesionExistente() {
         }
     }
 
-    // B. Si no hay sesión local, consultar sesión activa en Supabase Auth
     const { data: { session } } = await supabase.auth.getSession();
     if (session && session.user) {
         await cargarAlumnoPorEmail(session.user.email);
@@ -130,7 +128,7 @@ async function cargarAlumnoPorEmail(email) {
         const { data: alumnos, error } = await supabase
             .from('alumnos')
             .select('*, cursos(*)')
-            .or(`email_alumno.eq.${email},email.eq.${email}`);
+            .eq('email_alumno', email);
 
         if (error || !alumnos || alumnos.length === 0) {
             mostrarError(`Tu correo (${email}) no está registrado en ningún curso activo.`);
@@ -146,7 +144,6 @@ async function cargarAlumnoPorEmail(email) {
     }
 }
 
-// Refresca la sesión usando siempre la PK (id) indiscutible
 async function refrescarYMostrarAlumnoPorId(alumnoId) {
     try {
         const { data: alumnoBD, error } = await supabase
@@ -170,7 +167,7 @@ async function refrescarYMostrarAlumnoPorId(alumnoId) {
     }
 }
 
-// 5. CONTROL DE VISTAS
+// 5. CONTROL DE VISTAS (CORREGIDO CON NOMBRES ESTÁNDAR DE CURSOS)
 function mostrarAuth() {
     if (navbarAlumno) navbarAlumno.classList.add('d-none');
     if (seccionDashboardAlumno) seccionDashboardAlumno.classList.add('d-none');
@@ -188,19 +185,19 @@ function mostrarDashboard() {
         }
 
         if (alumnoCursoVista) {
-            const cursoNombre = (alumnoActual.cursos && alumnoActual.cursos.nombre) ? alumnoActual.cursos.nombre : 'Sin Curso';
-            const escuelaNombre = (alumnoActual.cursos && alumnoActual.cursos.escuela && alumnoActual.cursos.escuela !== 'S/E') 
-                ? ` (${alumnoActual.cursos.escuela})` 
+            // Mapeo corregido a las columnas reales: anio_division e institucion
+            const cursoNombre = (alumnoActual.cursos && alumnoActual.cursos.anio_division) ? alumnoActual.cursos.anio_division : 'Sin Curso';
+            const escuelaNombre = (alumnoActual.cursos && alumnoActual.cursos.institucion) 
+                ? ` (${alumnoActual.cursos.institucion})` 
                 : '';
             alumnoCursoVista.innerText = `Comisión: ${cursoNombre}${escuelaNombre}`;
         }
 
-        // Consultar TPs e intentos usando IDs estrictos
         cargarEvaluacionesAsignadas(alumnoActual.curso_id, alumnoActual.id);
     }
 }
 
-// 6. CARGA DE EVALUACIONES E INTENTOS BASADA EN IDs RELACIONALES
+// 6. CARGA DE EVALUACIONES E INTENTOS (CORREGIDO CON NOMBRES ESTÁNDAR)
 async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
     if (!tablaEvaluacionesAlumnoBody) return;
     tablaEvaluacionesAlumnoBody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Cargando evaluaciones asignadas...</td></tr>';
@@ -211,7 +208,6 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
     }
 
     try {
-        // A. Obtener asignaciones del curso por curso_id
         const { data: asignaciones, error: errAsig } = await supabase
             .from('curso_evaluaciones')
             .select('*')
@@ -224,7 +220,6 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
             return;
         }
 
-        // B. Obtener intentos por alumno_id (PK)
         const { data: resultados, error: errRes } = await supabase
             .from('evaluaciones_resultados')
             .select('*')
@@ -232,17 +227,18 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
 
         if (errRes) console.warn('Aviso sobre resultados:', errRes.message);
 
-        // C. Mapear la nota máxima y cantidad de intentos por cod_tp
+        // Mapeo por tp_codigo (columna estándar del schema)
         const mapaIntentos = {};
         if (resultados) {
             resultados.forEach(res => {
+                const codTp = res.tp_codigo || res.cod_tp;
                 const notaActual = (res.nota !== undefined && res.nota !== null) ? Number(res.nota) : 0;
-                if (!mapaIntentos[res.cod_tp]) {
-                    mapaIntentos[res.cod_tp] = { maxNota: notaActual, cantIntentos: 1 };
+                if (!mapaIntentos[codTp]) {
+                    mapaIntentos[codTp] = { maxNota: notaActual, cantIntentos: 1 };
                 } else {
-                    mapaIntentos[res.cod_tp].cantIntentos++;
-                    if (notaActual > mapaIntentos[res.cod_tp].maxNota) {
-                        mapaIntentos[res.cod_tp].maxNota = notaActual;
+                    mapaIntentos[codTp].cantIntentos++;
+                    if (notaActual > mapaIntentos[codTp].maxNota) {
+                        mapaIntentos[codTp].maxNota = notaActual;
                     }
                 }
             });
@@ -250,19 +246,18 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
 
         tablaEvaluacionesAlumnoBody.innerHTML = '';
 
-        // D. Renderizar la tabla de evaluaciones
         for (let i = 0; i < asignaciones.length; i++) {
             const asig = asignaciones[i];
 
             const { data: pregs } = await supabase
                 .from('banco_preguntas')
-                .select('titulo_humano, nivel_bloom')
+                .select('materia')
                 .eq('cod_tp', asig.cod_tp)
                 .limit(1);
 
             const tpInfo = (pregs && pregs.length > 0) ? pregs[0] : null;
-            const titulo = tpInfo ? tpInfo.titulo_humano : 'Trabajo Práctico';
-            const bloom = tpInfo ? tpInfo.nivel_bloom : 'Comprender';
+            const titulo = tpInfo ? tpInfo.materia : `Trabajo Práctico (${asig.cod_tp})`;
+            const bloom = 'Evaluación';
 
             const infoIntento = mapaIntentos[asig.cod_tp];
             
