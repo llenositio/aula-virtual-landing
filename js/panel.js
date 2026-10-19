@@ -742,6 +742,7 @@ function vincularEventosPlanificacion(cursoId) {
     });
 }
 
+// AGREGAR TP AL PLAN CON TÍTULO HUMANO POR DEFECTO
 document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () => {
     const codTp = document.getElementById('inputCodTPAsignar').value;
     const periodo = document.getElementById('inputNuevoPeriodo').value.trim() || '1° Trimestre';
@@ -753,12 +754,25 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
     }
 
     try {
+        // 1. Obtener el título humano original del banco de preguntas
+        let tituloHumanoDefecto = codTp;
+        const { data: preg } = await supabase
+            .from('banco_preguntas')
+            .select('titulo_humano')
+            .eq('cod_tp', codTp)
+            .limit(1);
+
+        if (preg && preg.length > 0 && preg[0].titulo_humano) {
+            tituloHumanoDefecto = preg[0].titulo_humano;
+        }
+
+        // 2. Insertar en la planificación usando el Título Humano como Alias inicial
         const { error } = await supabase.from('curso_planificacion').insert([{
             curso_id: cursoActualId,
             cod_tp: codTp,
             periodo_evaluativo: periodo,
             unidad_tematica: unidad,
-            alias_tp: codTp,
+            alias_tp: tituloHumanoDefecto,
             activo: true
         }]);
 
@@ -771,6 +785,7 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
     } catch (err) {
         alert('Error al agregar TP al plan: ' + err.message);
     }
+});
 });
 
 // =========================================================================
