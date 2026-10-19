@@ -929,14 +929,18 @@ async function cargarAnaliticaCurso(cursoId) {
             }]
         });
 
-        // --- GRÁFICO 4: Diagnóstico por Pregunta (Desplegable Verde) ---
+       // --- GRÁFICO 4: Diagnóstico por Pregunta (Desplegable Verde) ---
         const selectDiag = document.getElementById('selectTpDiagnostico');
         if (selectDiag) {
             selectDiag.innerHTML = '<option value="">Seleccionar TP para diagnosticar...</option>' +
                 plan.map(p => `<option value="${p.cod_tp}">${p.alias_tp || p.cod_tp}</option>`).join('');
 
-            selectDiag.onchange = (e) => {
-                const codSeleccionado = e.target.value;
+            // Seleccionar por defecto el primer TP si existe
+            if (plan.length > 0) {
+                selectDiag.value = plan[0].cod_tp;
+            }
+
+            const actualizarGraficoDiagnostico = (codSeleccionado) => {
                 if (!codSeleccionado) return;
 
                 const respsTp = Object.values(mapaUltimaNotaAlumno)
@@ -945,7 +949,7 @@ async function cargarAnaliticaCurso(cursoId) {
 
                 if (respsTp.length === 0) {
                     renderizarGrafico('chartDiagnosticoPreguntas', 'bar', {
-                        labels: ['Sin datos suficientes'],
+                        labels: ['Sin datos registrados'],
                         datasets: [{ label: '% Acierto', data: [0], backgroundColor: '#6c757d' }]
                     });
                     return;
@@ -953,9 +957,16 @@ async function cargarAnaliticaCurso(cursoId) {
 
                 const cantPreguntas = respsTp[0].length;
                 const labelsPreg = Array.from({ length: cantPreguntas }, (_, i) => `Pregunta ${i + 1}`);
+                
                 const porcentajesAcierto = labelsPreg.map((_, idx) => {
-                    const correctas = respsTp.filter(r => r[idx] && r[idx].correcta).length;
-                    return Math.round((correctas / respsTp.length) * 100);
+                    const aciertos = respsTp.filter(r => {
+                        const preg = r[idx];
+                        if (!preg) return false;
+                        // Lee esCorrecta (Supabase), correcta o es_correcta
+                        return preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true;
+                    }).length;
+
+                    return Math.round((aciertos / respsTp.length) * 100);
                 });
 
                 renderizarGrafico('chartDiagnosticoPreguntas', 'bar', {
@@ -963,12 +974,19 @@ async function cargarAnaliticaCurso(cursoId) {
                     datasets: [{
                         label: '% Acierto por Pregunta',
                         data: porcentajesAcierto,
-                        backgroundColor: '#0d6efd'
+                        backgroundColor: porcentajesAcierto.map(val => val < 100 ? '#dc3545' : '#0d6efd') // Rojo si hubo errores
                     }]
-                }, { scales: { y: { min: 0, max: 100 } } });
+                }, { 
+                    scales: { 
+                        y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } 
+                    } 
+                });
             };
-        }
 
+            // Ejecutar al cambiar la opción o al cargar por primera vez
+            selectDiag.onchange = (e) => actualizarGraficoDiagnostico(e.target.value);
+            if (selectDiag.value) actualizarGraficoDiagnostico(selectDiag.value);
+        }
     } catch (err) {
         console.error('Error al cargar analítica real:', err);
     }
