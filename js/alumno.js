@@ -197,7 +197,7 @@ function mostrarDashboard() {
     }
 }
 
-// 6. CARGA DE EVALUACIONES E INTENTOS (CORREGIDO CON NOMBRES ESTÁNDAR)
+// 6. CARGA DE EVALUACIONES E INTENTOS (DESDUPLICADO Y CON ATRIBUTOS REALES)
 async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
     if (!tablaEvaluacionesAlumnoBody) return;
     tablaEvaluacionesAlumnoBody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Cargando evaluaciones asignadas...</td></tr>';
@@ -208,17 +208,27 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
     }
 
     try {
-        const { data: asignaciones, error: errAsig } = await supabase
+        const { data: asignacionesRaw, error: errAsig } = await supabase
             .from('curso_evaluaciones')
             .select('*')
             .eq('curso_id', cursoId);
 
         if (errAsig) throw errAsig;
 
-        if (!asignaciones || asignaciones.length === 0) {
+        if (!asignacionesRaw || asignacionesRaw.length === 0) {
             tablaEvaluacionesAlumnoBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No tenés evaluaciones asignadas en este momento. ¡Buen trabajo! 🎉</td></tr>';
             return;
         }
+
+        // DESDUPLICAR ASIGNACIONES POR COD_TP
+        const mapaCodigosUnicos = new Set();
+        const asignaciones = asignacionesRaw.filter(asig => {
+            if (!asig.cod_tp || mapaCodigosUnicos.has(asig.cod_tp)) {
+                return false;
+            }
+            mapaCodigosUnicos.add(asig.cod_tp);
+            return true;
+        });
 
         const { data: resultados, error: errRes } = await supabase
             .from('evaluaciones_resultados')
@@ -227,7 +237,7 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
 
         if (errRes) console.warn('Aviso sobre resultados:', errRes.message);
 
-        // Mapeo por tp_codigo (columna estándar del schema)
+        // Mapeo por tp_codigo
         const mapaIntentos = {};
         if (resultados) {
             resultados.forEach(res => {
@@ -249,15 +259,16 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
         for (let i = 0; i < asignaciones.length; i++) {
             const asig = asignaciones[i];
 
+            // Obtener el título real y nivel_bloom desde banco_preguntas
             const { data: pregs } = await supabase
                 .from('banco_preguntas')
-                .select('materia')
+                .select('titulo_humano, nivel_bloom')
                 .eq('cod_tp', asig.cod_tp)
                 .limit(1);
 
             const tpInfo = (pregs && pregs.length > 0) ? pregs[0] : null;
-            const titulo = tpInfo ? tpInfo.materia : `Trabajo Práctico (${asig.cod_tp})`;
-            const bloom = 'Evaluación';
+            const titulo = tpInfo && tpInfo.titulo_humano ? tpInfo.titulo_humano : `Trabajo Práctico (${asig.cod_tp})`;
+            const bloom = tpInfo && tpInfo.nivel_bloom ? tpInfo.nivel_bloom : 'Evaluación';
 
             const infoIntento = mapaIntentos[asig.cod_tp];
             
@@ -293,6 +304,5 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
         tablaEvaluacionesAlumnoBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar evaluaciones: ${err.message}</td></tr>`;
     }
 }
-
 // INICIALIZACIÓN
 verificarSesionExistente();
