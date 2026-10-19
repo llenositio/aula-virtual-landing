@@ -174,6 +174,7 @@ async function actualizarInterfaz(usuario) {
         if (btnCerrarSesion) btnCerrarSesion.classList.add('d-none');
     }
 }
+
 // Handler para el Modal de Registro de Perfil
 const formCompletarPerfil = document.getElementById('formCompletarPerfil');
 if (formCompletarPerfil) {
@@ -633,22 +634,13 @@ async function cargarTPsAsignadosCurso(cursoId) {
         for (const asig of asignaciones) {
             let { data: preg } = await supabase
                 .from('banco_preguntas')
-                .select('materia')
+                .select('titulo_humano, nivel_bloom')
                 .eq('cod_tp', asig.cod_tp)
                 .limit(1);
 
-            if (!preg || preg.length === 0) {
-                const resFallback = await supabase
-                    .from('tps_matematica')
-                    .select('materia')
-                    .eq('cod_tp', asig.cod_tp)
-                    .limit(1);
-                preg = resFallback.data;
-            }
-
             const item = (preg && preg.length > 0) ? preg[0] : null;
-            const titulo = item ? item.materia : 'TP en Banco Global';
-            const bloom = 'Comprender';
+            const titulo = item ? item.titulo_humano : 'TP en Banco Global';
+            const bloom = item ? item.nivel_bloom : 'Comprender';
 
             tablaTPsAsignadosBody.innerHTML += `
                 <tr>
@@ -691,13 +683,13 @@ async function cargarBancoGlobal() {
     try {
         let { data, error } = await supabase
             .from('banco_preguntas')
-            .select('cod_tp, materia')
+            .select('cod_tp, titulo_humano, anio, nivel_bloom')
             .order('cod_tp');
 
         if (error || !data || data.length === 0) {
             const resFallback = await supabase
                 .from('tps_matematica')
-                .select('cod_tp, materia')
+                .select('cod_tp, titulo_humano, anio, nivel_bloom')
                 .order('cod_tp');
 
             if (!resFallback.error && resFallback.data && resFallback.data.length > 0) {
@@ -708,14 +700,19 @@ async function cargarBancoGlobal() {
 
         if (error) throw error;
 
-        const vistos = new Set();
-        bancoTPsMemoria = (data || []).filter(item => {
-            if (item.cod_tp && !vistos.has(item.cod_tp)) {
-                vistos.add(item.cod_tp);
-                return true;
+        const mapaTPs = new Map();
+        (data || []).forEach(item => {
+            if (item.cod_tp && !mapaTPs.has(item.cod_tp)) {
+                mapaTPs.set(item.cod_tp, {
+                    cod_tp: item.cod_tp,
+                    titulo: item.titulo_humano || 'Sin Título',
+                    anio: item.anio || 1,
+                    bloom: item.nivel_bloom || 'Comprender'
+                });
             }
-            return false;
         });
+
+        bancoTPsMemoria = Array.from(mapaTPs.values());
 
         renderizarBancoTPs(bancoTPsMemoria);
 
@@ -740,8 +737,9 @@ function renderizarBancoTPs(lista) {
         <div class="list-group-item d-flex justify-content-between align-items-center py-3">
             <div>
                 <div class="fw-bold text-dark mb-1">
-                    ${tp.materia || 'Sin Título'}
-                    <span class="badge bg-primary text-white ms-2">Comprender</span>
+                    ${tp.titulo}
+                    <span class="badge bg-info text-dark ms-2">${tp.bloom}</span>
+                    <span class="badge bg-secondary ms-1">${tp.anio}° Año</span>
                 </div>
                 <div class="small text-muted">
                     Código: <code>${tp.cod_tp}</code>
@@ -763,10 +761,15 @@ function renderizarBancoTPs(lista) {
 
 function aplicarFiltrosBanco() {
     const filtroTexto = (document.getElementById('filtroTextoTP')?.value || '').toLowerCase();
+    const filtroAnio = document.getElementById('filtroAnioTP')?.value || '';
+    const filtroBloom = document.getElementById('filtroBloomTP')?.value || '';
 
     const resultado = bancoTPsMemoria.filter(tp => {
-        return (tp.materia || '').toLowerCase().includes(filtroTexto) || 
-               (tp.cod_tp || '').toLowerCase().includes(filtroTexto);
+        const coincideTexto = tp.titulo.toLowerCase().includes(filtroTexto) || tp.cod_tp.toLowerCase().includes(filtroTexto);
+        const coincideAnio = !filtroAnio || tp.anio.toString() === filtroAnio;
+        const coincideBloom = !filtroBloom || tp.bloom.toLowerCase() === filtroBloom.toLowerCase();
+
+        return coincideTexto && coincideAnio && coincideBloom;
     });
 
     renderizarBancoTPs(resultado);
@@ -782,13 +785,13 @@ function analizarProgramaDocente() {
     const palabrasClave = textoPrograma.split(/\s+/).filter(p => p.length > 3);
 
     const sugerencias = bancoTPsMemoria.filter(tp => {
-        const materia = (tp.materia || '').toLowerCase();
-        const cod = (tp.cod_tp || '').toLowerCase();
+        const titulo = tp.titulo.toLowerCase();
+        const cod = tp.cod_tp.toLowerCase();
 
-        return palabrasClave.some(palabra => materia.includes(palabra) || cod.includes(palabra));
+        return palabrasClave.some(palabra => titulo.includes(palabra) || cod.includes(palabra));
     });
 
-    renderizarBancoTPs(sugerencias.length > 0 ? sugerencias : bancoTPsMemoria);
+    renderizarBancoTPs(sugerencias);
 }
 
 async function ejecutarAsignacionTP(codTp) {
