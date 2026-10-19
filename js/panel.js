@@ -528,7 +528,11 @@ async function cargarAlumnosCurso(cursoId) {
                         <td>${badgeEstado}</td>
                         <td class="fw-bold text-primary">${promedioTexto}</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-secondary">📄 Informe PDF</button>
+                            <button class="btn btn-sm btn-outline-primary btn-ver-detalle-alumno" 
+                                    data-id="${al.id}" 
+                                    data-nombre="${al.apellido || ''}, ${al.nombre || ''}">
+                                👁️ Ver Detalle
+                            </button>
                         </td>
                     </tr>
                 `;
@@ -572,6 +576,7 @@ async function cargarAlumnosCurso(cursoId) {
             }).join('');
 
             vincularEventosAlumnos(cursoId);
+            vincularEventosDetalleAlumno(cursoId);
         }
 
     } catch (err) {
@@ -580,7 +585,6 @@ async function cargarAlumnosCurso(cursoId) {
         if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-danger py-3">Error: ${err.message}</td></tr>`;
     }
 }
-
 function vincularEventosAlumnos(cursoId) {
     document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
         btn.addEventListener('click', (e) => {
