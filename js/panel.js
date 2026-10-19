@@ -739,7 +739,7 @@ function renderizarBancoTPs(lista) {
 
     contenedor.innerHTML = lista.map(tp => `
         <div class="list-group-item py-3">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <div class="fw-bold text-dark mb-1">
                         ${tp.titulo}
@@ -760,8 +760,8 @@ function renderizarBancoTPs(lista) {
                 </div>
             </div>
 
-            <!-- Panel desplegable para la reseña y ejercicios modelo -->
-            <div class="collapse mt-3 p-3 bg-light rounded border d-none" id="preview-${tp.cod_tp}">
+            <!-- Panel desplegable simplificado para la reseña -->
+            <div class="mt-3 p-3 bg-light rounded border" id="preview-${tp.cod_tp}" style="display: none;">
                 <div class="spinner-border spinner-border-sm text-primary" role="status"></div> 
                 <span class="small text-muted ms-2">Cargando reseña y ejercicios modelo...</span>
             </div>
@@ -776,7 +776,7 @@ function renderizarBancoTPs(lista) {
         });
     });
 
-    // Listener para abrir/cerrar la Vista Previa y generar la reseña
+    // Listener para abrir/cerrar la Vista Previa
     document.querySelectorAll('.btn-preview-tp').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const codTp = e.currentTarget.dataset.cod;
@@ -784,22 +784,22 @@ function renderizarBancoTPs(lista) {
 
             if (!containerPreview) return;
 
-            // Alternar visibilidad
-            if (!containerPreview.classList.contains('d-none')) {
-                containerPreview.classList.add('d-none');
+            // Alternar visibilidad con estilo directo
+            if (containerPreview.style.display !== 'none') {
+                containerPreview.style.display = 'none';
                 return;
             }
 
-            containerPreview.classList.remove('d-none');
+            containerPreview.style.display = 'block';
 
-            // Si ya cargó previamente, no vuelve a consultar
+            // Si ya cargó previamente, evita volver a consultar Supabase
             if (containerPreview.dataset.cargado === 'true') return;
 
             try {
-                // Consultar las preguntas asociadas a este cod_tp en Supabase
+                // Consultar las preguntas asociadas a este cod_tp
                 const { data: preguntas, error } = await supabase
                     .from('banco_preguntas')
-                    .select('titulo_humano, opciones, nivel_bloom')
+                    .select('titulo_humano, nivel_bloom')
                     .eq('cod_tp', codTp)
                     .limit(3);
 
@@ -807,7 +807,6 @@ function renderizarBancoTPs(lista) {
 
                 const tituloGeneral = preguntas && preguntas.length > 0 ? preguntas[0].titulo_humano : 'Trabajo Práctico';
                 
-                // Generar reseña sintética basada en las consignas
                 let resenaHTML = `
                     <div class="mb-2">
                         <h6 class="fw-bold text-primary mb-1">📌 Reseña y Enfoque Pedagógico</h6>
@@ -823,16 +822,13 @@ function renderizarBancoTPs(lista) {
 
                 if (preguntas && preguntas.length > 0) {
                     preguntas.forEach((p, idx) => {
-                        resenaHTML += `<li class="mb-1"><strong>Ejercicio ${idx + 1}:</strong> ${p.titulo_humano || 'Consigna de análisis'} <span class="badge bg-light text-dark border">Bloom: ${p.nivel_bloom || 'Aplicar'}</span></li>`;
+                        resenaHTML += `<li class="mb-1"><strong>Ejercicio ${idx + 1}:</strong> ${p.titulo_humano || 'Consigna de análisis'} <span class="badge bg-light text-dark border ms-1">Bloom: ${p.nivel_bloom || 'Aplicar'}</span></li>`;
                     });
                 } else {
                     resenaHTML += `<li>Sin consignas de muestra disponibles.</li>`;
                 }
 
-                resenaHTML += `
-                        </ul>
-                    </div>
-                `;
+                resenaHTML += `</ul></div>`;
 
                 containerPreview.innerHTML = resenaHTML;
                 containerPreview.dataset.cargado = 'true';
