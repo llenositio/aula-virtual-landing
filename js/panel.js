@@ -167,7 +167,7 @@ async function actualizarInterfaz(usuario) {
     }
 }
 
-// Handler para el Modal de Perfil Docente
+// Modal Perfil Docente
 const formCompletarPerfil = document.getElementById('formCompletarPerfil');
 if (formCompletarPerfil) {
     formCompletarPerfil.addEventListener('submit', async (e) => {
@@ -485,7 +485,6 @@ async function cargarAlumnosCurso(cursoId) {
             return;
         }
 
-        // 1. Cargar la Matriz de Seguimiento (Tabla Superior)
         if (tablaMatrizBody) {
             tablaMatrizBody.innerHTML = alumnos.map((al, index) => `
                 <tr>
@@ -500,7 +499,6 @@ async function cargarAlumnosCurso(cursoId) {
             `).join('');
         }
 
-        // 2. Cargar Gestión de Accesos (Tabla Inferior)
         if (tablaAlumnosBody) {
             tablaAlumnosBody.innerHTML = alumnos.map((al, index) => {
                 const apellido = al.apellido || '-';
@@ -584,11 +582,6 @@ function vincularEventosAlumnos(cursoId) {
             }
         });
     });
-}
-
-    } catch (err) {
-        if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-danger">Error al cargar alumnos: ${err.message}</td></tr>`;
-    }
 }
 
 const formEditarAlumno = document.getElementById('formEditarAlumno');
@@ -775,7 +768,6 @@ function vincularEventosPlanificacion(cursoId) {
     });
 }
 
-// AGREGAR TP AL PLAN OBTENIENDO TÍTULO HUMANO
 document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () => {
     const codTp = document.getElementById('inputCodTPAsignar').value;
     const periodo = document.getElementById('inputNuevoPeriodo').value.trim() || '1° Trimestre';
@@ -850,7 +842,6 @@ async function cargarAnaliticaCurso(cursoId) {
             });
         }
 
-        // Formatear las etiquetas para que no rompan el gráfico si el alias es largo
         const labelsTP = plan.map(p => {
             const alias = p.alias_tp || p.cod_tp;
             return alias.length > 20 ? alias.substring(0, 18) + '...' : alias;
@@ -916,7 +907,6 @@ function renderizarGrafico(canvasId, tipo, datos, opciones = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
-    // Forzar alto máximo en el contenedor padre para evitar la deformación vertical
     if (canvas.parentElement) {
         canvas.parentElement.style.position = 'relative';
         canvas.parentElement.style.height = '300px';
