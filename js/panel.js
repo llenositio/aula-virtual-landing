@@ -721,6 +721,10 @@ async function cargarBancoGlobal() {
     }
 }
 
+// =========================================================================
+// BANCO GLOBAL DE TPS - RENDERIZADO CON VISTA PREVIA Y RESEÑA
+// =========================================================================
+
 function renderizarBancoTPs(lista) {
     const contenedor = document.getElementById('listaBancoTPs');
     const contador = document.getElementById('cantTPsEncontrados');
@@ -734,31 +738,111 @@ function renderizarBancoTPs(lista) {
     }
 
     contenedor.innerHTML = lista.map(tp => `
-        <div class="list-group-item d-flex justify-content-between align-items-center py-3">
-            <div>
-                <div class="fw-bold text-dark mb-1">
-                    ${tp.titulo}
-                    <span class="badge bg-info text-dark ms-2">${tp.bloom}</span>
-                    <span class="badge bg-secondary ms-1">${tp.anio}° Año</span>
+        <div class="list-group-item py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="fw-bold text-dark mb-1">
+                        ${tp.titulo}
+                        <span class="badge bg-info text-dark ms-2">${tp.bloom}</span>
+                        <span class="badge bg-secondary ms-1">${tp.anio}° Año</span>
+                    </div>
+                    <div class="small text-muted">
+                        Código: <code>${tp.cod_tp}</code>
+                    </div>
                 </div>
-                <div class="small text-muted">
-                    Código: <code>${tp.cod_tp}</code>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary me-2 btn-preview-tp" data-cod="${tp.cod_tp}">
+                        👁️ Vista Previa
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary fw-bold btn-seleccionar-tp" data-cod="${tp.cod_tp}">
+                        + Asignar a este Curso
+                    </button>
                 </div>
             </div>
-            <button type="button" class="btn btn-sm btn-primary fw-bold btn-seleccionar-tp" data-cod="${tp.cod_tp}">
-                + Asignar a este Curso
-            </button>
+
+            <!-- Panel desplegable para la reseña y ejercicios modelo -->
+            <div class="collapse mt-3 p-3 bg-light rounded border d-none" id="preview-${tp.cod_tp}">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div> 
+                <span class="small text-muted ms-2">Cargando reseña y ejercicios modelo...</span>
+            </div>
         </div>
     `).join('');
 
+    // Listener para asignar TPs
     document.querySelectorAll('.btn-seleccionar-tp').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const codTp = e.currentTarget.dataset.cod;
             ejecutarAsignacionTP(codTp);
         });
     });
-}
 
+    // Listener para abrir/cerrar la Vista Previa y generar la reseña
+    document.querySelectorAll('.btn-preview-tp').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const codTp = e.currentTarget.dataset.cod;
+            const containerPreview = document.getElementById(`preview-${codTp}`);
+
+            if (!containerPreview) return;
+
+            // Alternar visibilidad
+            if (!containerPreview.classList.contains('d-none')) {
+                containerPreview.classList.add('d-none');
+                return;
+            }
+
+            containerPreview.classList.remove('d-none');
+
+            // Si ya cargó previamente, no vuelve a consultar
+            if (containerPreview.dataset.cargado === 'true') return;
+
+            try {
+                // Consultar las preguntas asociadas a este cod_tp en Supabase
+                const { data: preguntas, error } = await supabase
+                    .from('banco_preguntas')
+                    .select('titulo_humano, opciones, nivel_bloom')
+                    .eq('cod_tp', codTp)
+                    .limit(3);
+
+                if (error) throw error;
+
+                const tituloGeneral = preguntas && preguntas.length > 0 ? preguntas[0].titulo_humano : 'Trabajo Práctico';
+                
+                // Generar reseña sintética basada en las consignas
+                let resenaHTML = `
+                    <div class="mb-2">
+                        <h6 class="fw-bold text-primary mb-1">📌 Reseña y Enfoque Pedagógico</h6>
+                        <p class="small text-dark mb-2">
+                            Este trabajo práctico aborda conceptos fundamentales de <strong>${tituloGeneral}</strong>. 
+                            Diseñado para ejercitar la capacidad de análisis y argumentación matemática mediante consignas de evaluación de alternativas.
+                        </p>
+                    </div>
+                    <div class="mb-2">
+                        <h6 class="fw-bold text-secondary mb-1">📝 Muestra de Ejercicios / Consignas Modelo (${preguntas ? preguntas.length : 0} visibles)</h6>
+                        <ul class="small text-muted ps-3 mb-0">
+                `;
+
+                if (preguntas && preguntas.length > 0) {
+                    preguntas.forEach((p, idx) => {
+                        resenaHTML += `<li class="mb-1"><strong>Ejercicio ${idx + 1}:</strong> ${p.titulo_humano || 'Consigna de análisis'} <span class="badge bg-light text-dark border">Bloom: ${p.nivel_bloom || 'Aplicar'}</span></li>`;
+                    });
+                } else {
+                    resenaHTML += `<li>Sin consignas de muestra disponibles.</li>`;
+                }
+
+                resenaHTML += `
+                        </ul>
+                    </div>
+                `;
+
+                containerPreview.innerHTML = resenaHTML;
+                containerPreview.dataset.cargado = 'true';
+
+            } catch (err) {
+                containerPreview.innerHTML = `<div class="text-danger small">Error al cargar vista previa: ${err.message}</div>`;
+            }
+        });
+    });
+}
 function aplicarFiltrosBanco() {
     const filtroTexto = (document.getElementById('filtroTextoTP')?.value || '').toLowerCase();
     const filtroAnio = document.getElementById('filtroAnioTP')?.value || '';
