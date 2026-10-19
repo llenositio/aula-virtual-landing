@@ -6,11 +6,15 @@
     <title>Aula Virtual - Panel del Profesor</title>
     <!-- Supabase JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js CDN para gráficos analíticos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; }
         .card-custom { border-radius: 12px; }
         .badge-bloom { font-size: 0.8rem; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .nav-pills .nav-link.active { background-color: #0d6efd; color: #fff; }
+        .nav-pills .nav-link { color: #495057; background-color: #e9ecef; }
     </style>
 </head>
 <body>
@@ -30,7 +34,7 @@
                     <h3 id="authTitulo" class="fw-bold mb-1">Acceso Docente</h3>
                     <p class="text-muted small mb-4">Si es tu primera vez o ya tenés cuenta, la forma más rápida es ingresar con Google.</p>
                     
-                    <!-- Botón Principal Integrado -->
+                    <!-- Botón Principal Google -->
                     <button id="btnGoogleAuth" type="button" class="btn btn-outline-danger w-100 mb-3 d-flex align-items-center justify-content-center gap-2 fw-bold py-2 shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 48 48">
                             <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
@@ -46,7 +50,7 @@
                         <span class="position-absolute top-50 start-50 translate-middle bg-white px-2 text-muted small">o con correo y contraseña</span>
                     </div>
 
-                    <!-- Formulario Tradicional Alternative -->
+                    <!-- Formulario Tradicional -->
                     <form id="formAuth" class="text-start">
                         <div id="camposRegistro" class="d-none">
                             <div class="mb-3">
@@ -78,7 +82,7 @@
         <!-- SECCIÓN 2: MIS CURSOS (DASHBOARD) -->
         <div id="seccionDashboard" class="d-none">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="fw-bold mb-0">Mis Cursos</h2>
+                <h2 class="fw-bold mb-0">Mis Cursos / Comisiones</h2>
                 <button class="btn btn-success fw-bold px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalCrearCurso">+ Crear Nuevo Curso</button>
             </div>
 
@@ -87,65 +91,181 @@
             </div>
         </div>
 
-        <!-- SECCIÓN 3: DETALLE DEL CURSO, ALUMNOS Y TPs -->
+        <!-- SECCIÓN 3: DETALLE DEL CURSO Y PESTAÑAS Y PLANIFICACIÓN -->
         <div id="seccionDetalleCurso" class="d-none">
-            <div class="mb-4">
-                <button id="btnVolverCursos" class="btn btn-outline-secondary btn-sm mb-3">&larr; Volver a Mis Cursos</button>
-                <h2 id="detalleTituloCurso" class="fw-bold mb-1">Detalle del Curso</h2>
-                <p id="detalleSubtituloCurso" class="text-muted mb-0"></p>
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                <div>
+                    <button id="btnVolverCursos" class="btn btn-outline-secondary btn-sm mb-2">&larr; Volver a Mis Cursos</button>
+                    <h2 id="detalleTituloCurso" class="fw-bold mb-0 text-dark">Detalle del Curso</h2>
+                    <p id="detalleSubtituloCurso" class="text-muted small mb-0"></p>
+                </div>
+                <button id="btnCopiarPlanificacion" class="btn btn-outline-primary btn-sm fw-bold">
+                    📋 Clonar Planificación a otra comisión
+                </button>
             </div>
 
-            <!-- BLOQUE: TRABAJOS PRÁCTICOS ASIGNADOS -->
-            <div class="card card-custom p-4 border-0 shadow-sm mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="fw-bold mb-0">Trabajos Prácticos Asignados</h4>
-                    <button id="btnAsignarTP" class="btn btn-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalAsignarTP">
-                        + Asignar TP del Banco Global
+            <!-- PESTAÑAS PRINCIPALES DE GESTIÓN -->
+            <ul class="nav nav-pills mb-4 gap-2 border-bottom pb-3" id="pills-docente-tab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active fw-bold px-4" id="tab-planificacion" data-bs-toggle="pill" data-bs-target="#panel-planificacion" type="button" role="tab">
+                        📚 Plan de Trabajo
                     </button>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-secondary">
-                            <tr>
-                                <th>Código TP</th>
-                                <th>Título Conceptual</th>
-                                <th>Nivel Bloom</th>
-                                <th class="text-end">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaTPsAsignadosBody">
-                            <!-- Se cargan dinámicamente -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold px-4" id="tab-analitica" data-bs-toggle="pill" data-bs-target="#panel-analitica" type="button" role="tab">
+                        📊 Analítica & Informes
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold px-4" id="tab-nomina" data-bs-toggle="pill" data-bs-target="#panel-nomina" type="button" role="tab">
+                        👥 Nómina & Seguimiento
+                    </button>
+                </li>
+            </ul>
 
-            <!-- BLOQUE: TABLA DE ALUMNOS -->
-            <div class="card card-custom p-4 border-0 shadow-sm">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="fw-bold mb-0">Nómina de Alumnos Inscriptos</h4>
-                    <button id="btnAgregarAlumnosCurso" class="btn btn-outline-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalInscribirAlumnos">
-                        + Agregar / Cargar Alumnos
-                    </button>
+            <!-- CONTENIDO DE LAS PESTAÑAS -->
+            <div class="tab-content" id="pills-docenteTabContent">
+
+                <!-- PESTAÑA 1: PLAN DE TRABAJO (Estructura, Períodos y Asignación de TPs) -->
+                <div class="tab-pane fade show active" id="panel-planificacion" role="tabpanel">
+                    
+                    <!-- Barra de asignación rápida al plan -->
+                    <div class="card card-body border-0 shadow-sm mb-4 bg-white">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0 text-primary">➕ Asignar TP a la Planificación</h5>
+                            <button id="btnAsignarTP" class="btn btn-outline-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalAsignarTP">
+                                🔍 Explorar Banco Global de TPs
+                            </button>
+                        </div>
+                        
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold small text-muted">Período Evaluativo</label>
+                                <input type="text" id="inputNuevoPeriodo" class="form-control form-control-sm" placeholder="ej. 1° Trimestre">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold small text-muted">Unidad Temática</label>
+                                <input type="text" id="inputNuevaUnidad" class="form-control form-control-sm" placeholder="ej. Unidad 1: Lógica">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted">Seleccionar TP Seleccionado</label>
+                                <input type="text" id="inputCodTPAsignarTexto" class="form-control form-control-sm" placeholder="Usa el botón de explorar Banco" readonly>
+                                <input type="hidden" id="inputCodTPAsignar">
+                            </div>
+                            <div class="col-md-2">
+                                <button id="btnAgregarAlPlan" class="btn btn-primary btn-sm w-100 fw-bold">
+                                    + Agregar al Plan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contenedor Dinámico de la Planificación -->
+                    <div id="contenedorPlanificacionDocente">
+                        <div class="text-center py-5 text-muted">Cargando planificación pedagógica...</div>
+                    </div>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>#</th>
-                                <th>Apellido</th>
-                                <th>Nombre</th>
-                                <th>Email Alumno</th>
-                                <th>Email Tutor</th>
-                                <th>PIN / Acceso</th>
-                                <th class="text-end">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaAlumnosBody">
-                            <!-- Se cargan dinámicamente -->
-                        </tbody>
-                    </table>
+
+                <!-- PESTAÑA 2: ANALÍTICA & INFORMES (4 GRÁFICOS INTEGRADOS) -->
+                <div class="tab-pane fade" id="panel-analitica" role="tabpanel">
+                    <div class="card border-0 shadow-sm p-3 mb-4">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted mb-1">Filtrar Analítica por Período / Unidad:</label>
+                                <select id="filtroAnaliticaEstructura" class="form-select form-select-sm">
+                                    <option value="TODOS">Ver Todo el Curso</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid de 4 Gráficos (Chart.js) -->
+                    <div class="row g-4">
+                        <!-- Gráfico 1: Rendimiento por TP -->
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm p-3 h-100">
+                                <h6 class="fw-bold text-dark mb-3">📊 Rendimiento Global por TP (Aprobados vs Reprobados)</h6>
+                                <canvas id="chartRendimientoTp" height="220"></canvas>
+                            </div>
+                        </div>
+                        <!-- Gráfico 2: Radar de Taxonomía de Bloom -->
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm p-3 h-100">
+                                <h6 class="fw-bold text-dark mb-3">🧠 Perfil de Competencias Cognitivas (Bloom)</h6>
+                                <canvas id="chartBloomRadar" height="220"></canvas>
+                            </div>
+                        </div>
+                        <!-- Gráfico 3: Distribución de Calificaciones -->
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm p-3 h-100">
+                                <h6 class="fw-bold text-dark mb-3">🎯 Distribución de Calificaciones del Curso</h6>
+                                <canvas id="chartNotasDistribucion" height="200"></canvas>
+                            </div>
+                        </div>
+                        <!-- Gráfico 4: Diagnóstico Fino de Preguntas por TP -->
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm p-3 h-100">
+                                <h6 class="fw-bold text-dark mb-2">🔬 Diagnóstico de Preguntas por TP</h6>
+                                <select id="selectTpDiagnostico" class="form-select form-select-sm mb-3">
+                                    <option value="">Seleccionar TP para analizar aciertos por pregunta...</option>
+                                </select>
+                                <canvas id="chartDiagnosticoPreguntas" height="180"></canvas>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- PESTAÑA 3: NÓMINA DE ALUMNOS & MATRIZ DE SEGUIMIENTO -->
+                <div class="tab-pane fade" id="panel-nomina" role="tabpanel">
+                    <div class="card border-0 shadow-sm p-4 mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="fw-bold mb-0">Nómina y Matriz de Calificaciones</h4>
+                            <button id="btnAgregarAlumnosCurso" class="btn btn-outline-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalInscribirAlumnos">
+                                + Agregar / Cargar Alumnos
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Alumno</th>
+                                        <th>Estado General</th>
+                                        <th>Promedio</th>
+                                        <th class="text-end">Informes</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaSeguimientoAlumnosBody">
+                                    <tr><td colspan="5" class="text-center py-4">Cargando nómina...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- NÓMINA DE DETALLES TÉCNICOS (Emails / PINs) -->
+                    <div class="card border-0 shadow-sm p-4">
+                        <h5 class="fw-bold mb-3">Gestión de Accesos (Emails y PINs)</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-secondary">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Apellido</th>
+                                        <th>Nombre</th>
+                                        <th>Email Alumno</th>
+                                        <th>Email Tutor</th>
+                                        <th>PIN Acceso</th>
+                                        <th class="text-end">Editar</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaAlumnosBody">
+                                    <!-- Se cargan dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -218,7 +338,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- MODAL AGREGAR ALUMNOS A CURSO EXISTENTE -->
     <div class="modal fade" id="modalInscribirAlumnos" tabindex="-1">
         <div class="modal-dialog modal-lg">
@@ -306,8 +426,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <input type="hidden" id="inputCodTPAsignar">
 
                 </div>
                 <div class="modal-footer">
