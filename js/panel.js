@@ -760,10 +760,10 @@ function renderizarBancoTPs(lista) {
                 </div>
             </div>
 
-            <!-- Panel desplegable simplificado para la reseña -->
+            <!-- Panel desplegable para la reseña y consignas modelo -->
             <div class="mt-3 p-3 bg-light rounded border" id="preview-${tp.cod_tp}" style="display: none;">
                 <div class="spinner-border spinner-border-sm text-primary" role="status"></div> 
-                <span class="small text-muted ms-2">Cargando reseña y ejercicios modelo...</span>
+                <span class="small text-muted ms-2">Cargando reseña y consignas modelo...</span>
             </div>
         </div>
     `).join('');
@@ -776,7 +776,7 @@ function renderizarBancoTPs(lista) {
         });
     });
 
-    // Listener para abrir/cerrar la Vista Previa
+    // Listener para abrir/cerrar la Vista Previa trayendo la columna 'consigna'
     document.querySelectorAll('.btn-preview-tp').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const codTp = e.currentTarget.dataset.cod;
@@ -784,7 +784,6 @@ function renderizarBancoTPs(lista) {
 
             if (!containerPreview) return;
 
-            // Alternar visibilidad con estilo directo
             if (containerPreview.style.display !== 'none') {
                 containerPreview.style.display = 'none';
                 return;
@@ -792,14 +791,13 @@ function renderizarBancoTPs(lista) {
 
             containerPreview.style.display = 'block';
 
-            // Si ya cargó previamente, evita volver a consultar Supabase
             if (containerPreview.dataset.cargado === 'true') return;
 
             try {
-                // Consultar las preguntas asociadas a este cod_tp
+                // Consultar 'consigna' directamente según la estructura real
                 const { data: preguntas, error } = await supabase
                     .from('banco_preguntas')
-                    .select('titulo_humano, nivel_bloom')
+                    .select('titulo_humano, consigna, nivel_bloom')
                     .eq('cod_tp', codTp)
                     .limit(3);
 
@@ -808,21 +806,31 @@ function renderizarBancoTPs(lista) {
                 const tituloGeneral = preguntas && preguntas.length > 0 ? preguntas[0].titulo_humano : 'Trabajo Práctico';
                 
                 let resenaHTML = `
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <h6 class="fw-bold text-primary mb-1">📌 Reseña y Enfoque Pedagógico</h6>
                         <p class="small text-dark mb-2">
                             Este trabajo práctico aborda conceptos fundamentales de <strong>${tituloGeneral}</strong>. 
                             Diseñado para ejercitar la capacidad de análisis y argumentación matemática mediante consignas de evaluación de alternativas.
                         </p>
                     </div>
-                    <div class="mb-2">
-                        <h6 class="fw-bold text-secondary mb-1">📝 Muestra de Ejercicios / Consignas Modelo (${preguntas ? preguntas.length : 0} visibles)</h6>
-                        <ul class="small text-muted ps-3 mb-0">
+                    <div class="mb-1">
+                        <h6 class="fw-bold text-secondary mb-2">📝 Muestra de Ejercicios / Consignas Modelo (${preguntas ? preguntas.length : 0} visibles)</h6>
+                        <ul class="small text-dark ps-3 mb-0">
                 `;
 
                 if (preguntas && preguntas.length > 0) {
                     preguntas.forEach((p, idx) => {
-                        resenaHTML += `<li class="mb-1"><strong>Ejercicio ${idx + 1}:</strong> ${p.titulo_humano || 'Consigna de análisis'} <span class="badge bg-light text-dark border ms-1">Bloom: ${p.nivel_bloom || 'Aplicar'}</span></li>`;
+                        let textoConsigna = p.consigna || 'Consigna de evaluación';
+                        
+                        if (textoConsigna.length > 140) {
+                            textoConsigna = textoConsigna.substring(0, 140) + '...';
+                        }
+
+                        resenaHTML += `
+                            <li class="mb-2">
+                                <strong>Ejercicio ${idx + 1}:</strong> "${textoConsigna}" 
+                                <span class="badge bg-light text-dark border ms-1">Bloom: ${p.nivel_bloom || 'Aplicar'}</span>
+                            </li>`;
                     });
                 } else {
                     resenaHTML += `<li>Sin consignas de muestra disponibles.</li>`;
