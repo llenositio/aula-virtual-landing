@@ -17,7 +17,6 @@ const btnVolverCursos = document.getElementById('btnVolverCursos');
 const detalleTituloCurso = document.getElementById('detalleTituloCurso');
 const detalleSubtituloCurso = document.getElementById('detalleSubtituloCurso');
 const tablaAlumnosBody = document.getElementById('tablaAlumnosBody');
-const tablaTPsAsignadosBody = document.getElementById('tablaTPsAsignadosBody');
 
 const formAuth = document.getElementById('formAuth');
 const authTitulo = document.getElementById('authTitulo');
@@ -34,9 +33,9 @@ const btnGoogleAuth = document.getElementById('btnGoogleAuth');
 let esModoRegistro = false;
 let cursoActualId = null;
 let cursoActualInfo = null;
-let bancoTPsMemoria = []; // Caché local del banco de TPs
+let bancoTPsMemoria = [];
 let modalPerfilInstancia = null;
-let instanciasGraficos = {}; // Instancias activas de Chart.js
+let instanciasGraficos = {};
 
 // =========================================================================
 // AUTENTICACIÓN
@@ -742,7 +741,7 @@ function vincularEventosPlanificacion(cursoId) {
     });
 }
 
-// AGREGAR TP AL PLAN CON TÍTULO HUMANO POR DEFECTO
+// AGREGAR TP AL PLAN OBTENIENDO TÍTULO HUMANO
 document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () => {
     const codTp = document.getElementById('inputCodTPAsignar').value;
     const periodo = document.getElementById('inputNuevoPeriodo').value.trim() || '1° Trimestre';
@@ -754,7 +753,6 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
     }
 
     try {
-        // 1. Obtener el título humano original del banco de preguntas
         let tituloHumanoDefecto = codTp;
         const { data: preg } = await supabase
             .from('banco_preguntas')
@@ -766,7 +764,6 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
             tituloHumanoDefecto = preg[0].titulo_humano;
         }
 
-        // 2. Insertar en la planificación usando el Título Humano como Alias inicial
         const { error } = await supabase.from('curso_planificacion').insert([{
             curso_id: cursoActualId,
             cod_tp: codTp,
@@ -785,7 +782,6 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
     } catch (err) {
         alert('Error al agregar TP al plan: ' + err.message);
     }
-});
 });
 
 // =========================================================================
@@ -811,7 +807,6 @@ async function cargarAnaliticaCurso(cursoId) {
             });
         }
 
-        // 1. Rendimiento por TP
         const labelsTP = plan.map(p => p.alias_tp || p.cod_tp);
         const aprobadosData = plan.map(p => (mapa[p.cod_tp] || []).filter(n => n >= 6).length);
         const reprobadosData = plan.map(p => (mapa[p.cod_tp] || []).filter(n => n < 6).length);
@@ -824,7 +819,6 @@ async function cargarAnaliticaCurso(cursoId) {
             ]
         }, { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } });
 
-        // 2. Radar Taxonomy Bloom
         renderizarGrafico('chartBloomRadar', 'radar', {
             labels: ['Recordar', 'Comprender', 'Aplicar', 'Analizar', 'Evaluar', 'Crear'],
             datasets: [{
@@ -836,7 +830,6 @@ async function cargarAnaliticaCurso(cursoId) {
             }]
         }, { scales: { r: { min: 0, max: 100 } } });
 
-        // 3. Distribución de Notas
         let sob = 0, apr = 0, riesg = 0;
         if (resultados) {
             resultados.forEach(r => {
@@ -855,7 +848,6 @@ async function cargarAnaliticaCurso(cursoId) {
             }]
         });
 
-        // Llenar selector de diagnóstico
         const selectDiag = document.getElementById('selectTpDiagnostico');
         if (selectDiag) {
             selectDiag.innerHTML = '<option value="">Seleccionar TP para diagnosticar...</option>' +
