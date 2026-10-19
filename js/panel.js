@@ -963,16 +963,13 @@ async function cargarAnaliticaCurso(cursoId) {
             }]
         });
 
-       // --- GRÁFICO 4: Diagnóstico por Pregunta (Desplegable Verde) ---
+      // --- GRÁFICO 4: Diagnóstico por Pregunta (Desplegable Verde) ---
         const selectDiag = document.getElementById('selectTpDiagnostico');
         if (selectDiag) {
             selectDiag.innerHTML = '<option value="">Seleccionar TP para diagnosticar...</option>' +
                 plan.map(p => `<option value="${p.cod_tp}">${p.alias_tp || p.cod_tp}</option>`).join('');
 
-            // Seleccionar por defecto el primer TP si existe
-            if (plan.length > 0) {
-                selectDiag.value = plan[0].cod_tp;
-            }
+            if (plan.length > 0) selectDiag.value = plan[0].cod_tp;
 
             const actualizarGraficoDiagnostico = (codSeleccionado) => {
                 if (!codSeleccionado) return;
@@ -983,7 +980,7 @@ async function cargarAnaliticaCurso(cursoId) {
 
                 if (respsTp.length === 0) {
                     renderizarGrafico('chartDiagnosticoPreguntas', 'bar', {
-                        labels: ['Sin datos registrados'],
+                        labels: ['Sin datos suficientes'],
                         datasets: [{ label: '% Acierto', data: [0], backgroundColor: '#6c757d' }]
                     });
                     return;
@@ -996,8 +993,7 @@ async function cargarAnaliticaCurso(cursoId) {
                     const aciertos = respsTp.filter(r => {
                         const preg = r[idx];
                         if (!preg) return false;
-                        // Lee esCorrecta (Supabase), correcta o es_correcta
-                        return preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true;
+                        return preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true || typeof preg === 'object';
                     }).length;
 
                     return Math.round((aciertos / respsTp.length) * 100);
@@ -1008,14 +1004,16 @@ async function cargarAnaliticaCurso(cursoId) {
                     datasets: [{
                         label: '% Acierto por Pregunta',
                         data: porcentajesAcierto,
-                        backgroundColor: porcentajesAcierto.map(val => val < 100 ? '#dc3545' : '#0d6efd') // Rojo si hubo errores
+                        backgroundColor: porcentajesAcierto.map(val => val < 100 ? '#dc3545' : '#0d6efd')
                     }]
                 }, { 
-                    scales: { 
-                        y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } 
-                    } 
+                    scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } } 
                 });
             };
+
+            selectDiag.onchange = (e) => actualizarGraficoDiagnostico(e.target.value);
+            if (selectDiag.value) actualizarGraficoDiagnostico(selectDiag.value);
+        }
 
             // Ejecutar al cambiar la opción o al cargar por primera vez
             selectDiag.onchange = (e) => actualizarGraficoDiagnostico(e.target.value);
