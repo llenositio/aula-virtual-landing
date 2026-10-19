@@ -38,8 +38,28 @@ let modalPerfilInstancia = null;
 let instanciasGraficos = {};
 
 // =========================================================================
-// AUTENTICACIÓN
+// INICIALIZACIÓN DE EVENTOS DE AUTENTICACIÓN
 // =========================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    const btnGoogle = document.getElementById('btnGoogleAuth');
+    if (btnGoogle) {
+        btnGoogle.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: window.location.origin + window.location.pathname
+                    }
+                });
+                if (error) throw error;
+            } catch (err) {
+                alert('Error al iniciar sesión con Google: ' + err.message);
+            }
+        });
+    }
+});
+
 if (toggleAuthMode) {
     toggleAuthMode.addEventListener('click', (e) => {
         e.preventDefault();
@@ -55,22 +75,6 @@ if (toggleAuthMode) {
             btnAuthSubmit.textContent = 'Ingresar';
             camposRegistro.classList.add('d-none');
             toggleAuthMode.textContent = '¿No tenés cuenta? Registrate acá';
-        }
-    });
-}
-
-if (btnGoogleAuth) {
-    btnGoogleAuth.addEventListener('click', async () => {
-        try {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: window.location.origin + window.location.pathname
-                }
-            });
-            if (error) throw error;
-        } catch (err) {
-            alert('Error al iniciar sesión con Google: ' + err.message);
         }
     });
 }
@@ -579,6 +583,7 @@ async function cargarAlumnosCurso(cursoId) {
         if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-danger py-3">Error: ${err.message}</td></tr>`;
     }
 }
+
 function vincularEventosAlumnos(cursoId) {
     document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
         btn.addEventListener('click', (e) => {
