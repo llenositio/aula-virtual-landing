@@ -463,8 +463,11 @@ async function verDetalleCurso(cursoId, nombre, escuela) {
 }
 
 async function cargarAlumnosCurso(cursoId) {
-    if (!tablaAlumnosBody) return;
-    tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Cargando alumnos...</td></tr>`;
+    const tablaMatrizBody = document.getElementById('tablaMatrizBody');
+    const tablaAlumnosBody = document.getElementById('tablaAlumnosBody');
+
+    if (tablaMatrizBody) tablaMatrizBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Cargando nómina...</td></tr>`;
+    if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">Cargando datos...</td></tr>`;
 
     try {
         const { data: alumnos, error } = await supabase
@@ -476,81 +479,112 @@ async function cargarAlumnosCurso(cursoId) {
         if (error) throw error;
 
         if (!alumnos || alumnos.length === 0) {
-            tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">No hay alumnos inscriptos en este curso.</td></tr>`;
+            const msjVacio = `<tr><td colspan="7" class="text-center text-muted py-3">No hay alumnos inscriptos en este curso.</td></tr>`;
+            if (tablaMatrizBody) tablaMatrizBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No hay alumnos inscriptos.</td></tr>`;
+            if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = msjVacio;
             return;
         }
 
-        tablaAlumnosBody.innerHTML = alumnos.map((al, index) => {
-            const apellido = al.apellido || '-';
-            const nombre = al.nombre || '-';
-            const pinMostrar = al.pin || 'Sin PIN';
-
-            return `
+        // 1. Cargar la Matriz de Seguimiento (Tabla Superior)
+        if (tablaMatrizBody) {
+            tablaMatrizBody.innerHTML = alumnos.map((al, index) => `
                 <tr>
                     <td class="fw-bold">${index + 1}</td>
-                    <td>${apellido}</td>
-                    <td>${nombre}</td>
-                    <td>${al.email_alumno ? `<span class="badge bg-light text-dark border">${al.email_alumno}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
-                    <td>${al.email_tutor ? `<span class="badge bg-light text-dark border">${al.email_tutor}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
-                    <td><code class="fs-6 fw-bold text-primary bg-light px-2 py-1 rounded border">${pinMostrar}</code></td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-outline-primary me-1 btn-editar-alumno" 
-                                data-id="${al.id}" 
-                                data-apellido="${apellido}" 
-                                data-nombre="${nombre}" 
-                                data-emailalumno="${al.email_alumno || ''}" 
-                                data-emailtutor="${al.email_tutor || ''}" 
-                                data-pin="${al.pin || ''}" 
-                                title="Editar Alumno">
-                            ✏️ Editar
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger btn-eliminar-alumno" 
-                                data-id="${al.id}" 
-                                data-nombre="${apellido}, ${nombre}" 
-                                title="Eliminar Alumno">
-                            🗑️ Quitar
-                        </button>
+                    <td class="fw-bold">${al.apellido || ''}, ${al.nombre || ''}</td>
+                    <td><span class="badge bg-success">Al día</span></td>
+                    <td class="fw-bold">- / 10</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary">📄 Informe PDF</button>
                     </td>
                 </tr>
-            `;
-        }).join('');
+            `).join('');
+        }
 
-        document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const ds = e.currentTarget.dataset;
-                document.getElementById('editAlumnoId').value = ds.id;
-                document.getElementById('editAlumnoApellido').value = ds.apellido !== '-' ? ds.apellido : '';
-                document.getElementById('editAlumnoNombre').value = ds.nombre !== '-' ? ds.nombre : '';
-                document.getElementById('editAlumnoEmail').value = ds.emailalumno;
-                document.getElementById('editTutorEmail').value = ds.emailtutor;
-                document.getElementById('editAlumnoPin').value = ds.pin;
+        // 2. Cargar Gestión de Accesos (Tabla Inferior)
+        if (tablaAlumnosBody) {
+            tablaAlumnosBody.innerHTML = alumnos.map((al, index) => {
+                const apellido = al.apellido || '-';
+                const nombre = al.nombre || '-';
+                const pinMostrar = al.pin || 'Sin PIN';
 
-                const modalEl = document.getElementById('modalEditarAlumno');
-                if (modalEl) {
-                    const modal = new bootstrap.Modal(modalEl);
-                    modal.show();
-                }
-            });
+                return `
+                    <tr>
+                        <td class="fw-bold">${index + 1}</td>
+                        <td>${apellido}</td>
+                        <td>${nombre}</td>
+                        <td>${al.email_alumno ? `<span class="badge bg-light text-dark border">${al.email_alumno}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
+                        <td>${al.email_tutor ? `<span class="badge bg-light text-dark border">${al.email_tutor}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
+                        <td><code class="fs-6 fw-bold text-primary bg-light px-2 py-1 rounded border">${pinMostrar}</code></td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary me-1 btn-editar-alumno" 
+                                    data-id="${al.id}" 
+                                    data-apellido="${apellido}" 
+                                    data-nombre="${nombre}" 
+                                    data-emailalumno="${al.email_alumno || ''}" 
+                                    data-emailtutor="${al.email_tutor || ''}" 
+                                    data-pin="${al.pin || ''}" 
+                                    title="Editar Alumno">
+                                ✏️ Editar
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger btn-eliminar-alumno" 
+                                    data-id="${al.id}" 
+                                    data-nombre="${apellido}, ${nombre}" 
+                                    title="Eliminar Alumno">
+                                🗑️ Quitar
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            vincularEventosAlumnos(cursoId);
+        }
+
+    } catch (err) {
+        console.error('Error al cargar alumnos:', err);
+        if (tablaMatrizBody) tablaMatrizBody.innerHTML = `<tr><td colspan="5" class="text-danger py-3">Error: ${err.message}</td></tr>`;
+        if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-danger py-3">Error: ${err.message}</td></tr>`;
+    }
+}
+
+function vincularEventosAlumnos(cursoId) {
+    document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const ds = e.currentTarget.dataset;
+            document.getElementById('editAlumnoId').value = ds.id;
+            document.getElementById('editAlumnoApellido').value = ds.apellido !== '-' ? ds.apellido : '';
+            document.getElementById('editAlumnoNombre').value = ds.nombre !== '-' ? ds.nombre : '';
+            document.getElementById('editAlumnoEmail').value = ds.emailalumno;
+            document.getElementById('editTutorEmail').value = ds.emailtutor;
+            document.getElementById('editAlumnoPin').value = ds.pin;
+
+            const modalEl = document.getElementById('modalEditarAlumno');
+            if (modalEl) {
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
         });
+    });
 
-        document.querySelectorAll('.btn-eliminar-alumno').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const target = e.currentTarget;
-                const id = target.dataset.id;
-                const nombreCompleto = target.dataset.nombre;
+    document.querySelectorAll('.btn-eliminar-alumno').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const target = e.currentTarget;
+            const id = target.dataset.id;
+            const nombreCompleto = target.dataset.nombre;
 
-                if (confirm(`¿Estás seguro de que querés eliminar a ${nombreCompleto}?`)) {
-                    try {
-                        const { error } = await supabase.from('alumnos').delete().eq('id', id);
-                        if (error) throw error;
-                        alert('Alumno eliminado.');
-                        cargarAlumnosCurso(cursoId);
-                    } catch (err) {
-                        alert('Error al eliminar alumno: ' + err.message);
-                    }
+            if (confirm(`¿Estás seguro de que querés eliminar a ${nombreCompleto}?`)) {
+                try {
+                    const { error } = await supabase.from('alumnos').delete().eq('id', id);
+                    if (error) throw error;
+                    alert('Alumno eliminado.');
+                    cargarAlumnosCurso(cursoId);
+                } catch (err) {
+                    alert('Error al eliminar alumno: ' + err.message);
                 }
-            });
+            }
         });
+    });
+}
 
     } catch (err) {
         if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-danger">Error al cargar alumnos: ${err.message}</td></tr>`;
