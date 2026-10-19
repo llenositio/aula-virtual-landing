@@ -851,6 +851,7 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
 // =========================================================================
 async function cargarAnaliticaCurso(cursoId) {
     try {
+        // 1. Obtener los TPs planificados en el curso
         const { data: plan } = await supabase
             .from('curso_planificacion')
             .select('*')
@@ -860,20 +861,29 @@ async function cargarAnaliticaCurso(cursoId) {
 
         if (!plan || plan.length === 0) return;
 
-        const selectFiltroAmarillo = document.getElementById('filtroAnaliticaEstructura');
-        if (selectFiltroAmarillo && selectFiltroAmarillo.options.length <= 1) {
+        // 2. Cargar Períodos en el filtro desplegable superior
+        const selectFiltroEstructura = document.getElementById('filtroAnaliticaEstructura');
+        if (selectFiltroEstructura) {
             const periodos = [...new Set(plan.map(p => p.periodo_evaluativo).filter(Boolean))];
-            periodos.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p;
-                opt.textContent = `Período: ${p}`;
-                selectFiltroAmarillo.appendChild(opt);
-            });
+            
+            if (selectFiltroEstructura.options.length <= 1) {
+                selectFiltroEstructura.innerHTML = '<option value="TODOS">Todos los Períodos</option>' +
+                    periodos.map(p => `<option value="${p}">Período: ${p}</option>`).join('');
+            }
         }
 
+        const periodoFiltro = selectFiltroEstructura ? selectFiltroEstructura.value : 'TODOS';
+
+        // Filtrar el plan según el período seleccionado
+        const planFiltrado = (periodoFiltro && periodoFiltro !== 'TODOS')
+            ? plan.filter(p => p.periodo_evaluativo === periodoFiltro)
+            : plan;
+
+        // 3. Obtener alumnos del curso
         const { data: alumnos } = await supabase.from('alumnos').select('id').eq('curso_id', cursoId);
         const idsAlumnos = alumnos ? alumnos.map(a => a.id) : [];
 
+        // 4. Obtener resultados reales
         const { data: resultados } = await supabase
             .from('evaluaciones_resultados')
             .select('*')
@@ -886,6 +896,10 @@ async function cargarAnaliticaCurso(cursoId) {
         if (resultados) {
             resultados.forEach(r => {
                 const cod = r.tp_codigo || r.cod_tp;
+                
+                const perteneceAlPlan = planFiltrado.some(p => p.cod_tp === cod);
+                if (!perteneceAlPlan) return;
+
                 const clave = `${r.alumno_id}_${cod}`;
                 const notaNum = Number(r.nota) || 0;
 
@@ -906,13 +920,13 @@ async function cargarAnaliticaCurso(cursoId) {
         }
 
         // --- GRÁFICO 1: Rendimiento Global por TP ---
-        const labelsTP = plan.map(p => {
+        const labelsTP = planFiltrado.map(p => {
             const alias = p.alias_tp || p.cod_tp;
             return alias.length > 20 ? alias.substring(0, 18) + '...' : alias;
         });
 
-        const aprobadosData = plan.map(p => (notasPorTp[p.cod_tp] || []).filter(n => n >= 6).length);
-        const reprobadosData = plan.map(p => (notasPorTp[p.cod_tp] || []).filter(n => n < 6).length);
+        const aprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp] || []).filter(n => n >= 6).length);
+        const reprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp] || []).filter(n => n < 6).length);
 
         renderizarGrafico('chartRendimientoTp', 'bar', {
             labels: labelsTP,
@@ -959,13 +973,13 @@ async function cargarAnaliticaCurso(cursoId) {
             }]
         });
 
-        // --- GRÁFICO 4: Diagnóstico por Pregunta (Desplegable Verde) ---
+        // --- GRÁFICO 4: Diagnóstico por Pregunta ---
         const selectDiag = document.getElementById('selectTpDiagnostico');
         if (selectDiag) {
             selectDiag.innerHTML = '<option value="">Seleccionar TP para diagnosticar...</option>' +
-                plan.map(p => `<option value="${p.cod_tp}">${p.alias_tp || p.cod_tp}</option>`).join('');
+                planFiltrado.map(p => `<option value="${p.cod_tp}">${p.alias_tp || p.cod_tp}</option>`).join('');
 
-            if (plan.length > 0) selectDiag.value = plan[0].cod_tp;
+            if (planFiltrado.length > 0) selectDiag.value = planFiltrado[0].cod_tp;
 
             const actualizarGraficoDiagnostico = (codSeleccionado) => {
                 if (!codSeleccionado) return;
@@ -989,7 +1003,16 @@ async function cargarAnaliticaCurso(cursoId) {
                     const aciertos = respsTp.filter(r => {
                         const preg = r[idx];
                         if (!preg) return false;
-                        return preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true || typeof preg === 'object';
+
+                        // Verificación estricta de acierto booleano o por coincidencia
+                        if (preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true) return true;
+                        if (preg.esCorrecta === false || preg.correcta === false || preg.es_correcta === false) return false;
+
+                        if (preg.opcionSeleccionada !== undefined && preg.opcionCorrecta !== undefined) {
+                            return preg.opcionSeleccionada === preg.opcionCorrecta;
+                        }
+
+                        return false;
                     }).length;
 
                     return Math.round((aciertos / respsTp.length) * 100);
@@ -1011,11 +1034,14 @@ async function cargarAnaliticaCurso(cursoId) {
             if (selectDiag.value) actualizarGraficoDiagnostico(selectDiag.value);
         }
 
+        if (selectFiltroEstructura) {
+            selectFiltroEstructura.onchange = () => cargarAnaliticaCurso(cursoId);
+        }
+
     } catch (err) {
         console.error('Error al cargar analítica real:', err);
     }
 }
-
 function renderizarGrafico(canvasId, tipo, datos, opciones = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
