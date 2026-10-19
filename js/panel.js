@@ -485,18 +485,53 @@ async function cargarAlumnosCurso(cursoId) {
             return;
         }
 
+        // Obtener todas las notas del curso para calcular promedios reales
+        const idsAlumnos = alumnos.map(a => a.id);
+        const { data: notasData } = await supabase
+            .from('evaluaciones_resultados')
+            .select('alumno_id, nota')
+            .in('alumno_id', idsAlumnos);
+
+        // Agrupar notas por alumno (tomando la nota más alta por TP)
+        const notasPorAlumno = {};
+        if (notasData) {
+            notasData.forEach(n => {
+                const id = n.alumno_id;
+                const val = Number(n.nota) || 0;
+                if (!notasPorAlumno[id]) notasPorAlumno[id] = [];
+                notasPorAlumno[id].push(val);
+            });
+        }
+
         if (tablaMatrizBody) {
-            tablaMatrizBody.innerHTML = alumnos.map((al, index) => `
-                <tr>
-                    <td class="fw-bold">${index + 1}</td>
-                    <td class="fw-bold">${al.apellido || ''}, ${al.nombre || ''}</td>
-                    <td><span class="badge bg-success">Al día</span></td>
-                    <td class="fw-bold">- / 10</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-secondary">📄 Informe PDF</button>
-                    </td>
-                </tr>
-            `).join('');
+            tablaMatrizBody.innerHTML = alumnos.map((al, index) => {
+                const misNotas = notasPorAlumno[al.id] || [];
+                let promedioTexto = '- / 10';
+                let badgeEstado = '<span class="badge bg-secondary">Sin entregas</span>';
+
+                if (misNotas.length > 0) {
+                    const maxNota = Math.max(...misNotas);
+                    promedioTexto = `${maxNota.toFixed(1)} / 10`;
+
+                    if (maxNota >= 6) {
+                        badgeEstado = '<span class="badge bg-success">Aprobado</span>';
+                    } else {
+                        badgeEstado = '<span class="badge bg-danger">A rehacer</span>';
+                    }
+                }
+
+                return `
+                    <tr>
+                        <td class="fw-bold">${index + 1}</td>
+                        <td class="fw-bold">${al.apellido || ''}, ${al.nombre || ''}</td>
+                        <td>${badgeEstado}</td>
+                        <td class="fw-bold text-primary">${promedioTexto}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary">📄 Informe PDF</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         if (tablaAlumnosBody) {
@@ -544,7 +579,6 @@ async function cargarAlumnosCurso(cursoId) {
         if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-danger py-3">Error: ${err.message}</td></tr>`;
     }
 }
-
 function vincularEventosAlumnos(cursoId) {
     document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
         btn.addEventListener('click', (e) => {
