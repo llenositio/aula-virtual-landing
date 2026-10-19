@@ -28,7 +28,6 @@ const camposRegistro = document.getElementById('camposRegistro');
 const btnAuthSubmit = document.getElementById('btnAuthSubmit');
 const toggleAuthMode = document.getElementById('toggleAuthMode');
 const btnCerrarSesion = document.getElementById('btnCerrarSesion');
-const btnGoogleAuth = document.getElementById('btnGoogleAuth');
 
 let esModoRegistro = false;
 let cursoActualId = null;
@@ -489,14 +488,12 @@ async function cargarAlumnosCurso(cursoId) {
             return;
         }
 
-        // Obtener todas las notas del curso para calcular promedios reales
         const idsAlumnos = alumnos.map(a => a.id);
         const { data: notasData } = await supabase
             .from('evaluaciones_resultados')
             .select('alumno_id, nota')
             .in('alumno_id', idsAlumnos);
 
-        // Agrupar notas por alumno (tomando la nota más alta por TP)
         const notasPorAlumno = {};
         if (notasData) {
             notasData.forEach(n => {
@@ -854,7 +851,6 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
 // =========================================================================
 async function cargarAnaliticaCurso(cursoId) {
     try {
-        // 1. Obtener los TPs planificados en el curso
         const { data: plan } = await supabase
             .from('curso_planificacion')
             .select('*')
@@ -864,7 +860,6 @@ async function cargarAnaliticaCurso(cursoId) {
 
         if (!plan || plan.length === 0) return;
 
-        // 2. Cargar opciones en el Filtro Amarillo (Períodos / Unidades)
         const selectFiltroAmarillo = document.getElementById('filtroAnaliticaEstructura');
         if (selectFiltroAmarillo && selectFiltroAmarillo.options.length <= 1) {
             const periodos = [...new Set(plan.map(p => p.periodo_evaluativo).filter(Boolean))];
@@ -876,19 +871,16 @@ async function cargarAnaliticaCurso(cursoId) {
             });
         }
 
-        // 3. Obtener alumnos del curso
         const { data: alumnos } = await supabase.from('alumnos').select('id').eq('curso_id', cursoId);
         const idsAlumnos = alumnos ? alumnos.map(a => a.id) : [];
 
-        // 4. Obtener resultados reales
         const { data: resultados } = await supabase
             .from('evaluaciones_resultados')
             .select('*')
             .in('alumno_id', idsAlumnos.length > 0 ? idsAlumnos : ['00000000-0000-0000-0000-000000000000']);
 
-        // Filtrar para obtener la MEJOR NOTA / ÚLTIMA NOTA de cada alumno por TP
-        const mapaUltimaNotaAlumno = {}; // Llave: `alumnoId_codTp`
-        const notasPorTp = {};           // Llave: `codTp` -> [notas reales únicas]
+        const mapaUltimaNotaAlumno = {};
+        const notasPorTp = {};
         const todasLasNotasValidas = [];
 
         if (resultados) {
@@ -897,7 +889,6 @@ async function cargarAnaliticaCurso(cursoId) {
                 const clave = `${r.alumno_id}_${cod}`;
                 const notaNum = Number(r.nota) || 0;
 
-                // Si no existe o la nueva nota es mayor
                 if (!mapaUltimaNotaAlumno[clave] || notaNum > mapaUltimaNotaAlumno[clave].nota) {
                     mapaUltimaNotaAlumno[clave] = {
                         nota: notaNum,
@@ -968,7 +959,7 @@ async function cargarAnaliticaCurso(cursoId) {
             }]
         });
 
-      // --- GRÁFICO 4: Diagnóstico por Pregunta (Desplegable Verde) ---
+        // --- GRÁFICO 4: Diagnóstico por Pregunta (Desplegable Verde) ---
         const selectDiag = document.getElementById('selectTpDiagnostico');
         if (selectDiag) {
             selectDiag.innerHTML = '<option value="">Seleccionar TP para diagnosticar...</option>' +
@@ -1020,14 +1011,11 @@ async function cargarAnaliticaCurso(cursoId) {
             if (selectDiag.value) actualizarGraficoDiagnostico(selectDiag.value);
         }
 
-            // Ejecutar al cambiar la opción o al cargar por primera vez
-            selectDiag.onchange = (e) => actualizarGraficoDiagnostico(e.target.value);
-            if (selectDiag.value) actualizarGraficoDiagnostico(selectDiag.value);
-        }
     } catch (err) {
         console.error('Error al cargar analítica real:', err);
     }
 }
+
 function renderizarGrafico(canvasId, tipo, datos, opciones = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
