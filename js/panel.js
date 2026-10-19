@@ -760,10 +760,10 @@ function renderizarBancoTPs(lista) {
                 </div>
             </div>
 
-            <!-- Panel desplegable para la reseña y consignas modelo -->
+            <!-- Panel desplegable universal para la reseña y consignas modelo -->
             <div class="mt-3 p-3 bg-light rounded border" id="preview-${tp.cod_tp}" style="display: none;">
                 <div class="spinner-border spinner-border-sm text-primary" role="status"></div> 
-                <span class="small text-muted ms-2">Cargando reseña y consignas modelo...</span>
+                <span class="small text-muted ms-2">Generando ficha pedagógica...</span>
             </div>
         </div>
     `).join('');
@@ -776,7 +776,7 @@ function renderizarBancoTPs(lista) {
         });
     });
 
-    // Listener para abrir/cerrar la Vista Previa trayendo la columna 'consigna'
+    // Listener universal para generar la reseña automática de CUALQUIER TP
     document.querySelectorAll('.btn-preview-tp').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const codTp = e.currentTarget.dataset.cod;
@@ -794,47 +794,57 @@ function renderizarBancoTPs(lista) {
             if (containerPreview.dataset.cargado === 'true') return;
 
             try {
-                // Consultar 'consigna' directamente según la estructura real
+                // Consultar las preguntas del TP sin límite arbitrario para analizar su perfil completo
                 const { data: preguntas, error } = await supabase
                     .from('banco_preguntas')
-                    .select('titulo_humano, consigna, nivel_bloom')
-                    .eq('cod_tp', codTp)
-                    .limit(3);
+                    .select('titulo_humano, consigna, nivel_bloom, especialidad_nivel')
+                    .eq('cod_tp', codTp);
 
                 if (error) throw error;
 
-                const tituloGeneral = preguntas && preguntas.length > 0 ? preguntas[0].titulo_humano : 'Trabajo Práctico';
-                
+                if (!preguntas || preguntas.length === 0) {
+                    containerPreview.innerHTML = `<div class="text-muted small">No hay datos suficientes para generar la vista previa.</div>`;
+                    return;
+                }
+
+                const tituloGeneral = preguntas[0].titulo_humano || 'Trabajo Práctico';
+                const especialidad = preguntas[0].especialidad_nivel || 'General';
+                const totalPreguntas = preguntas.length;
+
+                // Extraer los distintos niveles de Bloom presentes en las preguntas del TP
+                const nivelesBloomUnicos = Array.from(new Set(preguntas.map(p => p.nivel_bloom).filter(Boolean)));
+                const listaBloom = nivelesBloomUnicos.map(b => `<span class="badge bg-info text-dark me-1">${b}</span>`).join('');
+
+                // Generar síntesis pedagógica totalmente dinámica basada en la estructura del TP
                 let resenaHTML = `
-                    <div class="mb-3">
-                        <h6 class="fw-bold text-primary mb-1">📌 Reseña y Enfoque Pedagógico</h6>
-                        <p class="small text-dark mb-2">
-                            Este trabajo práctico aborda conceptos fundamentales de <strong>${tituloGeneral}</strong>. 
-                            Diseñado para ejercitar la capacidad de análisis y argumentación matemática mediante consignas de evaluación de alternativas.
+                    <div class="mb-3 p-2 bg-white rounded border-start border-primary border-3 shadow-sm">
+                        <h6 class="fw-bold text-primary mb-1">📌 Ficha Pedagógica: ${tituloGeneral}</h6>
+                        <p class="small text-dark mb-1">
+                            Este trabajo práctico consta de <strong>${totalPreguntas} consignas de evaluación</strong> orientadas al nivel <strong>${especialidad}</strong>.
                         </p>
+                        <div class="small text-muted mb-0">
+                            🧠 <strong>Niveles de Habilidad Evaluados:</strong> ${listaBloom || '<span class="badge bg-secondary">Aplicar</span>'}
+                        </div>
                     </div>
                     <div class="mb-1">
-                        <h6 class="fw-bold text-secondary mb-2">📝 Muestra de Ejercicios / Consignas Modelo (${preguntas ? preguntas.length : 0} visibles)</h6>
+                        <h6 class="fw-bold text-secondary mb-2">📝 Muestra de Consignas Modelo (3 de ${totalPreguntas})</h6>
                         <ul class="small text-dark ps-3 mb-0">
                 `;
 
-                if (preguntas && preguntas.length > 0) {
-                    preguntas.forEach((p, idx) => {
-                        let textoConsigna = p.consigna || 'Consigna de evaluación';
-                        
-                        if (textoConsigna.length > 140) {
-                            textoConsigna = textoConsigna.substring(0, 140) + '...';
-                        }
+                // Mostrar las primeras 3 consignas reales
+                const muestra = preguntas.slice(0, 3);
+                muestra.forEach((p, idx) => {
+                    let textoConsigna = p.consigna || 'Consigna de evaluación';
+                    if (textoConsigna.length > 140) {
+                        textoConsigna = textoConsigna.substring(0, 140) + '...';
+                    }
 
-                        resenaHTML += `
-                            <li class="mb-2">
-                                <strong>Ejercicio ${idx + 1}:</strong> "${textoConsigna}" 
-                                <span class="badge bg-light text-dark border ms-1">Bloom: ${p.nivel_bloom || 'Aplicar'}</span>
-                            </li>`;
-                    });
-                } else {
-                    resenaHTML += `<li>Sin consignas de muestra disponibles.</li>`;
-                }
+                    resenaHTML += `
+                        <li class="mb-2">
+                            <strong>Ejercicio ${idx + 1}:</strong> "${textoConsigna}" 
+                            <span class="badge bg-light text-dark border ms-1">${p.nivel_bloom || 'Aplicar'}</span>
+                        </li>`;
+                });
 
                 resenaHTML += `</ul></div>`;
 
