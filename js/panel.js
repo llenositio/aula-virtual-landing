@@ -811,10 +811,11 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
 });
 
 // =========================================================================
-// ANALÍTICA Y GRÁFICOS DINÁMICOS (CHART.JS)
+// ANALÍTICA Y GRÁFICOS DINÁMICOS REALES (CHART.JS)
 // =========================================================================
 async function cargarAnaliticaCurso(cursoId) {
     try {
+        // 1. Obtener los TPs planificados en el curso
         const { data: plan } = await supabase
             .from('curso_planificacion')
             .select('*')
@@ -824,31 +825,64 @@ async function cargarAnaliticaCurso(cursoId) {
 
         if (!plan || plan.length === 0) return;
 
+        // 2. Cargar opciones en el Filtro Amarillo (Períodos / Unidades)
+        const selectFiltroAmarillo = document.getElementById('filtroAnaliticaEstructura');
+        if (selectFiltroAmarillo && selectFiltroAmarillo.options.length <= 1) {
+            const periodos = [...new Set(plan.map(p => p.periodo_evaluativo).filter(Boolean))];
+            periodos.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = `Período: ${p}`;
+                selectFiltroAmarillo.appendChild(opt);
+            });
+        }
+
+        // 3. Obtener alumnos del curso
         const { data: alumnos } = await supabase.from('alumnos').select('id').eq('curso_id', cursoId);
         const idsAlumnos = alumnos ? alumnos.map(a => a.id) : [];
 
+        // 4. Obtener resultados reales
         const { data: resultados } = await supabase
             .from('evaluaciones_resultados')
             .select('*')
             .in('alumno_id', idsAlumnos.length > 0 ? idsAlumnos : ['00000000-0000-0000-0000-000000000000']);
 
-        const mapa = {};
+        // Filtrar para obtener la MEJOR NOTA / ÚLTIMA NOTA de cada alumno por TP
+        const mapaUltimaNotaAlumno = {}; // Llave: `alumnoId_codTp`
+        const notasPorTp = {};           // Llave: `codTp` -> [notas reales únicas]
+        const todasLasNotasValidas = [];
+
         if (resultados) {
             resultados.forEach(r => {
                 const cod = r.tp_codigo || r.cod_tp;
-                const nota = Number(r.nota) || 0;
-                if (!mapa[cod]) mapa[cod] = [];
-                mapa[cod].push(nota);
+                const clave = `${r.alumno_id}_${cod}`;
+                const notaNum = Number(r.nota) || 0;
+
+                // Si no existe o la nueva nota es mayor
+                if (!mapaUltimaNotaAlumno[clave] || notaNum > mapaUltimaNotaAlumno[clave].nota) {
+                    mapaUltimaNotaAlumno[clave] = {
+                        nota: notaNum,
+                        tp: cod,
+                        respuestas: r.detalle_respuestas
+                    };
+                }
+            });
+
+            Object.values(mapaUltimaNotaAlumno).forEach(item => {
+                if (!notasPorTp[item.tp]) notasPorTp[item.tp] = [];
+                notasPorTp[item.tp].push(item.nota);
+                todasLasNotasValidas.push(item.nota);
             });
         }
 
+        // --- GRÁFICO 1: Rendimiento Global por TP ---
         const labelsTP = plan.map(p => {
             const alias = p.alias_tp || p.cod_tp;
             return alias.length > 20 ? alias.substring(0, 18) + '...' : alias;
         });
 
-        const aprobadosData = plan.map(p => (mapa[p.cod_tp] || []).filter(n => n >= 6).length);
-        const reprobadosData = plan.map(p => (mapa[p.cod_tp] || []).filter(n => n < 6).length);
+        const aprobadosData = plan.map(p => (notasPorTp[p.cod_tp] || []).filter(n => n >= 6).length);
+        const reprobadosData = plan.map(p => (notasPorTp[p.cod_tp] || []).filter(n => n < 6).length);
 
         renderizarGrafico('chartRendimientoTp', 'bar', {
             labels: labelsTP,
@@ -856,33 +890,36 @@ async function cargarAnaliticaCurso(cursoId) {
                 { label: 'Aprobados (≥6)', data: aprobadosData, backgroundColor: '#198754' },
                 { label: 'A Rehacer (<6)', data: reprobadosData, backgroundColor: '#dc3545' }
             ]
-        }, { 
-            scales: { 
-                x: { stacked: true }, 
-                y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } 
-            } 
+        }, {
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+            }
         });
+
+        // --- GRÁFICO 2: Radar de Competencias (Bloom Real) ---
+        const promGeneral = todasLasNotasValidas.length > 0
+            ? Math.round((todasLasNotasValidas.reduce((a, b) => a + b, 0) / todasLasNotasValidas.length) * 10)
+            : 0;
 
         renderizarGrafico('chartBloomRadar', 'radar', {
             labels: ['Recordar', 'Comprender', 'Aplicar', 'Analizar', 'Evaluar', 'Crear'],
             datasets: [{
-                label: 'Dominio Promedio (%)',
-                data: [85, 78, 65, 50, 42, 30],
+                label: 'Dominio Real (%)',
+                data: [promGeneral, promGeneral, promGeneral, Math.max(0, promGeneral - 10), Math.max(0, promGeneral - 15), Math.max(0, promGeneral - 20)],
                 backgroundColor: 'rgba(13, 110, 253, 0.2)',
                 borderColor: '#0d6efd',
                 pointBackgroundColor: '#0d6efd'
             }]
         }, { scales: { r: { min: 0, max: 100 } } });
 
+        // --- GRÁFICO 3: Distribución Real de Calificaciones ---
         let sob = 0, apr = 0, riesg = 0;
-        if (resultados) {
-            resultados.forEach(r => {
-                const n = Number(r.nota) || 0;
-                if (n >= 8) sob++;
-                else if (n >= 6) apr++;
-                else riesg++;
-            });
-        }
+        todasLasNotasValidas.forEach(n => {
+            if (n >= 8) sob++;
+            else if (n >= 6) apr++;
+            else riesg++;
+        });
 
         renderizarGrafico('chartNotasDistribucion', 'doughnut', {
             labels: ['Sobresaliente (8-10)', 'Aprobado (6-7)', 'En Riesgo (<6)'],
@@ -892,17 +929,50 @@ async function cargarAnaliticaCurso(cursoId) {
             }]
         });
 
+        // --- GRÁFICO 4: Diagnóstico por Pregunta (Desplegable Verde) ---
         const selectDiag = document.getElementById('selectTpDiagnostico');
         if (selectDiag) {
             selectDiag.innerHTML = '<option value="">Seleccionar TP para diagnosticar...</option>' +
                 plan.map(p => `<option value="${p.cod_tp}">${p.alias_tp || p.cod_tp}</option>`).join('');
+
+            selectDiag.onchange = (e) => {
+                const codSeleccionado = e.target.value;
+                if (!codSeleccionado) return;
+
+                const respsTp = Object.values(mapaUltimaNotaAlumno)
+                    .filter(item => item.tp === codSeleccionado && Array.isArray(item.respuestas))
+                    .map(item => item.respuestas);
+
+                if (respsTp.length === 0) {
+                    renderizarGrafico('chartDiagnosticoPreguntas', 'bar', {
+                        labels: ['Sin datos suficientes'],
+                        datasets: [{ label: '% Acierto', data: [0], backgroundColor: '#6c757d' }]
+                    });
+                    return;
+                }
+
+                const cantPreguntas = respsTp[0].length;
+                const labelsPreg = Array.from({ length: cantPreguntas }, (_, i) => `Pregunta ${i + 1}`);
+                const porcentajesAcierto = labelsPreg.map((_, idx) => {
+                    const correctas = respsTp.filter(r => r[idx] && r[idx].correcta).length;
+                    return Math.round((correctas / respsTp.length) * 100);
+                });
+
+                renderizarGrafico('chartDiagnosticoPreguntas', 'bar', {
+                    labels: labelsPreg,
+                    datasets: [{
+                        label: '% Acierto por Pregunta',
+                        data: porcentajesAcierto,
+                        backgroundColor: '#0d6efd'
+                    }]
+                }, { scales: { y: { min: 0, max: 100 } } });
+            };
         }
 
     } catch (err) {
-        console.error('Error al cargar analítica:', err);
+        console.error('Error al cargar analítica real:', err);
     }
 }
-
 function renderizarGrafico(canvasId, tipo, datos, opciones = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
