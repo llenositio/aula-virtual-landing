@@ -916,6 +916,13 @@ function renderizarGrafico(canvasId, tipo, datos, opciones = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
+    // Forzar alto máximo en el contenedor padre para evitar la deformación vertical
+    if (canvas.parentElement) {
+        canvas.parentElement.style.position = 'relative';
+        canvas.parentElement.style.height = '300px';
+        canvas.parentElement.style.maxHeight = '300px';
+    }
+
     if (instanciasGraficos[canvasId]) {
         instanciasGraficos[canvasId].destroy();
     }
