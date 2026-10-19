@@ -794,7 +794,7 @@ function renderizarBancoTPs(lista) {
             if (containerPreview.dataset.cargado === 'true') return;
 
             try {
-                // Consultar las preguntas del TP sin límite arbitrario para analizar su perfil completo
+                // Consultar las preguntas del TP en Supabase
                 const { data: preguntas, error } = await supabase
                     .from('banco_preguntas')
                     .select('titulo_humano, consigna, nivel_bloom, especialidad_nivel')
@@ -811,19 +811,44 @@ function renderizarBancoTPs(lista) {
                 const especialidad = preguntas[0].especialidad_nivel || 'General';
                 const totalPreguntas = preguntas.length;
 
-                // Extraer los distintos niveles de Bloom presentes en las preguntas del TP
-                const nivelesBloomUnicos = Array.from(new Set(preguntas.map(p => p.nivel_bloom).filter(Boolean)));
-                const listaBloom = nivelesBloomUnicos.map(b => `<span class="badge bg-info text-dark me-1">${b}</span>`).join('');
+                // Función auxiliar para separar palabras pegadas como "ComprendeAnalizar" o delimitadas por comas
+                const extraerNivelesLimpios = (listaItems) => {
+                    const conjunto = new Set();
+                    listaItems.forEach(item => {
+                        if (!item) return;
+                        // Separar por comas o por mayúsculas pegadas (ej: ComprendeAnalizar -> Comprende / Analizar)
+                        const partes = item.replace(/([a-z])([A-Z])/g, '$1,$2').split(/[,/]+/);
+                        partes.forEach(p => {
+                            let limpio = p.trim();
+                            if (limpio) {
+                                // Normalizar variantes comunes
+                                if (limpio.toLowerCase().startsWith('comprend')) limpio = 'Comprender';
+                                else if (limpio.toLowerCase().startsWith('analiz')) limpio = 'Analizar';
+                                else if (limpio.toLowerCase().startsWith('aplic')) limpio = 'Aplicar';
+                                else if (limpio.toLowerCase().startsWith('evalu')) limpio = 'Evaluar';
+                                else if (limpio.toLowerCase().startsWith('crea')) limpio = 'Crear';
+                                else if (limpio.toLowerCase().startsWith('conoc') || limpio.toLowerCase().startsWith('record')) limpio = 'Recordar';
 
-                // Generar síntesis pedagógica totalmente dinámica basada en la estructura del TP
+                                conjunto.add(limpio);
+                            }
+                        });
+                    });
+                    return Array.from(conjunto);
+                };
+
+                const nivelesBloomUnicos = extraerNivelesLimpios(preguntas.map(p => p.nivel_bloom));
+                const listaBloomBadges = nivelesBloomUnicos
+                    .map(b => `<span class="badge bg-info text-dark me-1 mb-1">${b}</span>`)
+                    .join('');
+
                 let resenaHTML = `
                     <div class="mb-3 p-2 bg-white rounded border-start border-primary border-3 shadow-sm">
                         <h6 class="fw-bold text-primary mb-1">📌 Ficha Pedagógica: ${tituloGeneral}</h6>
                         <p class="small text-dark mb-1">
                             Este trabajo práctico consta de <strong>${totalPreguntas} consignas de evaluación</strong> orientadas al nivel <strong>${especialidad}</strong>.
                         </p>
-                        <div class="small text-muted mb-0">
-                            🧠 <strong>Niveles de Habilidad Evaluados:</strong> ${listaBloom || '<span class="badge bg-secondary">Aplicar</span>'}
+                        <div class="small text-muted mb-0 d-flex align-items-center flex-wrap gap-1">
+                            🧠 <strong>Niveles de Habilidad Evaluados:</strong> ${listaBloomBadges || '<span class="badge bg-secondary">Aplicar</span>'}
                         </div>
                     </div>
                     <div class="mb-1">
@@ -831,7 +856,7 @@ function renderizarBancoTPs(lista) {
                         <ul class="small text-dark ps-3 mb-0">
                 `;
 
-                // Mostrar las primeras 3 consignas reales
+                // Mostrar las primeras 3 consignas reales con su nivel individual limpio
                 const muestra = preguntas.slice(0, 3);
                 muestra.forEach((p, idx) => {
                     let textoConsigna = p.consigna || 'Consigna de evaluación';
@@ -839,10 +864,13 @@ function renderizarBancoTPs(lista) {
                         textoConsigna = textoConsigna.substring(0, 140) + '...';
                     }
 
+                    const nivelLimpioArr = extraerNivelesLimpios([p.nivel_bloom]);
+                    const nivelMostrar = nivelLimpioArr.length > 0 ? nivelLimpioArr.join(' / ') : 'Aplicar';
+
                     resenaHTML += `
                         <li class="mb-2">
                             <strong>Ejercicio ${idx + 1}:</strong> "${textoConsigna}" 
-                            <span class="badge bg-light text-dark border ms-1">${p.nivel_bloom || 'Aplicar'}</span>
+                            <span class="badge bg-light text-dark border ms-1">${nivelMostrar}</span>
                         </li>`;
                 });
 
