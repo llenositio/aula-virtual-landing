@@ -197,17 +197,27 @@ function mostrarDashboard() {
     }
 }
 
-// 6. CARGA DE EVALUACIONES E INTENTOS (DESDUPLICADO Y CON ATRIBUTOS REALES)
+// 6. CARGA DE EVALUACIONES, MÉTRICAS Y DESDUPLICACIÓN
 async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
-    if (!tablaEvaluacionesAlumnoBody) return;
-    tablaEvaluacionesAlumnoBody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Cargando evaluaciones asignadas...</td></tr>';
+    const tablaPendientes = document.getElementById('tablaPendientesBody');
+    const tablaAprobados = document.getElementById('tablaAprobadosBody');
+    
+    const cantPendientesEl = document.getElementById('cantPendientes');
+    const cantAprobadosEl = document.getElementById('cantAprobados');
+    const promedioGeneralEl = document.getElementById('promedioGeneral');
+    const badgeCantPendientes = document.getElementById('badgeCantPendientes');
+    const badgeCantAprobados = document.getElementById('badgeCantAprobados');
+
+    if (tablaPendientes) tablaPendientes.innerHTML = '<tr><td colspan="7" class="text-center py-4">Cargando evaluaciones asignadas...</td></tr>';
+    if (tablaAprobados) tablaAprobados.innerHTML = '<tr><td colspan="7" class="text-center py-4">Cargando evaluaciones asignadas...</td></tr>';
 
     if (!cursoId) {
-        tablaEvaluacionesAlumnoBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">El estudiante no está asignado a ningún curso activo.</td></tr>';
+        if (tablaPendientes) tablaPendientes.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">El estudiante no está asignado a ningún curso activo.</td></tr>';
         return;
     }
 
     try {
+        // 1. Obtener asignaciones del curso
         const { data: asignacionesRaw, error: errAsig } = await supabase
             .from('curso_evaluaciones')
             .select('*')
@@ -216,20 +226,46 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
         if (errAsig) throw errAsig;
 
         if (!asignacionesRaw || asignacionesRaw.length === 0) {
-            tablaEvaluacionesAlumnoBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No tenés evaluaciones asignadas en este momento. ¡Buen trabajo! 🎉</td></tr>';
+            const msjVacio = '<tr><td colspan="7" class="text-center text-muted py-4">No tenés evaluaciones asignadas en este momento. ¡Buen trabajo! 🎉</td></tr>';
+            if (tablaPendientes) tablaPendientes.innerHTML = msjVacio;
+            if (tablaAprobados) tablaAprobados.innerHTML = msjVacio;
+            if (cantPendientesEl) cantPendientesEl.innerText = '0';
+            if (cantAprobadosEl) cantAprobadosEl.innerText = '0';
+            if (promedioGeneralEl) promedioGeneralEl.innerText = '-';
             return;
         }
 
-        // DESDUPLICAR ASIGNACIONES POR COD_TP
-        const mapaCodigosUnicos = new Set();
-        const asignaciones = asignacionesRaw.filter(asig => {
-            if (!asig.cod_tp || mapaCodigosUnicos.has(asig.cod_tp)) {
-                return false;
-            }
-            mapaCodigosUnicos.add(asig.cod_tp);
+        // 2. Desduplicar asignaciones por cod_tp y ordenar por código de TP
+        const codigosVistos = new Set();
+        const asignacionesUnicas = asignacionesRaw.filter(asig => {
+            if (!asig.cod_tp || codigosVistos.has(asig.cod_tp)) return false;
+            codigosVistos.add(asig.cod_tp);
             return true;
-        });
+        }).sort((a, b) => (a.cod_tp || '').localeCompare(b.cod_tp || ''));
 
+        // 3. Obtener todos los títulos y niveles de Bloom del banco de preguntas en UNA SOLA consulta
+        const listaCodigos = asignacionesUnicas.map(a => a.cod_tp);
+        const { data: bancoDatos, error: errBanco } = await supabase
+            .from('banco_preguntas')
+            .select('cod_tp, titulo_humano, nivel_bloom')
+            .in('cod_tp', listaCodigos);
+
+        if (errBanco) console.warn('Aviso banco_preguntas:', errBanco.message);
+
+        // Crear un mapa para buscar instantáneamente el título de cada cod_tp
+        const mapaBanco = {};
+        if (bancoDatos) {
+            bancoDatos.forEach(p => {
+                if (!mapaBanco[p.cod_tp]) {
+                    mapaBanco[p.cod_tp] = {
+                        titulo: p.titulo_humano || `Trabajo Práctico (${p.cod_tp})`,
+                        bloom: p.nivel_bloom || 'Aplicar'
+                    };
+                }
+            });
+        }
+
+        // 4. Obtener resultados de este alumno
         const { data: resultados, error: errRes } = await supabase
             .from('evaluaciones_resultados')
             .select('*')
@@ -237,7 +273,7 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
 
         if (errRes) console.warn('Aviso sobre resultados:', errRes.message);
 
-        // Mapeo por tp_codigo
+        // Mapear el intento con MAYOR NOTA alcanzada por cada TP
         const mapaIntentos = {};
         if (resultados) {
             resultados.forEach(res => {
@@ -254,54 +290,125 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
             });
         }
 
-        tablaEvaluacionesAlumnoBody.innerHTML = '';
+        // Sanitizador de Bloom auxiliar
+        const sanitizarBloom = (texto) => {
+            if (!texto) return 'Aplicar';
+            const partes = texto.replace(/([a-z])([A-Z])/g, '$1,$2').split(/[,/]+/);
+            const limpios = partes.map(p => {
+                let l = p.trim().toLowerCase();
+                if (l.startsWith('comprend')) return 'Comprender';
+                if (l.startsWith('analiz')) return 'Analizar';
+                if (l.startsWith('aplic')) return 'Aplicar';
+                if (l.startsWith('evalu')) return 'Evaluar';
+                if (l.startsWith('crea')) return 'Crear';
+                if (l.startsWith('record') || l.startsWith('conoc')) return 'Recordar';
+                return p.trim();
+            });
+            return Array.from(new Set(limpios)).join(' / ');
+        };
 
-        for (let i = 0; i < asignaciones.length; i++) {
-            const asig = asignaciones[i];
+        const listaPendientes = [];
+        const listaAprobados = [];
+        let sumaNotasAprobadas = 0;
 
-            // Obtener el título real y nivel_bloom desde banco_preguntas
-            const { data: pregs } = await supabase
-                .from('banco_preguntas')
-                .select('titulo_humano, nivel_bloom')
-                .eq('cod_tp', asig.cod_tp)
-                .limit(1);
-
-            const tpInfo = (pregs && pregs.length > 0) ? pregs[0] : null;
-            const titulo = tpInfo && tpInfo.titulo_humano ? tpInfo.titulo_humano : `Trabajo Práctico (${asig.cod_tp})`;
-            const bloom = tpInfo && tpInfo.nivel_bloom ? tpInfo.nivel_bloom : 'Evaluación';
+        // Clasificar cada TP
+        asignacionesUnicas.forEach(asig => {
+            const infoBanco = mapaBanco[asig.cod_tp] || { titulo: `Trabajo Práctico (${asig.cod_tp})`, bloom: 'Aplicar' };
+            const titulo = infoBanco.titulo;
+            const bloom = sanitizarBloom(infoBanco.bloom);
 
             const infoIntento = mapaIntentos[asig.cod_tp];
-            
-            let estadoHtml = '<span class="badge bg-warning text-dark">Pendiente</span>';
-            let notaHtml = '<span class="text-muted">-</span>';
-            let accionHtml = `<a href="aula.html?tp=${asig.cod_tp}" class="btn btn-sm btn-primary fw-bold">Resolver &rarr;</a>`;
 
-            if (infoIntento) {
-                const notaMax = infoIntento.maxNota;
-                const esAprobado = notaMax >= 6;
-                const colorNota = esAprobado ? 'text-success' : 'text-danger';
-
-                estadoHtml = `<span class="badge bg-success">Completado (${infoIntento.cantIntentos} ${infoIntento.cantIntentos === 1 ? 'intento' : 'intentos'})</span>`;
-                notaHtml = `<strong class="fs-6 ${colorNota}">${notaMax} / 10</strong>`;
-                accionHtml = `<a href="aula.html?tp=${asig.cod_tp}" class="btn btn-sm btn-outline-primary fw-bold">Rehacer TP 🔄</a>`;
+            if (infoIntento && infoIntento.maxNota >= 6) {
+                sumaNotasAprobadas += infoIntento.maxNota;
+                listaAprobados.push({
+                    asig,
+                    titulo,
+                    bloom,
+                    nota: infoIntento.maxNota,
+                    intentos: infoIntento.cantIntentos
+                });
+            } else {
+                listaPendientes.push({
+                    asig,
+                    titulo,
+                    bloom,
+                    nota: infoIntento ? infoIntento.maxNota : null,
+                    intentos: infoIntento ? infoIntento.cantIntentos : 0
+                });
             }
+        });
 
-            tablaEvaluacionesAlumnoBody.innerHTML += `
-                <tr>
-                    <td class="fw-bold">${i + 1}</td>
-                    <td><code>${asig.cod_tp}</code></td>
-                    <td class="fw-bold">${titulo}</td>
-                    <td><span class="badge bg-info text-dark badge-bloom">${bloom}</span></td>
-                    <td>${estadoHtml}</td>
-                    <td>${notaHtml}</td>
-                    <td class="text-end">${accionHtml}</td>
-                </tr>
-            `;
+        // Renderizar Pestaña Pendientes
+        if (tablaPendientes) {
+            if (listaPendientes.length === 0) {
+                tablaPendientes.innerHTML = '<tr><td colspan="7" class="text-center text-success fw-bold py-4">🎉 ¡Felicitaciones! No tenés trabajos prácticos pendientes.</td></tr>';
+            } else {
+                tablaPendientes.innerHTML = listaPendientes.map((item, idx) => {
+                    const tieneIntentos = item.intentos > 0;
+                    const estadoHtml = tieneIntentos 
+                        ? `<span class="badge bg-warning text-dark">A Rehacer (${item.intentos} ${item.intentos === 1 ? 'intento' : 'intentos'})</span>`
+                        : `<span class="badge bg-secondary">Sin realizar</span>`;
+                    
+                    const notaHtml = tieneIntentos 
+                        ? `<strong class="text-danger">${item.nota} / 10</strong>` 
+                        : `<span class="text-muted">-</span>`;
+
+                    const btnTexto = tieneIntentos ? 'Rehacer TP 🔄' : 'Resolver &rarr;';
+                    const btnClass = tieneIntentos ? 'btn-outline-warning text-dark' : 'btn-primary';
+
+                    return `
+                        <tr>
+                            <td class="fw-bold">${idx + 1}</td>
+                            <td><code>${item.asig.cod_tp}</code></td>
+                            <td class="fw-bold">${item.titulo}</td>
+                            <td><span class="badge bg-info text-dark">${item.bloom}</span></td>
+                            <td>${estadoHtml}</td>
+                            <td>${notaHtml}</td>
+                            <td class="text-end">
+                                <a href="aula.html?tp=${item.asig.cod_tp}" class="btn btn-sm ${btnClass} fw-bold">${btnTexto}</a>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
         }
+
+        // Renderizar Pestaña Aprobados
+        if (tablaAprobados) {
+            if (listaAprobados.length === 0) {
+                tablaAprobados.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Aún no aprobaste trabajos prácticos. ¡A practicar! 💪</td></tr>';
+            } else {
+                tablaAprobados.innerHTML = listaAprobados.map((item, idx) => `
+                    <tr>
+                        <td class="fw-bold">${idx + 1}</td>
+                        <td><code>${item.asig.cod_tp}</code></td>
+                        <td class="fw-bold">${item.titulo}</td>
+                        <td><span class="badge bg-info text-dark">${item.bloom}</span></td>
+                        <td><span class="badge bg-success">Aprobado (${item.intentos} ${item.intentos === 1 ? 'intento' : 'intentos'})</span></td>
+                        <td><strong class="text-success fs-6">${item.nota} / 10</strong></td>
+                        <td class="text-end">
+                            <a href="aula.html?tp=${item.asig.cod_tp}" class="btn btn-sm btn-outline-primary fw-bold">Repasar 🔄</a>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // Actualizar Métricas de Encabezado
+        const cantPend = listaPendientes.length;
+        const cantAprob = listaAprobados.length;
+        const promedio = cantAprob > 0 ? (sumaNotasAprobadas / cantAprob).toFixed(1) : '-';
+
+        if (cantPendientesEl) cantPendientesEl.innerText = cantPend;
+        if (cantAprobadosEl) cantAprobadosEl.innerText = cantAprob;
+        if (badgeCantPendientes) badgeCantPendientes.innerText = cantPend;
+        if (badgeCantAprobados) badgeCantAprobados.innerText = cantAprob;
+        if (promedioGeneralEl) promedioGeneralEl.innerText = promedio !== '-' ? `${promedio} / 10` : '-';
 
     } catch (err) {
         console.error('Error al cargar evaluaciones:', err);
-        tablaEvaluacionesAlumnoBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar evaluaciones: ${err.message}</td></tr>`;
+        if (tablaPendientes) tablaPendientes.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar evaluaciones: ${err.message}</td></tr>`;
     }
 }
 // INICIALIZACIÓN
