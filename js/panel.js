@@ -789,13 +789,22 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
 // =========================================================================
 async function cargarAnaliticaCurso(cursoId) {
     try {
-        const { data: plan } = await supabase.from('curso_planificacion').select('*').eq('curso_id', cursoId);
+        const { data: plan } = await supabase
+            .from('curso_planificacion')
+            .select('*')
+            .eq('curso_id', cursoId)
+            .order('periodo_evaluativo', { ascending: true })
+            .order('unidad_tematica', { ascending: true });
+
         if (!plan || plan.length === 0) return;
 
         const { data: alumnos } = await supabase.from('alumnos').select('id').eq('curso_id', cursoId);
         const idsAlumnos = alumnos ? alumnos.map(a => a.id) : [];
 
-        const { data: resultados } = await supabase.from('evaluaciones_resultados').select('*').in('alumno_id', idsAlumnos);
+        const { data: resultados } = await supabase
+            .from('evaluaciones_resultados')
+            .select('*')
+            .in('alumno_id', idsAlumnos.length > 0 ? idsAlumnos : ['00000000-0000-0000-0000-000000000000']);
 
         const mapa = {};
         if (resultados) {
@@ -807,7 +816,12 @@ async function cargarAnaliticaCurso(cursoId) {
             });
         }
 
-        const labelsTP = plan.map(p => p.alias_tp || p.cod_tp);
+        // Formatear las etiquetas para que no rompan el gráfico si el alias es largo
+        const labelsTP = plan.map(p => {
+            const alias = p.alias_tp || p.cod_tp;
+            return alias.length > 20 ? alias.substring(0, 18) + '...' : alias;
+        });
+
         const aprobadosData = plan.map(p => (mapa[p.cod_tp] || []).filter(n => n >= 6).length);
         const reprobadosData = plan.map(p => (mapa[p.cod_tp] || []).filter(n => n < 6).length);
 
@@ -817,7 +831,12 @@ async function cargarAnaliticaCurso(cursoId) {
                 { label: 'Aprobados (≥6)', data: aprobadosData, backgroundColor: '#198754' },
                 { label: 'A Rehacer (<6)', data: reprobadosData, backgroundColor: '#dc3545' }
             ]
-        }, { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } });
+        }, { 
+            scales: { 
+                x: { stacked: true }, 
+                y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } 
+            } 
+        });
 
         renderizarGrafico('chartBloomRadar', 'radar', {
             labels: ['Recordar', 'Comprender', 'Aplicar', 'Analizar', 'Evaluar', 'Crear'],
