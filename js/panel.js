@@ -1361,11 +1361,109 @@ if (formEditarCurso) {
                 if (modalInstance) modalInstance.hide();
             }
 
-            const { data: { session } } = await supabase.auth.getSession();
+           const { data: { session } } = await supabase.auth.getSession();
             cargarCursos(session ? session.user.id : null);
 
         } catch (err) {
             alert('Error al actualizar la comisión: ' + err.message);
         }
+    });
+}
+
+// =========================================================================
+// INFORME DETALLADO ALUMNO POR ALUMNO (PASO 2)
+// =========================================================================
+function vincularEventosDetalleAlumno(cursoId) {
+    document.querySelectorAll('.btn-ver-detalle-alumno').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const alumnoId = e.currentTarget.dataset.id;
+            const nombreAlumno = e.currentTarget.dataset.nombre;
+
+            // Consultar entregas en Supabase
+            const { data: entregas, error } = await supabase
+                .from('evaluaciones_resultados')
+                .select('*')
+                .eq('alumno_id', alumnoId);
+
+            let modalEl = document.getElementById('modalDetalleAlumno');
+            if (!modalEl) {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <div class="modal fade" id="modalDetalleAlumno" tabindex="-1">
+                        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                            <div class="modal-content">
+                                <div class="modal-header bg-primary text-white">
+                                    <h5 class="modal-title fw-bold" id="modalDetalleAlumnoTitulo">Seguimiento Individual</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body" id="modalDetalleAlumnoBody"></div>
+                            </div>
+                        </div>
+                    </div>`;
+                document.body.appendChild(div);
+                modalEl = document.getElementById('modalDetalleAlumno');
+            }
+
+            document.getElementById('modalDetalleAlumnoTitulo').textContent = `📊 Informe Pedagógico: ${nombreAlumno}`;
+            const containerBody = document.getElementById('modalDetalleAlumnoBody');
+
+            if (error || !entregas || entregas.length === 0) {
+                containerBody.innerHTML = `
+                    <div class="alert alert-info text-center my-4 py-4">
+                        <h5>Sin entregas registradas</h5>
+                        <p class="text-muted small mb-0">El alumno no ha realizado evaluaciones hasta el momento.</p>
+                    </div>`;
+            } else {
+                let html = '<div class="accordion" id="accordionDetalleTPs">';
+                entregas.forEach((ent, idx) => {
+                    const tpCodigo = ent.tp_codigo || ent.cod_tp || 'TP';
+                    const nota = Number(ent.nota) || 0;
+                    const resps = ent.detalle_respuestas || [];
+
+                    html += `
+                        <div class="accordion-item mb-3 border rounded shadow-sm">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button ${idx !== 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#tpCollapse${idx}">
+                                    <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                        <span class="fw-bold text-dark">${tpCodigo}</span>
+                                        <div>
+                                            <span class="badge ${nota >= 6 ? 'bg-success' : 'bg-danger'} fs-6 me-2">Nota: ${nota.toFixed(1)} / 10</span>
+                                            <small class="text-muted">${ent.created_at ? new Date(ent.created_at).toLocaleDateString() : ''}</small>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="tpCollapse${idx}" class="accordion-collapse collapse ${idx === 0 ? 'show' : ''}">
+                                <div class="accordion-body">
+                                    <h6 class="fw-bold text-secondary mb-3">Respuesta por Respuesta:</h6>
+                                    <ul class="list-group list-group-flush">`;
+
+                    if (Array.isArray(resps)) {
+                        resps.forEach((p, pIdx) => {
+                            const esOk = p.esCorrecta === true || p.correcta === true || p.es_correcta === true;
+                            html += `
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                    <div>
+                                        <span class="fw-bold me-2">Pregunta ${pIdx + 1}:</span>
+                                        <span class="small text-dark">${p.consigna || 'Consigna evaluada'}</span>
+                                    </div>
+                                    <div>
+                                        ${esOk 
+                                            ? '<span class="badge bg-success-subtle text-success border border-success px-2 py-1">✓ Correcta</span>' 
+                                            : '<span class="badge bg-danger-subtle text-danger border border-danger px-2 py-1">✗ Incorrecta</span>'}
+                                    </div>
+                                </li>`;
+                        });
+                    }
+
+                    html += `</ul></div></div></div>`;
+                });
+                html += '</div>';
+                containerBody.innerHTML = html;
+            }
+
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        });
     });
 }
