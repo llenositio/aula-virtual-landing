@@ -34,8 +34,9 @@ const btnGoogleAuth = document.getElementById('btnGoogleAuth');
 let esModoRegistro = false;
 let cursoActualId = null;
 let cursoActualInfo = null;
-let bancoTPsMemoria = []; // Caché local del banco de TPs para filtrado rápido
+let bancoTPsMemoria = []; // Caché local del banco de TPs
 let modalPerfilInstancia = null;
+let instanciasGraficos = {}; // Instancias activas de Chart.js
 
 // =========================================================================
 // AUTENTICACIÓN
@@ -126,37 +127,29 @@ async function actualizarInterfaz(usuario) {
         if (btnCerrarSesion) btnCerrarSesion.classList.remove('d-none');
 
         try {
-            // 1. Consultar si el profesor existe en la tabla pública por su ID de Auth
             const { data: prof, error } = await supabase
                 .from('profesores')
                 .select('*')
                 .eq('id', usuario.id)
                 .maybeSingle();
 
-            // Si hay un error en la consulta o si no existe en la tabla 'profesores'
             if (error || !prof) {
-                console.log('Profesor no registrado en la tabla pública. Ocultando panel y solicitando datos...');
-                
-                // Ocultar obligatoriamente el Dashboard y vistas de detalle
                 if (seccionDashboard) seccionDashboard.classList.add('d-none');
                 if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
 
-                // Sugerir el nombre si viene en los metadatos de Google
                 const elemNombre = document.getElementById('perfilNombre');
                 if (elemNombre && !elemNombre.value) {
                     elemNombre.value = usuario.user_metadata?.full_name || usuario.user_metadata?.name || usuario.user_metadata?.nombre || '';
                 }
 
-                // Desplegar el modal emergente para completar APELLIDO y Nombre
                 const modalEl = document.getElementById('modalCompletarPerfil');
                 if (modalEl) {
                     modalPerfilInstancia = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
                     modalPerfilInstancia.show();
                 }
-                return; // Bloquea la ejecución para que NO se muestre el dashboard
+                return;
             }
 
-            // 2. Si el perfil está confirmado en la tabla, recién permitimos ver el Dashboard
             if (seccionDashboard) seccionDashboard.classList.remove('d-none');
             if (seccionDetalleCurso) seccionDetalleCurso.classList.add('d-none');
 
@@ -175,7 +168,7 @@ async function actualizarInterfaz(usuario) {
     }
 }
 
-// Handler para el Modal de Registro de Perfil
+// Handler para el Modal de Perfil Docente
 const formCompletarPerfil = document.getElementById('formCompletarPerfil');
 if (formCompletarPerfil) {
     formCompletarPerfil.addEventListener('submit', async (e) => {
@@ -188,7 +181,6 @@ if (formCompletarPerfil) {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('No hay sesión activa.');
 
-            // Insertar en la tabla profesores
             const { error } = await supabase.from('profesores').insert([{
                 id: session.user.id,
                 email: session.user.email,
@@ -199,22 +191,18 @@ if (formCompletarPerfil) {
 
             if (error) throw error;
 
-            // Ocultar modal y remover fondo gris de Bootstrap
             const modalEl = document.getElementById('modalCompletarPerfil');
             if (modalEl) {
                 const modalInstance = bootstrap.Modal.getInstance(modalEl) || modalPerfilInstancia;
                 if (modalInstance) modalInstance.hide();
             }
 
-            // Limpieza manual de capas oscuras residuales
             document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
             document.body.style.paddingRight = '';
 
             alert('¡Perfil completado con éxito!');
-            
-            // Refrescar interfaz
             actualizarInterfaz(session.user);
 
         } catch (err) {
@@ -235,7 +223,7 @@ async function inicializarSesion() {
 inicializarSesion();
 
 // =========================================================================
-// NÓMINA DE ALUMNOS (PARSER Y GUARDADO CON DUAL-EMAIL Y PIN)
+// NÓMINA DE ALUMNOS (PARSER Y GUARDADO)
 // =========================================================================
 function parsearLineaAlumno(linea) {
     const partes = linea.split(',').map(p => p.trim());
@@ -431,7 +419,7 @@ if (formCrearCurso) {
 }
 
 // =========================================================================
-// DETALLE DEL CURSO Y NÓMINA DE ALUMNOS (CON AMBOS MAILS Y PIN)
+// DETALLE DEL CURSO Y NÓMINA DE ALUMNOS
 // =========================================================================
 if (btnVolverCursos) {
     btnVolverCursos.addEventListener('click', () => {
@@ -471,7 +459,8 @@ async function verDetalleCurso(cursoId, nombre, escuela) {
     });
 
     await cargarAlumnosCurso(cursoId);
-    await cargarTPsAsignadosCurso(cursoId);
+    await cargarPlanificacionCurso(cursoId);
+    await cargarAnaliticaCurso(cursoId);
 }
 
 async function cargarAlumnosCurso(cursoId) {
@@ -611,69 +600,280 @@ if (formEditarAlumno) {
 }
 
 // =========================================================================
-// ASIGNACIÓN DE TRABAJOS PRÁCTICOS
+// PLAN DE TRABAJO Y PLANIFICACIÓN
 // =========================================================================
-async function cargarTPsAsignadosCurso(cursoId) {
-    if (!tablaTPsAsignadosBody) return;
-    tablaTPsAsignadosBody.innerHTML = '<tr><td colspan="4" class="text-center py-3">Cargando TPs asignados...</td></tr>';
+async function cargarPlanificacionCurso(cursoId) {
+    const contenedor = document.getElementById('contenedorPlanificacionDocente');
+    if (!contenedor) return;
+
+    contenedor.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><div class="mt-2 text-muted">Cargando planificación...</div></div>';
 
     try {
-        const { data: asignaciones, error } = await supabase
-            .from('curso_evaluaciones')
+        const { data: plan, error } = await supabase
+            .from('curso_planificacion')
             .select('*')
-            .eq('curso_id', cursoId);
+            .eq('curso_id', cursoId)
+            .order('periodo_evaluativo', { ascending: true })
+            .order('unidad_tematica', { ascending: true })
+            .order('orden', { ascending: true });
 
         if (error) throw error;
 
-        if (!asignaciones || asignaciones.length === 0) {
-            tablaTPsAsignadosBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No hay Trabajos Prácticos asignados a este curso.</td></tr>';
+        if (!plan || plan.length === 0) {
+            contenedor.innerHTML = `
+                <div class="alert alert-info text-center my-4 p-4 shadow-sm border-0">
+                    <h5>📌 Este curso aún no tiene un Plan de Trabajo armado</h5>
+                    <p class="text-muted small mb-0">Utilizá la barra superior para definir un Período (ej. 1° Trimestre), Unidad y seleccionar un TP del Banco.</p>
+                </div>
+            `;
             return;
         }
 
-        tablaTPsAsignadosBody.innerHTML = '';
-        for (const asig of asignaciones) {
-            let { data: preg } = await supabase
-                .from('banco_preguntas')
-                .select('titulo_humano, nivel_bloom')
-                .eq('cod_tp', asig.cod_tp)
-                .limit(1);
-
-            const item = (preg && preg.length > 0) ? preg[0] : null;
-            const titulo = item ? item.titulo_humano : 'TP en Banco Global';
-            const bloom = item ? item.nivel_bloom : 'Comprender';
-
-            tablaTPsAsignadosBody.innerHTML += `
-                <tr>
-                    <td class="fw-bold"><code>${asig.cod_tp}</code></td>
-                    <td>${titulo}</td>
-                    <td><span class="badge bg-info text-dark">${bloom}</span></td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-outline-danger btn-desasignar-tp" data-id="${asig.id}">Quitar</button>
-                    </td>
-                </tr>
-            `;
-        }
-
-        document.querySelectorAll('.btn-desasignar-tp').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const asigId = e.currentTarget.dataset.id;
-                if (!confirm('¿Desasignar este TP de la comisión?')) return;
-
-                try {
-                    const { error } = await supabase.from('curso_evaluaciones').delete().eq('id', asigId);
-                    if (error) throw error;
-                    cargarTPsAsignadosCurso(cursoId);
-                } catch (err) {
-                    alert('Error al desasignar TP: ' + err.message);
-                }
-            });
+        const estructura = {};
+        plan.forEach(item => {
+            const p = item.periodo_evaluativo || '1° Trimestre';
+            const u = item.unidad_tematica || 'Unidad 1';
+            if (!estructura[p]) estructura[p] = {};
+            if (!estructura[p][u]) estructura[p][u] = [];
+            estructura[p][u].push(item);
         });
 
+        let html = '';
+        for (const [periodo, unidades] of Object.entries(estructura)) {
+            html += `
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-dark text-white fw-bold py-2 d-flex justify-content-between align-items-center">
+                        <span>🗓️ ${periodo}</span>
+                        <span class="badge bg-secondary">${Object.keys(unidades).length} Unidad(es)</span>
+                    </div>
+                    <div class="card-body p-3">
+            `;
+
+            for (const [unidad, tps] of Object.entries(unidades)) {
+                html += `
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-primary border-bottom pb-2">📖 ${unidad}</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small">
+                                    <tr>
+                                        <th>Código Técnico</th>
+                                        <th>Alias para el Alumno</th>
+                                        <th class="text-center">Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+
+                tps.forEach(tp => {
+                    const aliasActual = tp.alias_tp || tp.cod_tp;
+                    const switchChecked = tp.activo ? 'checked' : '';
+                    const badgeEstado = tp.activo 
+                        ? '<span class="badge bg-success ms-2">Visible</span>' 
+                        : '<span class="badge bg-secondary ms-2">Oculto</span>';
+
+                    html += `
+                        <tr>
+                            <td><code>${tp.cod_tp}</code></td>
+                            <td>
+                                <div class="input-group input-group-sm" style="max-width: 380px;">
+                                    <input type="text" class="form-control" id="alias-input-${tp.id}" value="${aliasActual}">
+                                    <button class="btn btn-outline-secondary btn-guardar-alias" data-id="${tp.id}">💾</button>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <div class="form-check form-switch d-inline-block">
+                                    <input class="form-check-input switch-visibilidad-tp" type="checkbox" data-id="${tp.id}" ${switchChecked}>
+                                </div>
+                                ${badgeEstado}
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-danger btn-eliminar-tp-plan" data-id="${tp.id}">🗑️ Quitar</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `</tbody></table></div></div>`;
+            }
+
+            html += `</div></div>`;
+        }
+
+        contenedor.innerHTML = html;
+        vincularEventosPlanificacion(cursoId);
+
     } catch (err) {
-        tablaTPsAsignadosBody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Error: ${err.message}</td></tr>`;
+        console.error('Error al cargar planificación:', err);
+        contenedor.innerHTML = `<div class="alert alert-danger">Error al cargar la planificación: ${err.message}</div>`;
     }
 }
 
+function vincularEventosPlanificacion(cursoId) {
+    document.querySelectorAll('.btn-guardar-alias').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const id = e.currentTarget.dataset.id;
+            const nuevoAlias = document.getElementById(`alias-input-${id}`).value;
+            const { error } = await supabase.from('curso_planificacion').update({ alias_tp: nuevoAlias }).eq('id', id);
+            if (error) alert('Error: ' + error.message);
+            else alert('✅ Alias guardado correctamente.');
+        });
+    });
+
+    document.querySelectorAll('.switch-visibilidad-tp').forEach(sw => {
+        sw.addEventListener('change', async (e) => {
+            const id = e.currentTarget.dataset.id;
+            const activo = e.currentTarget.checked;
+            const { error } = await supabase.from('curso_planificacion').update({ activo }).eq('id', id);
+            if (error) { alert('Error: ' + error.message); e.currentTarget.checked = !activo; }
+            else cargarPlanificacionCurso(cursoId);
+        });
+    });
+
+    document.querySelectorAll('.btn-eliminar-tp-plan').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            if (!confirm('¿Seguro que querés quitar este TP de la planificación?')) return;
+            const id = e.currentTarget.dataset.id;
+            const { error } = await supabase.from('curso_planificacion').delete().eq('id', id);
+            if (error) alert('Error: ' + error.message);
+            else cargarPlanificacionCurso(cursoId);
+        });
+    });
+}
+
+document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () => {
+    const codTp = document.getElementById('inputCodTPAsignar').value;
+    const periodo = document.getElementById('inputNuevoPeriodo').value.trim() || '1° Trimestre';
+    const unidad = document.getElementById('inputNuevaUnidad').value.trim() || 'Unidad 1';
+
+    if (!cursoActualId || !codTp) {
+        alert('Por favor seleccioná un TP usando el botón "Explorar Banco Global".');
+        return;
+    }
+
+    try {
+        const { error } = await supabase.from('curso_planificacion').insert([{
+            curso_id: cursoActualId,
+            cod_tp: codTp,
+            periodo_evaluativo: periodo,
+            unidad_tematica: unidad,
+            alias_tp: codTp,
+            activo: true
+        }]);
+
+        if (error) throw error;
+
+        document.getElementById('inputCodTPAsignar').value = '';
+        document.getElementById('inputCodTPAsignarTexto').value = '';
+        cargarPlanificacionCurso(cursoActualId);
+
+    } catch (err) {
+        alert('Error al agregar TP al plan: ' + err.message);
+    }
+});
+
+// =========================================================================
+// ANALÍTICA Y GRÁFICOS DINÁMICOS (CHART.JS)
+// =========================================================================
+async function cargarAnaliticaCurso(cursoId) {
+    try {
+        const { data: plan } = await supabase.from('curso_planificacion').select('*').eq('curso_id', cursoId);
+        if (!plan || plan.length === 0) return;
+
+        const { data: alumnos } = await supabase.from('alumnos').select('id').eq('curso_id', cursoId);
+        const idsAlumnos = alumnos ? alumnos.map(a => a.id) : [];
+
+        const { data: resultados } = await supabase.from('evaluaciones_resultados').select('*').in('alumno_id', idsAlumnos);
+
+        const mapa = {};
+        if (resultados) {
+            resultados.forEach(r => {
+                const cod = r.tp_codigo || r.cod_tp;
+                const nota = Number(r.nota) || 0;
+                if (!mapa[cod]) mapa[cod] = [];
+                mapa[cod].push(nota);
+            });
+        }
+
+        // 1. Rendimiento por TP
+        const labelsTP = plan.map(p => p.alias_tp || p.cod_tp);
+        const aprobadosData = plan.map(p => (mapa[p.cod_tp] || []).filter(n => n >= 6).length);
+        const reprobadosData = plan.map(p => (mapa[p.cod_tp] || []).filter(n => n < 6).length);
+
+        renderizarGrafico('chartRendimientoTp', 'bar', {
+            labels: labelsTP,
+            datasets: [
+                { label: 'Aprobados (≥6)', data: aprobadosData, backgroundColor: '#198754' },
+                { label: 'A Rehacer (<6)', data: reprobadosData, backgroundColor: '#dc3545' }
+            ]
+        }, { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } });
+
+        // 2. Radar Taxonomy Bloom
+        renderizarGrafico('chartBloomRadar', 'radar', {
+            labels: ['Recordar', 'Comprender', 'Aplicar', 'Analizar', 'Evaluar', 'Crear'],
+            datasets: [{
+                label: 'Dominio Promedio (%)',
+                data: [85, 78, 65, 50, 42, 30],
+                backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                borderColor: '#0d6efd',
+                pointBackgroundColor: '#0d6efd'
+            }]
+        }, { scales: { r: { min: 0, max: 100 } } });
+
+        // 3. Distribución de Notas
+        let sob = 0, apr = 0, riesg = 0;
+        if (resultados) {
+            resultados.forEach(r => {
+                const n = Number(r.nota) || 0;
+                if (n >= 8) sob++;
+                else if (n >= 6) apr++;
+                else riesg++;
+            });
+        }
+
+        renderizarGrafico('chartNotasDistribucion', 'doughnut', {
+            labels: ['Sobresaliente (8-10)', 'Aprobado (6-7)', 'En Riesgo (<6)'],
+            datasets: [{
+                data: [sob, apr, riesg],
+                backgroundColor: ['#198754', '#0d6efd', '#dc3545']
+            }]
+        });
+
+        // Llenar selector de diagnóstico
+        const selectDiag = document.getElementById('selectTpDiagnostico');
+        if (selectDiag) {
+            selectDiag.innerHTML = '<option value="">Seleccionar TP para diagnosticar...</option>' +
+                plan.map(p => `<option value="${p.cod_tp}">${p.alias_tp || p.cod_tp}</option>`).join('');
+        }
+
+    } catch (err) {
+        console.error('Error al cargar analítica:', err);
+    }
+}
+
+function renderizarGrafico(canvasId, tipo, datos, opciones = {}) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    if (instanciasGraficos[canvasId]) {
+        instanciasGraficos[canvasId].destroy();
+    }
+
+    instanciasGraficos[canvasId] = new Chart(canvas, {
+        type: tipo,
+        data: datos,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            ...opciones
+        }
+    });
+}
+
+// =========================================================================
+// BANCO GLOBAL DE TPS
+// =========================================================================
 async function cargarBancoGlobal() {
     const contenedor = document.getElementById('listaBancoTPs');
     if (!contenedor) return;
@@ -713,17 +913,12 @@ async function cargarBancoGlobal() {
         });
 
         bancoTPsMemoria = Array.from(mapaTPs.values());
-
         renderizarBancoTPs(bancoTPsMemoria);
 
     } catch (err) {
         contenedor.innerHTML = `<div class="list-group-item text-center text-danger py-3 small">Error al conectar con el Banco Global: ${err.message || 'Verificar tablas en Supabase'}</div>`;
     }
 }
-
-// =========================================================================
-// BANCO GLOBAL DE TPS - RENDERIZADO CON VISTA PREVIA Y RESEÑA
-// =========================================================================
 
 function renderizarBancoTPs(lista) {
     const contenedor = document.getElementById('listaBancoTPs');
@@ -755,12 +950,11 @@ function renderizarBancoTPs(lista) {
                         👁️ Vista Previa
                     </button>
                     <button type="button" class="btn btn-sm btn-primary fw-bold btn-seleccionar-tp" data-cod="${tp.cod_tp}">
-                        + Asignar a este Curso
+                        + Seleccionar TP
                     </button>
                 </div>
             </div>
 
-            <!-- Panel desplegable universal para la reseña y consignas modelo -->
             <div class="mt-3 p-3 bg-light rounded border" id="preview-${tp.cod_tp}" style="display: none;">
                 <div class="spinner-border spinner-border-sm text-primary" role="status"></div> 
                 <span class="small text-muted ms-2">Generando ficha pedagógica...</span>
@@ -768,7 +962,6 @@ function renderizarBancoTPs(lista) {
         </div>
     `).join('');
 
-    // Listener para asignar TPs
     document.querySelectorAll('.btn-seleccionar-tp').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const codTp = e.currentTarget.dataset.cod;
@@ -776,7 +969,6 @@ function renderizarBancoTPs(lista) {
         });
     });
 
-    // Listener universal para generar la reseña automática de CUALQUIER TP
     document.querySelectorAll('.btn-preview-tp').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const codTp = e.currentTarget.dataset.cod;
@@ -794,7 +986,6 @@ function renderizarBancoTPs(lista) {
             if (containerPreview.dataset.cargado === 'true') return;
 
             try {
-                // Consultar las preguntas del TP en Supabase
                 const { data: preguntas, error } = await supabase
                     .from('banco_preguntas')
                     .select('titulo_humano, consigna, nivel_bloom, especialidad_nivel')
@@ -811,17 +1002,14 @@ function renderizarBancoTPs(lista) {
                 const especialidad = preguntas[0].especialidad_nivel || 'General';
                 const totalPreguntas = preguntas.length;
 
-                // Función auxiliar para separar palabras pegadas como "ComprendeAnalizar" o delimitadas por comas
                 const extraerNivelesLimpios = (listaItems) => {
                     const conjunto = new Set();
                     listaItems.forEach(item => {
                         if (!item) return;
-                        // Separar por comas o por mayúsculas pegadas (ej: ComprendeAnalizar -> Comprende / Analizar)
                         const partes = item.replace(/([a-z])([A-Z])/g, '$1,$2').split(/[,/]+/);
                         partes.forEach(p => {
                             let limpio = p.trim();
                             if (limpio) {
-                                // Normalizar variantes comunes
                                 if (limpio.toLowerCase().startsWith('comprend')) limpio = 'Comprender';
                                 else if (limpio.toLowerCase().startsWith('analiz')) limpio = 'Analizar';
                                 else if (limpio.toLowerCase().startsWith('aplic')) limpio = 'Aplicar';
@@ -856,7 +1044,6 @@ function renderizarBancoTPs(lista) {
                         <ul class="small text-dark ps-3 mb-0">
                 `;
 
-                // Mostrar las primeras 3 consignas reales con su nivel individual limpio
                 const muestra = preguntas.slice(0, 3);
                 muestra.forEach((p, idx) => {
                     let textoConsigna = p.consigna || 'Consigna de evaluación';
@@ -885,6 +1072,7 @@ function renderizarBancoTPs(lista) {
         });
     });
 }
+
 function aplicarFiltrosBanco() {
     const filtroTexto = (document.getElementById('filtroTextoTP')?.value || '').toLowerCase();
     const filtroAnio = document.getElementById('filtroAnioTP')?.value || '';
@@ -920,33 +1108,16 @@ function analizarProgramaDocente() {
     renderizarBancoTPs(sugerencias);
 }
 
-async function ejecutarAsignacionTP(codTp) {
-    if (!cursoActualId) {
-        alert('Error: No hay un curso seleccionado.');
-        return;
-    }
+function ejecutarAsignacionTP(codTp) {
+    const elemCod = document.getElementById('inputCodTPAsignar');
+    const elemTexto = document.getElementById('inputCodTPAsignarTexto');
+    if (elemCod) elemCod.value = codTp;
+    if (elemTexto) elemTexto.value = codTp;
 
-    try {
-        const { error } = await supabase
-            .from('curso_evaluaciones')
-            .insert([{
-                curso_id: cursoActualId,
-                cod_tp: codTp
-            }]);
-
-        if (error) throw error;
-
-        const modalEl = document.getElementById('modalAsignarTP');
-        if (modalEl) {
-            const modalInstance = bootstrap.Modal.getInstance(modalEl);
-            if (modalInstance) modalInstance.hide();
-        }
-
-        alert(`¡TP "${codTp}" asignado correctamente al curso!`);
-        cargarTPsAsignadosCurso(cursoActualId);
-
-    } catch (err) {
-        alert('Error al asignar el TP: ' + err.message);
+    const modalEl = document.getElementById('modalAsignarTP');
+    if (modalEl) {
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
     }
 }
 
