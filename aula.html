@@ -149,6 +149,64 @@
         }
 
         .hidden { display: none !important; }
+
+        /* TABLA DE VERDADERO / FALSO (V/F) */
+        .tabla-vf {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+        }
+
+        .tabla-vf th {
+            background-color: #3b82f6;
+            color: #ffffff;
+            padding: 10px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .tabla-vf td {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .tabla-vf td:first-child {
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .btn-vf-opcion {
+            padding: 6px 14px;
+            border: 1px solid #cbd5e1;
+            background-color: #ffffff;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #334155;
+        }
+
+        .btn-vf-opcion:hover {
+            background-color: #f1f5f9;
+        }
+
+        .btn-vf-opcion.seleccionado-v {
+            background-color: #22c55e;
+            color: #ffffff;
+            border-color: #16a34a;
+        }
+
+        .btn-vf-opcion.seleccionado-f {
+            background-color: #ef4444;
+            color: #ffffff;
+            border-color: #dc2626;
+        }
     </style>
 </head>
 <body>
@@ -200,6 +258,7 @@
     let respuestasGuardadas = {};
     let alumnoActual = null;
     let codTp = '';
+    let respVFActuales = {};
 
     document.addEventListener('DOMContentLoaded', async () => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -288,39 +347,128 @@
         document.getElementById('textoConsigna').innerHTML = p.consigna || '';
 
         const select = document.getElementById('selectRespuesta');
-        select.innerHTML = '<option value="">-- Selecciona una opción --</option>';
+        
+        let contenedorTabla = document.getElementById('contenedorTablaVF');
+        if (contenedorTabla) contenedorTabla.remove();
 
-        if (p.opciones) {
-            let listaOp = [];
+        const esTablaVF = p.tipo === 'matriz_vf' || (typeof p.opciones === 'string' && p.opciones.includes(':::')) || (Array.isArray(p.opciones) && p.tipo_pregunta === 'vf');
+
+        if (esTablaVF) {
+            select.classList.add('hidden');
+            respVFActuales = {};
+
+            let filas = [];
             if (Array.isArray(p.opciones)) {
-                listaOp = p.opciones;
+                filas = p.opciones;
             } else if (typeof p.opciones === 'string') {
-                listaOp = p.opciones.includes(',,,') ? p.opciones.split(',,,') : p.opciones.split(',');
+                filas = p.opciones.split(':::');
             }
 
-            listaOp.forEach(op => {
-                const optText = String(op).trim();
-                if (optText) {
-                    const optionEl = document.createElement('option');
-                    optionEl.value = optText;
-                    optionEl.textContent = optText;
-                    select.appendChild(optionEl);
+            const tablaDiv = document.createElement('div');
+            tablaDiv.id = 'contenedorTablaVF';
+            
+            let htmlTabla = `
+                <table class="tabla-vf">
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th style="width: 60px;">V</th>
+                            <th style="width: 60px;">F</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            filas.forEach((filaTexto, fIdx) => {
+                const itemLimpio = filaTexto.trim();
+                if (itemLimpio) {
+                    htmlTabla += `
+                        <tr>
+                            <td>${itemLimpio}</td>
+                            <td>
+                                <button type="button" class="btn-vf-opcion btn-v-${fIdx}" onclick="seleccionarOpcionVF(${fIdx}, 'V', ${filas.length})">V</button>
+                            </td>
+                            <td>
+                                <button type="button" class="btn-vf-opcion btn-f-${fIdx}" onclick="seleccionarOpcionVF(${fIdx}, 'F', ${filas.length})">F</button>
+                            </td>
+                        </tr>
+                    `;
                 }
             });
-        }
 
-        if (respuestasGuardadas[p.id]) {
-            select.value = respuestasGuardadas[p.id];
-            habilitarBoton(true);
+            htmlTabla += `</tbody></table>`;
+            tablaDiv.innerHTML = htmlTabla;
+            document.querySelector('.box-pregunta').appendChild(tablaDiv);
+
+            if (respuestasGuardadas[p.id]) {
+                try {
+                    const estado = JSON.parse(respuestasGuardadas[p.id]);
+                    Object.keys(estado).forEach(fIdx => {
+                        seleccionarOpcionVF(parseInt(fIdx), estado[fIdx], filas.length);
+                    });
+                } catch (e) {}
+            } else {
+                habilitarBoton(false);
+            }
+
         } else {
-            habilitarBoton(false);
+            select.classList.remove('hidden');
+            select.innerHTML = '<option value="">-- Selecciona una opción --</option>';
+
+            if (p.opciones) {
+                let listaOp = [];
+                if (Array.isArray(p.opciones)) {
+                    listaOp = p.opciones;
+                } else if (typeof p.opciones === 'string') {
+                    listaOp = p.opciones.includes(',,,') ? p.opciones.split(',,,') : p.opciones.split(',');
+                }
+
+                listaOp.forEach(op => {
+                    const optText = String(op).trim();
+                    if (optText) {
+                        const optionEl = document.createElement('option');
+                        optionEl.value = optText;
+                        optionEl.textContent = optText;
+                        select.appendChild(optionEl);
+                    }
+                });
+            }
+
+            if (respuestasGuardadas[p.id]) {
+                select.value = respuestasGuardadas[p.id];
+                habilitarBoton(true);
+            } else {
+                habilitarBoton(false);
+            }
         }
 
         const btn = document.getElementById('btnNavegacion');
-        btn.innerText = (index === preguntas.length - 1) ? 'FINALIZAR TP' : 'SIGUIENTE';
+        btn.innerText = (index === preguntas.length - 1) ? 'FINALIZAR Y ENVIAR' : 'SIGUIENTE';
 
         if (window.MathJax && window.MathJax.typesetPromise) {
             MathJax.typesetPromise();
+        }
+    }
+
+    function seleccionarOpcionVF(filaIndex, valor, totalFilas) {
+        const btnV = document.querySelector(`.btn-v-${filaIndex}`);
+        const btnF = document.querySelector(`.btn-f-${filaIndex}`);
+
+        if (valor === 'V') {
+            btnV.classList.add('seleccionado-v');
+            btnF.classList.remove('seleccionado-f');
+        } else {
+            btnF.classList.add('seleccionado-f');
+            btnV.classList.remove('seleccionado-v');
+        }
+
+        respVFActuales[filaIndex] = valor;
+
+        const pActual = preguntas[indiceActual];
+        respuestasGuardadas[pActual.id] = JSON.stringify(respVFActuales);
+
+        if (Object.keys(respVFActuales).length === totalFilas) {
+            habilitarBoton(true);
         }
     }
 
@@ -344,7 +492,12 @@
 
     btnNav.addEventListener('click', async () => {
         const pActual = preguntas[indiceActual];
-        respuestasGuardadas[pActual.id] = selectEl.value;
+        
+        const esTablaVF = pActual.tipo === 'matriz_vf' || (typeof pActual.opciones === 'string' && pActual.opciones.includes(':::')) || (Array.isArray(pActual.opciones) && pActual.tipo_pregunta === 'vf');
+        
+        if (!esTablaVF) {
+            respuestasGuardadas[pActual.id] = selectEl.value;
+        }
 
         indiceActual++;
         if (indiceActual < preguntas.length) {
@@ -362,7 +515,15 @@
             const payloadRespuestas = preguntas.map(p => {
                 const respAlumno = respuestasGuardadas[p.id] || '';
                 const respCorrecta = p.respuesta_correcta || '';
-                const esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
+                let esCorrecta = false;
+
+                const esTablaVF = p.tipo === 'matriz_vf' || (typeof p.opciones === 'string' && p.opciones.includes(':::')) || (Array.isArray(p.opciones) && p.tipo_pregunta === 'vf');
+
+                if (esTablaVF) {
+                    esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
+                } else {
+                    esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
+                }
 
                 if (esCorrecta) aciertos++;
 
