@@ -1255,7 +1255,6 @@ function renderizarBancoTPs(lista) {
                     const nivelLimpioArr = extraerNivelesLimpios([p.nivel_bloom]);
                     const nivelMostrar = nivelLimpioArr.length > 0 ? nivelLimpioArr.join(' / ') : 'Aplicar';
 
-                    resenaHTML += `
                       // Detección de matriz / V/F
 const esTablaVF = p.tipo === 'matriz_vf' || (typeof p.opciones === 'string' && p.opciones.includes(':::')) || (Array.isArray(p.opciones) && p.tipo_pregunta === 'vf');
 
