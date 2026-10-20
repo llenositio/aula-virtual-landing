@@ -1,4 +1,4 @@
-jsimport { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // =========================================================================
 // CONFIGURACIÓN DIRECTA DE SUPABASE
@@ -585,6 +585,7 @@ async function cargarAlumnosCurso(cursoId) {
         if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-danger py-3">Error: ${err.message}</td></tr>`;
     }
 }
+
 function vincularEventosAlumnos(cursoId) {
     document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -1046,6 +1047,7 @@ async function cargarAnaliticaCurso(cursoId) {
         console.error('Error al cargar analítica real:', err);
     }
 }
+
 function renderizarGrafico(canvasId, tipo, datos, opciones = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
