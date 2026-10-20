@@ -1266,6 +1266,7 @@ function renderizarBancoTPs(lista) {
 
                 containerPreview.innerHTML = resenaHTML;
                 containerPreview.dataset.cargado = 'true';
+                if (window.MathJax && window.MathJax.typesetPromise) { MathJax.typesetPromise(); }
 
             } catch (err) {
                 containerPreview.innerHTML = `<div class="text-danger small">Error al cargar vista previa: ${err.message}</div>`;
