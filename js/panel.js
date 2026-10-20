@@ -1256,11 +1256,47 @@ function renderizarBancoTPs(lista) {
                     const nivelMostrar = nivelLimpioArr.length > 0 ? nivelLimpioArr.join(' / ') : 'Aplicar';
 
                     resenaHTML += `
-                        <li class="mb-2">
-                            <strong>Ejercicio ${idx + 1}:</strong> "${textoConsigna}" 
-                            <span class="badge bg-light text-dark border ms-1">${nivelMostrar}</span>
-                        </li>`;
-                });
+                      // Detección de matriz / V/F
+const esTablaVF = p.tipo === 'matriz_vf' || (typeof p.opciones === 'string' && p.opciones.includes(':::')) || (Array.isArray(p.opciones) && p.tipo_pregunta === 'vf');
+
+if (esTablaVF) {
+    let filas = [];
+    if (Array.isArray(p.opciones)) {
+        filas = p.opciones;
+    } else if (typeof p.opciones === 'string') {
+        filas = p.opciones.split(':::');
+    }
+
+    let filasTablaHTML = filas.map(f => `
+        <tr>
+            <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: left;">${f.trim()}</td>
+            <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; width: 40px; font-weight: bold; color: #2563eb;">V</td>
+            <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; width: 40px; font-weight: bold; color: #dc2626;">F</td>
+        </tr>
+    `).join('');
+
+    resenaHTML += `
+        <li class="mb-3">
+            <strong>Ejercicio ${idx + 1}:</strong> ${textoConsigna}
+            <span class="badge bg-light text-dark border ms-1">${nivelMostrar}</span>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 8px; background: #fff; font-size: 0.85rem; border: 1px solid #e2e8f0;">
+                <thead>
+                    <tr style="background: #f1f5f9; color: #334155;">
+                        <th style="padding: 4px 8px; text-align: left;">Concepto / Afirmación</th>
+                        <th style="padding: 4px 8px; text-align: center; width: 40px;">V</th>
+                        <th style="padding: 4px 8px; text-align: center; width: 40px;">F</th>
+                    </tr>
+                </thead>
+                <tbody>${filasTablaHTML}</tbody>
+            </table>
+        </li>`;
+} else {
+    resenaHTML += `
+        <li class="mb-2">
+            <strong>Ejercicio ${idx + 1}:</strong> "${textoConsigna}" 
+            <span class="badge bg-light text-dark border ms-1">${nivelMostrar}</span>
+        </li>`;
+}                });
 
                 resenaHTML += `</ul></div>`;
 
@@ -1440,23 +1476,37 @@ function vincularEventosDetalleAlumno(cursoId) {
                                     <h6 class="fw-bold text-secondary mb-3">Respuesta por Respuesta:</h6>
                                     <ul class="list-group list-group-flush">`;
 
-                    if (Array.isArray(resps)) {
-                        resps.forEach((p, pIdx) => {
-                            const esOk = p.esCorrecta === true || p.correcta === true || p.es_correcta === true;
-                            html += `
-                                <li class="list-group-item d-flex justify-content-between align-items-center py-2">
-                                    <div>
-                                        <span class="fw-bold me-2">Pregunta ${pIdx + 1}:</span>
-                                        <span class="small text-dark">${p.consigna || 'Consigna evaluada'}</span>
-                                    </div>
-                                    <div>
-                                        ${esOk 
-                                            ? '<span class="badge bg-success-subtle text-success border border-success px-2 py-1">✓ Correcta</span>' 
-                                            : '<span class="badge bg-danger-subtle text-danger border border-danger px-2 py-1">✗ Incorrecta</span>'}
-                                    </div>
-                                </li>`;
-                        });
-                    }
+                   if (Array.isArray(resps)) {
+    resps.forEach((p, pIdx) => {
+        const esOk = p.esCorrecta === true || p.correcta === true || p.es_correcta === true;
+        
+        let respMostrar = p.respuesta || '';
+        try {
+            if (typeof respMostrar === 'string' && respMostrar.startsWith('{')) {
+                const parsedObj = JSON.parse(respMostrar);
+                respMostrar = Object.entries(parsedObj)
+                    .map(([fila, val]) => `Fila ${parseInt(fila) + 1}: ${val}`)
+                    .join(' | ');
+            }
+        } catch (e) {}
+
+        html += `
+            <li class="list-group-item py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="fw-bold me-2">Pregunta ${pIdx + 1}:</span>
+                        <span class="small text-dark">${p.consigna || 'Consigna evaluada'}</span>
+                    </div>
+                    <div>
+                        ${esOk 
+                            ? '<span class="badge bg-success-subtle text-success border border-success px-2 py-1">✓ Correcta</span>' 
+                            : '<span class="badge bg-danger-subtle text-danger border border-danger px-2 py-1">✗ Incorrecta</span>'}
+                    </div>
+                </div>
+                ${respMostrar ? `<div class="small text-muted mt-1"><strong>Respuesta del alumno:</strong> ${respMostrar}</div>` : ''}
+            </li>`;
+    });
+}
 
                     html += `</ul></div></div></div>`;
                 });
