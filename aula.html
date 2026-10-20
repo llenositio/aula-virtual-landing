@@ -238,10 +238,11 @@
 
     async function cargarPreguntasSupabase() {
         try {
-            const { data, error } = await supabaseClient
-                .from('banco_preguntas')
-                .select('*')
-                .eq('cod_tp', codTp);
+           const { data, error } = await supabaseClient
+    .from('banco_preguntas')
+    .select('*')
+    .eq('cod_tp', codTp)
+    .order('N_de_orden_pregunta', { ascending: true });
 
             if (error) throw error;
 
