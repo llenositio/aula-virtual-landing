@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aula Virtual - Evaluación</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- LIBRERÍA MATHJAX PARA FORMULAS MATEMÁTICAS -->
+    <script>
+        window.MathJax = {
+            tex: { 
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['[', ']']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
     <style>
         :root {
             --primary: #2563eb;
@@ -238,11 +250,11 @@
 
     async function cargarPreguntasSupabase() {
         try {
-           const { data, error } = await supabaseClient
-    .from('banco_preguntas')
-    .select('*')
-    .eq('cod_tp', codTp)
-    .order('N_de_orden_pregunta', { ascending: true });
+            const { data, error } = await supabaseClient
+                .from('banco_preguntas')
+                .select('*')
+                .eq('cod_tp', codTp)
+                .order('N_de_orden_pregunta', { ascending: true });
 
             if (error) throw error;
 
@@ -273,7 +285,7 @@
 
         const p = preguntas[index];
         document.getElementById('contadorTexto').innerText = `Pregunta ${index + 1} de ${preguntas.length}`;
-        document.getElementById('textoConsigna').innerText = p.consigna || '';
+        document.getElementById('textoConsigna').innerHTML = p.consigna || '';
 
         const select = document.getElementById('selectRespuesta');
         select.innerHTML = '<option value="">-- Selecciona una opción --</option>';
@@ -306,6 +318,10 @@
 
         const btn = document.getElementById('btnNavegacion');
         btn.innerText = (index === preguntas.length - 1) ? 'FINALIZAR TP' : 'SIGUIENTE';
+
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            MathJax.typesetPromise();
+        }
     }
 
     const selectEl = document.getElementById('selectRespuesta');
@@ -361,7 +377,6 @@
             const notaCalculada = Math.round((aciertos / totalPreguntas) * 10);
             const aprobado = notaCalculada >= 6;
 
-            // Inserción estandarizada según el schema.sql oficial
             const { error } = await supabaseClient
                 .from('evaluaciones_resultados')
                 .insert([{
