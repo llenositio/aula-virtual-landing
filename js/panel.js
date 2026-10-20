@@ -1515,4 +1515,9 @@ function vincularEventosDetalleAlumno(cursoId) {
 
                 const modal = new bootstrap.Modal(modalEl);
                 modal.show();
+            } catch (err) {
+                console.error('Error al mostrar detalle:', err);
             }
+        });
+    });
+}
