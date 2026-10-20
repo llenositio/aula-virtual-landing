@@ -1469,7 +1469,7 @@ function vincularEventosDetalleAlumno(cursoId) {
                                         </div>
                                     </div>
                                 </button>
-                            </h2>
+                          </h2>
                             <div id="tpCollapse${idx}" class="accordion-collapse collapse ${idx === 0 ? 'show' : ''}">
                                 <div class="accordion-body">
                                     <h6 class="fw-bold text-secondary mb-3">Respuesta por Respuesta:</h6>
@@ -1488,32 +1488,31 @@ function vincularEventosDetalleAlumno(cursoId) {
                                         .join(' | ');
                                 }
                             } catch (e) {}
-        html += `
-            <li class="list-group-item py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="fw-bold me-2">Pregunta ${pIdx + 1}:</span>
-                        <span class="small text-dark">${p.consigna || 'Consigna evaluada'}</span>
-                    </div>
-                    <div>
-                        ${esOk 
-                            ? '<span class="badge bg-success-subtle text-success border border-success px-2 py-1">✓ Correcta</span>' 
-                            : '<span class="badge bg-danger-subtle text-danger border border-danger px-2 py-1">✗ Incorrecta</span>'}
-                    </div>
-                </div>
-                ${respMostrar ? `<div class="small text-muted mt-1"><strong>Respuesta del alumno:</strong> ${respMostrar}</div>` : ''}
-            </li>`;
-    });
-}
+
+                            html += `
+                                <li class="list-group-item py-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="fw-bold me-2">Pregunta ${pIdx + 1}:</span>
+                                            <span class="small text-dark">${p.consigna || 'Consigna evaluada'}</span>
+                                        </div>
+                                        <div>
+                                            ${esOk 
+                                                ? '<span class="badge bg-success-subtle text-success border border-success px-2 py-1">✓ Correcta</span>' 
+                                                : '<span class="badge bg-danger-subtle text-danger border border-danger px-2 py-1">X Incorrecta</span>'}
+                                        </div>
+                                    </div>
+                                    ${respMostrar ? `<div class="small text-muted mt-1"><strong>Respuesta del alumno:</strong> ${respMostrar}</div>` : ''}
+                                </li>`;
+                        });
+                    }
 
                     html += `</ul></div></div></div>`;
                 });
+
                 html += '</div>';
                 containerBody.innerHTML = html;
-            }
 
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
-        });
-    });
-}
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
