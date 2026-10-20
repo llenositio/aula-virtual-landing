@@ -1,252 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aula Virtual - Evaluación</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- LIBRERÍA MATHJAX PARA FORMULAS MATEMÁTICAS -->
-    <script>
-        window.MathJax = {
-            tex: { 
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['[', ']']]
-            }
-        };
-    </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
-    <style>
-        :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --bg: #ebf0f7;
-            --card-bg: #ffffff;
-            --text: #334155;
-            --border: #cbd5e1;
-            --btn-gray: #94a3b8;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 30px 15px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 680px;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 35px 30px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e2e8f0;
-        }
-
-        .header-tp {
-            text-align: center;
-            margin-bottom: 25px;
-            border-bottom: 3px solid var(--primary);
-            padding-bottom: 15px;
-        }
-
-        .header-tp h2 {
-            color: var(--primary);
-            font-weight: 800;
-            font-size: 1.5rem;
-            margin: 0 0 6px 0;
-        }
-
-        .header-tp .codigo-sub {
-            margin: 0 0 6px 0;
-            font-size: 0.9rem;
-            color: #475569;
-            font-weight: 700;
-            font-family: monospace;
-        }
-
-        .header-tp .info-alumno {
-            margin: 0;
-            font-size: 0.88rem;
-            color: #64748b;
-            font-weight: 600;
-        }
-
-        .banner-img {
-            width: 100%;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            display: block;
-        }
-
-        .pregunta-contador {
-            font-weight: 700;
-            color: #475569;
-            font-size: 0.95rem;
-            margin-bottom: 12px;
-        }
-
-        .box-pregunta {
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 22px;
-            margin-bottom: 25px;
-        }
-
-        .consigna-texto {
-            font-size: 0.95rem;
-            line-height: 1.5;
-            color: #334155;
-            margin-bottom: 18px;
-            text-align: center;
-        }
-
-        .select-opcion {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #2563eb;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            color: #1e293b;
-            background-color: #ffffff;
-            outline: none;
-            cursor: pointer;
-            box-sizing: border-box;
-        }
-
-        .btn-siguiente {
-            width: 100%;
-            padding: 14px;
-            background-color: var(--btn-gray);
-            color: #ffffff;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .btn-siguiente.activo {
-            background-color: var(--primary);
-        }
-
-        .btn-siguiente.activo:hover {
-            background-color: var(--primary-hover);
-        }
-
-        .hidden { display: none !important; }
-
-        /* TABLA DE VERDADERO / FALSO (V/F) */
-        .tabla-vf {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            background: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #cbd5e1;
-        }
-
-        .tabla-vf th {
-            background-color: #3b82f6;
-            color: #ffffff;
-            padding: 10px;
-            font-size: 0.9rem;
-            text-align: center;
-        }
-
-        .tabla-vf td {
-            padding: 10px;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 0.9rem;
-            text-align: center;
-        }
-
-        .tabla-vf td:first-child {
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .btn-vf-opcion {
-            padding: 6px 14px;
-            border: 1px solid #cbd5e1;
-            background-color: #ffffff;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: #334155;
-        }
-
-        .btn-vf-opcion:hover {
-            background-color: #f1f5f9;
-        }
-
-        .btn-vf-opcion.seleccionado-v {
-            background-color: #22c55e;
-            color: #ffffff;
-            border-color: #16a34a;
-        }
-
-        .btn-vf-opcion.seleccionado-f {
-            background-color: #ef4444;
-            color: #ffffff;
-            border-color: #dc2626;
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <div class="card">
-        
-        <!-- ENCABEZADO PERSONALIZADO -->
-        <div class="header-tp">
-            <h2 id="tituloTP">Cargando evaluación...</h2>
-            <p id="codigoTP" class="codigo-sub">CBMTP-1-MAT-001</p>
-            <p id="subtituloTP" class="info-alumno">Cargando datos del estudiante y curso...</p>
-        </div>
-
-        <!-- BANNER AULA VIRTUAL -->
-        <img src="banner.png" alt="Aula Virtual llenositio" class="banner-img" onerror="this.style.display='none'">
-
-        <!-- SECCIÓN PREGUNTA INTERACTIVA -->
-        <div id="secPregunta">
-            <div id="contadorTexto" class="pregunta-contador">Pregunta 1 de 10</div>
-
-            <div class="box-pregunta">
-                <div id="textoConsigna" class="consigna-texto">Cargando consigna...</div>
-                
-                <select id="selectRespuesta" class="select-opcion">
-                    <option value="">-- Selecciona una opción --</option>
-                </select>
-            </div>
-
-            <button id="btnNavegacion" class="btn-siguiente" disabled>SIGUIENTE</button>
-        </div>
-
-        <!-- PANTALLA DE FINALIZACIÓN Y RETROALIMENTACIÓN -->
-        <div id="secFin" class="text-center hidden" style="padding: 20px 0;">
-            <!-- Se genera dinámicamente según la nota alcanzada -->
-        </div>
-
-    </div>
-</div>
-
 <script>
     const SUPABASE_URL = 'https://bpwxxodhiswltefhqbol.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwd3h4b2RoaXN3bHRlZmhxYm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc3NjQsImV4cCI6MjEwNjYxMzc2NH0.tVs4JpCyJFAcakyIHMCV49xiuzNgNr2SeG1S5iUeF48';
@@ -351,7 +102,13 @@
         let contenedorTabla = document.getElementById('contenedorTablaVF');
         if (contenedorTabla) contenedorTabla.remove();
 
-        const esTablaVF = p.tipo === 'matriz_vf' || (typeof p.opciones === 'string' && p.opciones.includes(':::')) || (Array.isArray(p.opciones) && p.tipo_pregunta === 'vf');
+        // Detección flexible de Matriz / VF respetando triple coma (,,,) o :::
+        const tipoPreg = String(p.tipo || p.tipo_pregunta || '').toUpperCase();
+        const opcionesStr = typeof p.opciones === 'string' ? p.opciones : JSON.stringify(p.opciones || '');
+        const esTablaVF = tipoPreg === 'VF' || 
+                          tipoPreg === 'MATRIZ_VF' || 
+                          opcionesStr.includes(',,,') || 
+                          opcionesStr.includes(':::');
 
         if (esTablaVF) {
             select.classList.add('hidden');
@@ -361,7 +118,7 @@
             if (Array.isArray(p.opciones)) {
                 filas = p.opciones;
             } else if (typeof p.opciones === 'string') {
-                filas = p.opciones.split(':::');
+                filas = p.opciones.includes(',,,') ? p.opciones.split(',,,') : p.opciones.split(':::');
             }
 
             const tablaDiv = document.createElement('div');
@@ -380,7 +137,7 @@
             `;
 
             filas.forEach((filaTexto, fIdx) => {
-                const itemLimpio = filaTexto.trim();
+                const itemLimpio = String(filaTexto).trim();
                 if (itemLimpio) {
                     htmlTabla += `
                         <tr>
@@ -493,7 +250,12 @@
     btnNav.addEventListener('click', async () => {
         const pActual = preguntas[indiceActual];
         
-        const esTablaVF = pActual.tipo === 'matriz_vf' || (typeof pActual.opciones === 'string' && pActual.opciones.includes(':::')) || (Array.isArray(pActual.opciones) && pActual.tipo_pregunta === 'vf');
+        const tipoPreg = String(pActual.tipo || pActual.tipo_pregunta || '').toUpperCase();
+        const opcionesStr = typeof pActual.opciones === 'string' ? pActual.opciones : JSON.stringify(pActual.opciones || '');
+        const esTablaVF = tipoPreg === 'VF' || 
+                          tipoPreg === 'MATRIZ_VF' || 
+                          opcionesStr.includes(',,,') || 
+                          opcionesStr.includes(':::');
         
         if (!esTablaVF) {
             respuestasGuardadas[pActual.id] = selectEl.value;
@@ -517,7 +279,12 @@
                 const respCorrecta = p.respuesta_correcta || '';
                 let esCorrecta = false;
 
-                const esTablaVF = p.tipo === 'matriz_vf' || (typeof p.opciones === 'string' && p.opciones.includes(':::')) || (Array.isArray(p.opciones) && p.tipo_pregunta === 'vf');
+                const tipoPreg = String(p.tipo || p.tipo_pregunta || '').toUpperCase();
+                const opcionesStr = typeof p.opciones === 'string' ? p.opciones : JSON.stringify(p.opciones || '');
+                const esTablaVF = tipoPreg === 'VF' || 
+                                  tipoPreg === 'MATRIZ_VF' || 
+                                  opcionesStr.includes(',,,') || 
+                                  opcionesStr.includes(':::');
 
                 if (esTablaVF) {
                     esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
@@ -587,6 +354,3 @@
         }
     }
 </script>
-
-</body>
-</html>
