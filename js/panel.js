@@ -1,4 +1,4 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+jsimport { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // =========================================================================
 // CONFIGURACIÓN DIRECTA DE SUPABASE
@@ -1187,10 +1187,10 @@ function renderizarBancoTPs(lista) {
 
             try {
                 const { data: preguntas, error } = await supabase
-  .from('banco_preguntas')
-  .select('titulo_humano, consigna, nivel_bloom, especialidad_nivel, N_de_orden_pregunta')
-  .eq('cod_tp', codTp)
-  .order('N_de_orden_pregunta', { ascending: true });
+                    .from('banco_preguntas')
+                    .select('titulo_humano, consigna, nivel_bloom, especialidad_nivel, N_de_orden_pregunta, tipo, opciones')
+                    .eq('cod_tp', codTp)
+                    .order('N_de_orden_pregunta', { ascending: true });
 
                 if (error) throw error;
 
@@ -1255,59 +1255,62 @@ function renderizarBancoTPs(lista) {
                     const nivelLimpioArr = extraerNivelesLimpios([p.nivel_bloom]);
                     const nivelMostrar = nivelLimpioArr.length > 0 ? nivelLimpioArr.join(' / ') : 'Aplicar';
 
-                      // Detección de matriz / V/F
-const esTablaVF = p.tipo === 'VF' || 
-                  p.tipo === 'matriz_vf' || 
-                  (typeof p.opciones === 'string' && p.opciones.includes(',,,'));
+                    // Detección exacta de matriz / V/F con el delimitador ,,,
+                    const esTablaVF = p.tipo === 'VF' || 
+                                      p.tipo === 'matriz_vf' || 
+                                      (typeof p.opciones === 'string' && p.opciones.includes(',,,'));
 
-if (esTablaVF) {
-    let filas = [];
-    if (Array.isArray(p.opciones)) {
-        filas = p.opciones;
-    } else if (typeof p.opciones === 'string') {
-        filas = p.opciones.split(',,,');
-    }
+                    if (esTablaVF) {
+                        let filas = [];
+                        if (Array.isArray(p.opciones)) {
+                            filas = p.opciones;
+                        } else if (typeof p.opciones === 'string') {
+                            filas = p.opciones.split(',,,');
+                        }
 
-    let filasTablaHTML = filas.map(f => `
-        <tr>
-            <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: left;">${f.trim()}</td>
-            <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; width: 40px; font-weight: bold; color: #2563eb;">V</td>
-            <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; width: 40px; font-weight: bold; color: #dc2626;">F</td>
-        </tr>
-    `).join('');
+                        let filasTablaHTML = filas.map(f => `
+                            <tr>
+                                <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: left;">${f.trim()}</td>
+                                <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; width: 40px; font-weight: bold; color: #2563eb;">V</td>
+                                <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: center; width: 40px; font-weight: bold; color: #dc2626;">F</td>
+                            </tr>
+                        `).join('');
 
-    resenaHTML += `
-        <li class="mb-3">
-            <strong>Ejercicio ${idx + 1}:</strong> ${textoConsigna}
-            <span class="badge bg-light text-dark border ms-1">${nivelMostrar}</span>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 8px; background: #fff; font-size: 0.85rem; border: 1px solid #e2e8f0;">
-                <thead>
-                    <tr style="background: #f1f5f9; color: #334155;">
-                        <th style="padding: 4px 8px; text-align: left;">Concepto / Afirmación</th>
-                        <th style="padding: 4px 8px; text-align: center; width: 40px;">V</th>
-                        <th style="padding: 4px 8px; text-align: center; width: 40px;">F</th>
-                    </tr>
-                </thead>
-                <tbody>${filasTablaHTML}</tbody>
-            </table>
-        </li>`;
-} else {
-            resenaHTML += `
-                <li class="mb-2">
-                    <strong>Ejercicio ${idx + 1}:</strong> "${textoConsigna}"
-                    <span class="badge bg-light text-dark border ms-1">${nivelMostrar}</span>
-                </li>`;
-        }
+                        resenaHTML += `
+                            <li class="mb-3">
+                                <strong>Ejercicio ${idx + 1}:</strong> ${textoConsigna}
+                                <span class="badge bg-light text-dark border ms-1">${nivelMostrar}</span>
+                                <table style="width: 100%; border-collapse: collapse; margin-top: 8px; background: #fff; font-size: 0.85rem; border: 1px solid #e2e8f0;">
+                                    <thead>
+                                        <tr style="background: #f1f5f9; color: #334155;">
+                                            <th style="padding: 4px 8px; text-align: left;">Concepto / Afirmación</th>
+                                            <th style="padding: 4px 8px; text-align: center; width: 40px;">V</th>
+                                            <th style="padding: 4px 8px; text-align: center; width: 40px;">F</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${filasTablaHTML}</tbody>
+                                </table>
+                            </li>`;
+                    } else {
+                        resenaHTML += `
+                            <li class="mb-2">
+                                <strong>Ejercicio ${idx + 1}:</strong> "${textoConsigna}"
+                                <span class="badge bg-light text-dark border ms-1">${nivelMostrar}</span>
+                            </li>`;
+                    }
+                });
+
+                resenaHTML += `</ul></div>`;
+
+                containerPreview.innerHTML = resenaHTML;
+                containerPreview.dataset.cargado = 'true';
+                if (window.MathJax && window.MathJax.typesetPromise) { MathJax.typesetPromise(); }
+
+            } catch (err) {
+                containerPreview.innerHTML = `<div class="text-danger small">Error al cargar vista previa: ${err.message}</div>`;
+            }
+        });
     });
-
-    resenaHTML += `</ul></div>`;
-
-    containerPreview.innerHTML = resenaHTML;
-    containerPreview.dataset.cargado = 'true';
-    if (window.MathJax && window.MathJax.typesetPromise) { MathJax.typesetPromise(); }
-
-} catch (err) {
-    containerPreview.innerHTML = `<div class="text-danger small">Error al cargar vista previa: ${err.message}</div>`;
 }
 
 function aplicarFiltrosBanco() {
@@ -1398,7 +1401,7 @@ if (formEditarCurso) {
                 if (modalInstance) modalInstance.hide();
             }
 
-           const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session } } = await supabase.auth.getSession();
             cargarCursos(session ? session.user.id : null);
 
         } catch (err) {
@@ -1406,6 +1409,7 @@ if (formEditarCurso) {
         }
     });
 }
+
 // =========================================================================
 // INFORME DETALLADO ALUMNO POR ALUMNO (PASO 2)
 // =========================================================================
