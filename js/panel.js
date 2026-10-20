@@ -1187,9 +1187,10 @@ function renderizarBancoTPs(lista) {
 
             try {
                 const { data: preguntas, error } = await supabase
-                    .from('banco_preguntas')
-                    .select('titulo_humano, consigna, nivel_bloom, especialidad_nivel')
-                    .eq('cod_tp', codTp);
+  .from('banco_preguntas')
+  .select('titulo_humano, consigna, nivel_bloom, especialidad_nivel, N_de_orden_pregunta')
+  .eq('cod_tp', codTp)
+  .order('N_de_orden_pregunta', { ascending: true });
 
                 if (error) throw error;
 
