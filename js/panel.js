@@ -1469,7 +1469,7 @@ function vincularEventosDetalleAlumno(cursoId) {
                                         </div>
                                     </div>
                                 </button>
-                          </h2>
+                         </h2>
                             <div id="tpCollapse${idx}" class="accordion-collapse collapse ${idx === 0 ? 'show' : ''}">
                                 <div class="accordion-body">
                                     <h6 class="fw-bold text-secondary mb-3">Respuesta por Respuesta:</h6>
