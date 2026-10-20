@@ -1256,14 +1256,16 @@ function renderizarBancoTPs(lista) {
                     const nivelMostrar = nivelLimpioArr.length > 0 ? nivelLimpioArr.join(' / ') : 'Aplicar';
 
                       // Detección de matriz / V/F
-const esTablaVF = p.tipo === 'matriz_vf' || (typeof p.opciones === 'string' && p.opciones.includes(':::')) || (Array.isArray(p.opciones) && p.tipo_pregunta === 'vf');
+const esTablaVF = p.tipo === 'VF' || 
+                  p.tipo === 'matriz_vf' || 
+                  (typeof p.opciones === 'string' && p.opciones.includes(',,,'));
 
 if (esTablaVF) {
     let filas = [];
     if (Array.isArray(p.opciones)) {
         filas = p.opciones;
     } else if (typeof p.opciones === 'string') {
-        filas = p.opciones.split(':::');
+        filas = p.opciones.split(',,,');
     }
 
     let filasTablaHTML = filas.map(f => `
@@ -1295,7 +1297,20 @@ if (esTablaVF) {
             <strong>Ejercicio ${idx + 1}:</strong> "${textoConsigna}" 
             <span class="badge bg-light text-dark border ms-1">${nivelMostrar}</span>
         </li>`;
-}                });
+}               });
+
+                resenaHTML += `</ul></div>`;
+
+                containerPreview.innerHTML = resenaHTML;
+                containerPreview.dataset.cargado = 'true';
+                if (window.MathJax && window.MathJax.typesetPromise) { MathJax.typesetPromise(); }
+
+            } catch (err) {
+                containerPreview.innerHTML = `<div class="text-danger small">Error al cargar vista previa: ${err.message}</div>`;
+            }
+        });
+    });
+}
 
                 resenaHTML += `</ul></div>`;
 
