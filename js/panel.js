@@ -1457,7 +1457,7 @@ function vincularEventosDetalleAlumno(cursoId) {
                     const nota = Number(ent.nota) || 0;
                     const resps = ent.detalle_respuestas || [];
 
-                    html += `
+                   html += `
                         <div class="accordion-item mb-3 border rounded shadow-sm">
                             <h2 class="accordion-header">
                                 <button class="accordion-button ${idx !== 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#tpCollapse${idx}">
@@ -1473,22 +1473,21 @@ function vincularEventosDetalleAlumno(cursoId) {
                             <div id="tpCollapse${idx}" class="accordion-collapse collapse ${idx === 0 ? 'show' : ''}">
                                 <div class="accordion-body">
                                     <h6 class="fw-bold text-secondary mb-3">Respuesta por Respuesta:</h6>
-                                   html += `<ul class="list-group list-group-flush">`;
+                                    <ul class="list-group list-group-flush">`;
 
-                   if (Array.isArray(resps)) {
-    resps.forEach((p, pIdx) => {
-        const esOk = p.esCorrecta === true || p.correcta === true || p.es_correcta === true;
-        
-        let respMostrar = p.respuesta || '';
-        try {
-            if (typeof respMostrar === 'string' && respMostrar.startsWith('{')) {
-                const parsedObj = JSON.parse(respMostrar);
-                respMostrar = Object.entries(parsedObj)
-                    .map(([fila, val]) => `Fila ${parseInt(fila) + 1}: ${val}`)
-                    .join(' | ');
-            }
-        } catch (e) {}
-
+                    if (Array.isArray(resps)) {
+                        resps.forEach((p, pIdx) => {
+                            const esOk = p.esCorrecta === true || p.correcta === true || p.es_correcta === true;
+                            
+                            let respMostrar = p.respuesta || '';
+                            try {
+                                if (typeof respMostrar === 'string' && respMostrar.startsWith('{')) {
+                                    const parsedObj = JSON.parse(respMostrar);
+                                    respMostrar = Object.entries(parsedObj)
+                                        .map(([fila, val]) => `Fila ${parseInt(fila) + 1}: ${val}`)
+                                        .join(' | ');
+                                }
+                            } catch (e) {}
         html += `
             <li class="list-group-item py-2">
                 <div class="d-flex justify-content-between align-items-center">
