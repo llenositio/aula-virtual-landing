@@ -194,12 +194,25 @@
                     return;
                 }
 
-                // Consulta exacta a la nueva columna cod_tp_completo
+                // 1. Intento por coincidencia exacta en cod_tp_completo
                 let { data, error } = await supabaseClient
                     .from('banco_preguntas')
                     .select('*')
                     .eq('cod_tp_completo', this.codTp)
                     .order('N_de_orden_pregunta', { ascending: true });
+
+                // 2. Fallback: Si no encuentra coincidencia exacta, busca coincidencias parciales en cod_tp_completo
+                if (!error && (!data || data.length === 0)) {
+                    const fallback = await supabaseClient
+                        .from('banco_preguntas')
+                        .select('*')
+                        .ilike('cod_tp_completo', `%${this.codTp}%`)
+                        .order('N_de_orden_pregunta', { ascending: true });
+
+                    if (fallback.data && fallback.data.length > 0) {
+                        data = fallback.data;
+                    }
+                }
 
                 if (error) throw error;
 
