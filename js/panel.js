@@ -734,7 +734,8 @@ async function cargarPlanificacionCurso(cursoId) {
                 `;
 
                 tps.forEach(tp => {
-                    const aliasActual = tp.alias_tp || tp.cod_tp;
+                    const codigoTecnico = tp.cod_tp_completo || tp.cod_tp;
+                    const aliasActual = tp.alias_tp || codigoTecnico;
                     const switchChecked = tp.activo ? 'checked' : '';
                     const badgeEstado = tp.activo 
                         ? '<span class="badge bg-success ms-2">Visible</span>' 
@@ -742,7 +743,7 @@ async function cargarPlanificacionCurso(cursoId) {
 
                     html += `
                         <tr>
-                            <td><code>${tp.cod_tp}</code></td>
+                            <td><code>${codigoTecnico}</code></td>
                             <td>
                                 <div class="input-group input-group-sm" style="max-width: 380px;">
                                     <input type="text" class="form-control" id="alias-input-${tp.id}" value="${aliasActual}">
@@ -821,19 +822,23 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
 
     try {
         let tituloHumanoDefecto = codTp;
+        let codCompletoReal = codTp;
+
         const { data: preg } = await supabase
             .from('banco_preguntas')
-            .select('titulo_humano')
-            .eq('cod_tp', codTp)
+            .select('titulo_humano, cod_tp_completo')
+            .or(`cod_tp_completo.eq.${codTp},cod_tp.eq.${codTp}`)
             .limit(1);
 
-        if (preg && preg.length > 0 && preg[0].titulo_humano) {
-            tituloHumanoDefecto = preg[0].titulo_humano;
+        if (preg && preg.length > 0) {
+            if (preg[0].titulo_humano) tituloHumanoDefecto = preg[0].titulo_humano;
+            if (preg[0].cod_tp_completo) codCompletoReal = preg[0].cod_tp_completo;
         }
 
         const { error } = await supabase.from('curso_planificacion').insert([{
             curso_id: cursoActualId,
-            cod_tp: codTp,
+            cod_tp: codCompletoReal,
+            cod_tp_completo: codCompletoReal,
             periodo_evaluativo: periodo,
             unidad_tematica: unidad,
             alias_tp: tituloHumanoDefecto,
@@ -856,7 +861,6 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
 // =========================================================================
 async function cargarAnaliticaCurso(cursoId) {
     try {
-        // 1. Obtener los TPs planificados en el curso
         const { data: plan } = await supabase
             .from('curso_planificacion')
             .select('*')
@@ -866,7 +870,6 @@ async function cargarAnaliticaCurso(cursoId) {
 
         if (!plan || plan.length === 0) return;
 
-        // 2. Cargar Períodos en el filtro desplegable superior
         const selectFiltroEstructura = document.getElementById('filtroAnaliticaEstructura');
         if (selectFiltroEstructura) {
             const periodos = [...new Set(plan.map(p => p.periodo_evaluativo).filter(Boolean))];
@@ -879,16 +882,13 @@ async function cargarAnaliticaCurso(cursoId) {
 
         const periodoFiltro = selectFiltroEstructura ? selectFiltroEstructura.value : 'TODOS';
 
-        // Filtrar el plan según el período seleccionado
         const planFiltrado = (periodoFiltro && periodoFiltro !== 'TODOS')
             ? plan.filter(p => p.periodo_evaluativo === periodoFiltro)
             : plan;
 
-        // 3. Obtener alumnos del curso
         const { data: alumnos } = await supabase.from('alumnos').select('id').eq('curso_id', cursoId);
         const idsAlumnos = alumnos ? alumnos.map(a => a.id) : [];
 
-        // 4. Obtener resultados reales
         const { data: resultados } = await supabase
             .from('evaluaciones_resultados')
             .select('*')
@@ -902,7 +902,7 @@ async function cargarAnaliticaCurso(cursoId) {
             resultados.forEach(r => {
                 const cod = r.tp_codigo || r.cod_tp;
                 
-                const perteneceAlPlan = planFiltrado.some(p => p.cod_tp === cod);
+                const perteneceAlPlan = planFiltrado.some(p => (p.cod_tp_completo || p.cod_tp) === cod);
                 if (!perteneceAlPlan) return;
 
                 const clave = `${r.alumno_id}_${cod}`;
@@ -926,12 +926,12 @@ async function cargarAnaliticaCurso(cursoId) {
 
         // --- GRÁFICO 1: Rendimiento Global por TP ---
         const labelsTP = planFiltrado.map(p => {
-            const alias = p.alias_tp || p.cod_tp;
+            const alias = p.alias_tp || p.cod_tp_completo || p.cod_tp;
             return alias.length > 20 ? alias.substring(0, 18) + '...' : alias;
         });
 
-        const aprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp] || []).filter(n => n >= 6).length);
-        const reprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp] || []).filter(n => n < 6).length);
+        const aprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp_completo || p.cod_tp] || []).filter(n => n >= 6).length);
+        const reprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp_completo || p.cod_tp] || []).filter(n => n < 6).length);
 
         renderizarGrafico('chartRendimientoTp', 'bar', {
             labels: labelsTP,
@@ -982,9 +982,14 @@ async function cargarAnaliticaCurso(cursoId) {
         const selectDiag = document.getElementById('selectTpDiagnostico');
         if (selectDiag) {
             selectDiag.innerHTML = '<option value="">Seleccionar TP para diagnosticar...</option>' +
-                planFiltrado.map(p => `<option value="${p.cod_tp}">${p.alias_tp || p.cod_tp}</option>`).join('');
+                planFiltrado.map(p => {
+                    const cod = p.cod_tp_completo || p.cod_tp;
+                    return `<option value="${cod}">${p.alias_tp || cod}</option>`;
+                }).join('');
 
-            if (planFiltrado.length > 0) selectDiag.value = planFiltrado[0].cod_tp;
+            if (planFiltrado.length > 0) {
+                selectDiag.value = planFiltrado[0].cod_tp_completo || planFiltrado[0].cod_tp;
+            }
 
             const actualizarGraficoDiagnostico = (codSeleccionado) => {
                 if (!codSeleccionado) return;
@@ -1009,7 +1014,6 @@ async function cargarAnaliticaCurso(cursoId) {
                         const preg = r[idx];
                         if (!preg) return false;
 
-                        // Verificación estricta de acierto booleano o por coincidencia
                         if (preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true) return true;
                         if (preg.esCorrecta === false || preg.correcta === false || preg.es_correcta === false) return false;
 
@@ -1085,13 +1089,13 @@ async function cargarBancoGlobal() {
     try {
         let { data, error } = await supabase
             .from('banco_preguntas')
-            .select('cod_tp, titulo_humano, anio, nivel_bloom')
-            .order('cod_tp');
+            .select('cod_tp, cod_tp_completo, titulo_humano, anio, nivel_bloom')
+            .order('cod_tp_completo');
 
         if (error || !data || data.length === 0) {
             const resFallback = await supabase
                 .from('tps_matematica')
-                .select('cod_tp, titulo_humano, anio, nivel_bloom')
+                .select('cod_tp, cod_tp_completo, titulo_humano, anio, nivel_bloom')
                 .order('cod_tp');
 
             if (!resFallback.error && resFallback.data && resFallback.data.length > 0) {
@@ -1104,9 +1108,10 @@ async function cargarBancoGlobal() {
 
         const mapaTPs = new Map();
         (data || []).forEach(item => {
-            if (item.cod_tp && !mapaTPs.has(item.cod_tp)) {
-                mapaTPs.set(item.cod_tp, {
-                    cod_tp: item.cod_tp,
+            const codigoFinal = item.cod_tp_completo || item.cod_tp;
+            if (codigoFinal && !mapaTPs.has(codigoFinal)) {
+                mapaTPs.set(codigoFinal, {
+                    cod_tp: codigoFinal,
                     titulo: item.titulo_humano || 'Sin Título',
                     anio: item.anio || 1,
                     bloom: item.nivel_bloom || 'Comprender'
@@ -1157,7 +1162,7 @@ function renderizarBancoTPs(lista) {
                 </div>
             </div>
 
-            <div class="mt-3 p-3 bg-light rounded border" id="preview-${tp.cod_tp}" style="display: none;">
+            <div class="mt-3 p-3 bg-light rounded border" id="preview-${encodeURIComponent(tp.cod_tp)}" style="display: none;">
                 <div class="spinner-border spinner-border-sm text-primary" role="status"></div> 
                 <span class="small text-muted ms-2">Generando ficha pedagógica...</span>
             </div>
@@ -1174,7 +1179,7 @@ function renderizarBancoTPs(lista) {
     document.querySelectorAll('.btn-preview-tp').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const codTp = e.currentTarget.dataset.cod;
-            const containerPreview = document.getElementById(`preview-${codTp}`);
+            const containerPreview = document.getElementById(`preview-${encodeURIComponent(codTp)}`);
 
             if (!containerPreview) return;
 
@@ -1191,7 +1196,7 @@ function renderizarBancoTPs(lista) {
                 const { data: preguntas, error } = await supabase
                     .from('banco_preguntas')
                     .select('titulo_humano, consigna, nivel_bloom, especialidad_nivel, N_de_orden_pregunta, tipo, opciones')
-                    .eq('cod_tp', codTp)
+                    .or(`cod_tp_completo.eq.${codTp},cod_tp.eq.${codTp}`)
                     .order('N_de_orden_pregunta', { ascending: true });
 
                 if (error) throw error;
@@ -1257,7 +1262,6 @@ function renderizarBancoTPs(lista) {
                     const nivelLimpioArr = extraerNivelesLimpios([p.nivel_bloom]);
                     const nivelMostrar = nivelLimpioArr.length > 0 ? nivelLimpioArr.join(' / ') : 'Aplicar';
 
-                    // Detección exacta de matriz / V/F con el delimitador ,,,
                     const esTablaVF = p.tipo === 'VF' || 
                                       p.tipo === 'matriz_vf' || 
                                       (typeof p.opciones === 'string' && p.opciones.includes(',,,'));
@@ -1422,7 +1426,6 @@ function vincularEventosDetalleAlumno(cursoId) {
             const nombreAlumno = e.currentTarget.dataset.nombre;
 
             try {
-                // Consultar entregas en Supabase
                 const { data: entregas, error } = await supabase
                     .from('evaluaciones_resultados')
                     .select('*')
