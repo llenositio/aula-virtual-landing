@@ -210,25 +210,12 @@
                     return;
                 }
 
-                // Consulta con coincidencia flexible de texto
+                // Consulta limpia a banco_preguntas con coincidencia flexible
                 let { data, error } = await supabaseClient
                     .from('banco_preguntas')
                     .select('*')
                     .ilike('cod_tp', this.codTp)
                     .order('N_de_orden_pregunta', { ascending: true });
-
-                if (!data || data.length === 0) {
-                    const resFallback = await supabaseClient
-                        .from('tps_matematica')
-                        .select('*')
-                        .ilike('cod_tp', this.codTp)
-                        .order('N_de_orden_pregunta', { ascending: true });
-
-                    if (resFallback.data && resFallback.data.length > 0) {
-                        data = resFallback.data;
-                        error = null;
-                    }
-                }
 
                 if (error) throw error;
 
@@ -241,16 +228,17 @@
                 this.preguntas = data;
                 const elemTitulo = document.getElementById('tituloTP');
                 if (elemTitulo) {
-                    elemTitulo.innerText = this.preguntas[0].titulo_humano || this.preguntas[0].materia || `Evaluación (${this.codTp})`;
+                    elemTitulo.innerText = this.preguntas[0].titulo_humano || this.preguntas[0].materia || `TP Nº ${this.codTp}`;
                 }
 
                 this.mostrarPregunta(0);
 
             } catch (err) {
-                alert('Error al obtener preguntas: ' + err.message);
+                console.error('Error al cargar preguntas:', err);
+                document.getElementById('contenedorRenderEspecialista').innerHTML = 
+                    `<div class="alert alert-danger text-center">Error al consultar el TP: ${err.message}</div>`;
             }
         },
-
         mostrarPregunta(index) {
             if (index >= this.preguntas.length) {
                 this.guardarResultadoFinal();
