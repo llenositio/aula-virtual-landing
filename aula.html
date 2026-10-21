@@ -22,103 +22,97 @@
         
         .card-evaluacion { 
             background: #ffffff; 
-            padding: 30px; 
-            border-radius: 16px; 
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.01); 
-            border: 1px solid #edf2f7; 
+            padding: 25px 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.06); 
+            border: 1px solid #e2e8f0; 
             margin-bottom: 20px; 
         }
         
         .hidden { display: none !important; }
 
-        /* Estilo idéntico a la tabla azul original de Apps Script */
         .tabla-vf { 
             width: 100%; 
-            border-collapse: separate; 
-            border-spacing: 0;
+            border-collapse: collapse; 
             margin-top: 15px; 
-            border: 1px solid #3b82f6; 
-            border-radius: 8px;
-            overflow: hidden;
+            border: 1px solid #e2e8f0; 
         }
         
         .tabla-vf th { 
             background-color: #3b82f6; 
             color: #ffffff; 
-            padding: 14px 10px; 
+            padding: 10px; 
             font-weight: 700; 
             text-align: center; 
-            font-size: 0.95rem;
-            border-bottom: 1px solid #3b82f6;
+            font-size: 0.9rem;
+            border: 1px solid #3b82f6;
         }
         
         .tabla-vf td { 
-            padding: 12px 16px; 
-            border-bottom: 1px solid #e2e8f0; 
-            border-right: 1px solid #edf2f7;
+            padding: 10px 12px; 
+            border: 1px solid #e2e8f0; 
             vertical-align: middle; 
             background-color: #ffffff;
+            font-size: 0.95rem;
         }
 
-        .tabla-vf tr:last-child td { border-bottom: none; }
-        .tabla-vf td:last-child { border-right: none; }
-        .tabla-vf td.col-concepto { text-align: left; }
-        .tabla-vf td.col-opcion { text-align: center; width: 60px; }
-        
         .btn-vf-opcion { 
-            width: 38px; 
-            height: 38px; 
+            width: 34px; 
+            height: 34px; 
             border-radius: 6px; 
             border: 1px solid #cbd5e1; 
             background: #ffffff; 
             font-weight: 700; 
             cursor: pointer; 
-            transition: all 0.15s ease-in-out; 
+            transition: all 0.15s; 
             display: inline-flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto;
         }
         
-        .btn-vf-opcion:hover { border-color: #3b82f6; color: #3b82f6; }
+        .btn-vf-opcion:hover { border-color: #3b82f6; }
         .seleccionado-v { background-color: #2563eb !important; color: #ffffff !important; border-color: #2563eb !important; }
         .seleccionado-f { background-color: #dc2626 !important; color: #ffffff !important; border-color: #dc2626 !important; }
         
         .btn-siguiente { 
             width: 100%; 
-            padding: 14px; 
+            padding: 12px; 
             border-radius: 8px; 
             border: none; 
             background-color: #94a3b8; 
             color: #ffffff; 
             font-weight: 700; 
             font-size: 0.95rem;
-            letter-spacing: 0.5px; 
-            transition: background-color 0.2s;
         }
         
         .btn-siguiente.activo { background-color: #3b82f6; cursor: pointer; }
-        .btn-siguiente.activo:hover { background-color: #2563eb; }
     </style>
 </head>
 <body>
 
 <div class="container py-4" style="max-width: 720px;">
-    
-    <!-- Encabezado de la Evaluación -->
-    <div class="text-center mb-4">
-        <h2 class="fw-bold text-primary mb-1" id="tituloTP">Cargando Evaluación...</h2>
-        <p class="text-secondary small mb-0" id="subtituloTP">Escuela: - | Curso: -</p>
-    </div>
+    <div class="card-evaluacion shadow-sm">
+        <!-- Encabezado adentro de la tarjeta -->
+        <div class="text-center mb-3">
+            <h2 class="fw-bold text-primary mb-1" id="tituloTP">Cargando Evaluación...</h2>
+            <p class="text-secondary small mb-0" id="subtituloTP">Escuela: - | Curso: -</p>
+        </div>
 
-    <!-- Contador de Pregunta -->
-    <div class="mb-2 ms-1">
-        <span class="text-secondary fw-semibold small" id="contadorTexto">Pregunta 1 de 1</span>
-    </div>
+        <hr style="border-top: 2px solid #3b82f6; opacity: 1; margin-bottom: 20px;">
 
-    <!-- Contenedor Principal renderizado por Especialistas -->
-    <div id="secPregunta">
-        <div class="card-evaluacion" id="contenedorRenderEspecialista">
+        <!-- Banner del logo -->
+        <div class="text-center mb-4">
+            <img src="banner.png" class="img-fluid rounded" style="max-width: 100%;" alt="Aula Virtual">
+        </div>
+
+        <!-- Contador de Pregunta -->
+        <div class="mb-2">
+            <span class="text-secondary fw-semibold small" id="contadorTexto">Pregunta 1 de 1</span>
+        </div>
+
+        <!-- Contenedor dinámico renderizado por Especialistas -->
+        <div id="contenedorRenderEspecialista" class="mb-4">
             <div class="text-center text-muted">Cargando consigna...</div>
         </div>
 
@@ -158,14 +152,12 @@
             const sesionLocal = localStorage.getItem('alumnoSesion');
             this.alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
 
-            if (this.alumnoActual) {
-                await this.armarEncabezado(this.alumnoActual);
-            }
-
+            await this.armarEncabezado(this.alumnoActual);
             await this.cargarPreguntas();
         },
 
-      let escuelaNombre = 'ET24DE17';
+        async armarEncabezado(alumno) {
+            let escuelaNombre = 'ET24DE17';
             let cursoNombre = '1° 1°';
             let nombreAlumno = alumno ? `${alumno.nombre || ''} ${alumno.apellido || ''}`.trim() : '';
 
@@ -192,18 +184,6 @@
                 if (nombreAlumno) textoSub = `Alumno: ${nombreAlumno} | ` + textoSub;
                 elemSub.innerText = textoSub;
             }
-
-            // Inserción del banner del logo
-            const elemTitulo = document.getElementById('tituloTP');
-            if (elemTitulo && !document.getElementById('bannerLogo')) {
-                const imgBanner = document.createElement('img');
-                imgBanner.id = 'bannerLogo';
-                imgBanner.src = 'banner.png';
-                imgBanner.className = 'img-fluid mb-3';
-                imgBanner.style.maxWidth = '100%';
-                imgBanner.style.borderRadius = '8px';
-                elemTitulo.parentNode.insertBefore(imgBanner, elemTitulo);
-            }
         },
 
         async cargarPreguntas() {
@@ -214,12 +194,28 @@
                     return;
                 }
 
-                // Consulta limpia a banco_preguntas con coincidencia flexible
+                // 1. Intento por coincidencia directa o parcial
                 let { data, error } = await supabaseClient
                     .from('banco_preguntas')
                     .select('*')
                     .ilike('cod_tp', `%${this.codTp}%`)
                     .order('N_de_orden_pregunta', { ascending: true });
+
+                // 2. Si no encuentra y el TP traía un prefijo largo (ej: CBMTP-1-MAT-002), extraemos solo '002'
+                if ((!data || data.length === 0) && this.codTp.includes('-')) {
+                    const partes = this.codTp.split('-');
+                    const numeroLimpio = partes[partes.length - 1];
+                    
+                    const fallback = await supabaseClient
+                        .from('banco_preguntas')
+                        .select('*')
+                        .ilike('cod_tp', `%${numeroLimpio}%`)
+                        .order('N_de_orden_pregunta', { ascending: true });
+
+                    if (fallback.data && fallback.data.length > 0) {
+                        data = fallback.data;
+                    }
+                }
 
                 if (error) throw error;
 
@@ -243,6 +239,7 @@
                     `<div class="alert alert-danger text-center">Error al consultar el TP: ${err.message}</div>`;
             }
         },
+
         mostrarPregunta(index) {
             if (index >= this.preguntas.length) {
                 this.guardarResultadoFinal();
@@ -306,7 +303,6 @@
             const respuestaAlumno = this.especialistaActual.obtenerRespuesta();
             this.respuestasGuardadas[pNormalizada.id] = respuestaAlumno;
 
-            // Calcular puntaje del ejercicio
             let puntaje = 0;
             if (pRaw.tipo === 'VF' || String(pRaw.opciones).includes(',,,')) {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.subPreguntas);
@@ -373,7 +369,7 @@
         },
 
         finalizarTP(nota, sumaPuntos, total, aprobado) {
-            document.getElementById('secPregunta')?.classList.add('hidden');
+            document.querySelector('.card-evaluacion')?.classList.add('hidden');
             const secFin = document.getElementById('secFin');
             if (!secFin) return;
             secFin.classList.remove('hidden');
