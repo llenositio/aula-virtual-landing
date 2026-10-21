@@ -165,12 +165,12 @@
             await this.cargarPreguntas();
         },
 
-       async armarEncabezado(alumno) {
-            let escuelaNombre = 'S/E';
-            let cursoNombre = 'General';
+      let escuelaNombre = 'ET24DE17';
+            let cursoNombre = '1° 1°';
+            let nombreAlumno = alumno ? `${alumno.nombre || ''} ${alumno.apellido || ''}`.trim() : '';
 
             try {
-                if (alumno.curso_id) {
+                if (alumno && alumno.curso_id) {
                     const { data: curso } = await supabaseClient
                         .from('cursos')
                         .select('*')
@@ -187,7 +187,11 @@
             }
 
             const elemSub = document.getElementById('subtituloTP');
-            if (elemSub) elemSub.innerText = `Escuela: ${escuelaNombre} - Curso: ${cursoNombre}`;
+            if (elemSub) {
+                let textoSub = `Escuela: ${escuelaNombre} - Curso: ${cursoNombre}`;
+                if (nombreAlumno) textoSub = `Alumno: ${nombreAlumno} | ` + textoSub;
+                elemSub.innerText = textoSub;
+            }
 
             // Inserción del banner del logo
             const elemTitulo = document.getElementById('tituloTP');
