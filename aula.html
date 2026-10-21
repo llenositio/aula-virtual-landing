@@ -214,7 +214,7 @@
                 let { data, error } = await supabaseClient
                     .from('banco_preguntas')
                     .select('*')
-                    .ilike('cod_tp', this.codTp)
+                    .ilike('cod_tp', `%${this.codTp}%`)
                     .order('N_de_orden_pregunta', { ascending: true });
 
                 if (error) throw error;
