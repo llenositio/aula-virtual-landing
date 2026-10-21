@@ -991,7 +991,7 @@ async function cargarAnaliticaCurso(cursoId) {
                 selectDiag.value = planFiltrado[0].cod_tp_completo || planFiltrado[0].cod_tp;
             }
 
-            const actualizarGraficoDiagnostico = (codSeleccionado) => {
+         const actualizarGraficoDiagnostico = (codSeleccionado) => {
                 if (!codSeleccionado) return;
 
                 const respsTp = Object.values(mapaUltimaNotaAlumno)
@@ -1006,38 +1006,90 @@ async function cargarAnaliticaCurso(cursoId) {
                     return;
                 }
 
-                const cantPreguntas = respsTp[0].length;
-                const labelsPreg = Array.from({ length: cantPreguntas }, (_, i) => `Pregunta ${i + 1}`);
-                
-                const porcentajesAcierto = labelsPreg.map((_, idx) => {
+                // Desglosa ítems normales y sub-preguntas de Matrices V/F
+                let listaItemsEvaluados = [];
+
+                // Estudiamos la estructura del primer envío
+                respsTp[0].forEach((preg, idxPreg) => {
+                    let respObj = preg.respuesta;
+                    
+                    // Si viene como string JSON, intentamos parsearlo
+                    if (typeof respObj === 'string' && respObj.trim().startsWith('{')) {
+                        try { respObj = JSON.parse(respObj); } catch(e){}
+                    }
+
+                    // Caso A: Es una matriz/objeto V/F con múltiples ítems internos (ej: {"0":"V", "1":"F"})
+                    if (respObj && typeof respObj === 'object' && !Array.isArray(respObj)) {
+                        Object.keys(respObj).forEach((subKey) => {
+                            const numFila = parseInt(subKey) + 1;
+                            listaItemsEvaluados.push({
+                                label: `P${idxPreg + 1} - Ítem ${numFila}`,
+                                esSubItem: true,
+                                idxPreg: idxPreg,
+                                subKey: subKey
+                            });
+                        });
+                    } 
+                    // Caso B: Es una pregunta estándar (Opción Múltiple o V/F individual)
+                    else {
+                        listaItemsEvaluados.push({
+                            label: `Pregunta ${idxPreg + 1}`,
+                            esSubItem: false,
+                            idxPreg: idxPreg
+                        });
+                    }
+                });
+
+                // Calculamos el % de aciertos exacto por cada barra desglosada
+                const porcentajesAcierto = listaItemsEvaluados.map(itemSpec => {
                     const aciertos = respsTp.filter(r => {
-                        const preg = r[idx];
+                        const preg = r[itemSpec.idxPreg];
                         if (!preg) return false;
 
-                        if (preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true) return true;
-                        if (preg.esCorrecta === false || preg.correcta === false || preg.es_correcta === false) return false;
+                        if (itemSpec.esSubItem) {
+                            // Evaluación para sub-ítems de V/F
+                            let respAlumno = preg.respuesta;
+                            if (typeof respAlumno === 'string' && respAlumno.trim().startsWith('{')) {
+                                try { respAlumno = JSON.parse(respAlumno); } catch(e){}
+                            }
+                            
+                            let respCorrecta = preg.correcta;
+                            if (typeof respCorrecta === 'string' && respCorrecta.trim().startsWith('{')) {
+                                try { respCorrecta = JSON.parse(respCorrecta); } catch(e){}
+                            }
 
-                        if (preg.opcionSeleccionada !== undefined && preg.opcionCorrecta !== undefined) {
-                            return preg.opcionSeleccionada === preg.opcionCorrecta;
+                            if (respAlumno && respCorrecta && respAlumno[itemSpec.subKey] !== undefined) {
+                                return String(respAlumno[itemSpec.subKey]).trim().toUpperCase() === 
+                                       String(respCorrecta[itemSpec.subKey]).trim().toUpperCase();
+                            }
+                            return false;
+                        } else {
+                            // Evaluación para pregunta estándar
+                            if (preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true) return true;
+                            if (preg.opcionSeleccionada !== undefined && preg.opcionCorrecta !== undefined) {
+                                return preg.opcionSeleccionada === preg.opcionCorrecta;
+                            }
+                            return false;
                         }
-
-                        return false;
                     }).length;
 
                     return Math.round((aciertos / respsTp.length) * 100);
                 });
 
+                const labelsGrafico = listaItemsEvaluados.map(i => i.label);
+
                 renderizarGrafico('chartDiagnosticoPreguntas', 'bar', {
-                    labels: labelsPreg,
+                    labels: labelsGrafico,
                     datasets: [{
-                        label: '% Acierto por Pregunta',
+                        label: '% Acierto por Ítem / Afirmación',
                         data: porcentajesAcierto,
-                        backgroundColor: porcentajesAcierto.map(val => val < 100 ? '#dc3545' : '#0d6efd')
+                        backgroundColor: porcentajesAcierto.map(val => val < 60 ? '#dc3545' : '#0d6efd')
                     }]
                 }, { 
                     scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } } 
                 });
             };
+          
 
             selectDiag.onchange = (e) => actualizarGraficoDiagnostico(e.target.value);
             if (selectDiag.value) actualizarGraficoDiagnostico(selectDiag.value);
