@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aula Virtual - Evaluación</title>
+    <!-- Estilos base de Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    <!-- Configuración e inclusión de MathJax para renderizar LaTeX dinámico -->
+    <!-- Configuración e inclusión de MathJax para formulas LaTeX -->
     <script>
         window.MathJax = {
             tex: {
@@ -30,7 +31,7 @@
         
         .hidden { display: none !important; }
 
-        /* Estilo idéntico a la tabla azul original */
+        /* Estilo idéntico a la tabla azul original de Apps Script */
         .tabla-vf { 
             width: 100%; 
             border-collapse: separate; 
@@ -61,12 +62,12 @@
 
         .tabla-vf tr:last-child td { border-bottom: none; }
         .tabla-vf td:last-child { border-right: none; }
-        .tabla-vf td.col-concepto { text-align: center; }
+        .tabla-vf td.col-concepto { text-align: left; }
         .tabla-vf td.col-opcion { text-align: center; width: 60px; }
         
         .btn-vf-opcion { 
-            width: 36px; 
-            height: 36px; 
+            width: 38px; 
+            height: 38px; 
             border-radius: 6px; 
             border: 1px solid #cbd5e1; 
             background: #ffffff; 
@@ -110,20 +111,15 @@
         <p class="text-secondary small mb-0" id="subtituloTP">Escuela: - | Curso: -</p>
     </div>
 
-    <!-- Indicador de avance -->
+    <!-- Contador de Pregunta -->
     <div class="mb-2 ms-1">
         <span class="text-secondary fw-semibold small" id="contadorTexto">Pregunta 1 de 1</span>
     </div>
 
-    <!-- Contenedor Principal -->
+    <!-- Contenedor Principal renderizado por Especialistas -->
     <div id="secPregunta">
-        <div class="card-evaluacion">
-            <div id="textoConsigna" class="fw-bold text-center mb-3 text-dark fs-6">Cargando consigna...</div>
-
-            <!-- Desplegable Opción Múltiple -->
-            <select id="selectRespuesta" class="form-select form-select-lg mb-2 hidden fs-6">
-                <option value="">-- Selecciona una opción --</option>
-            </select>
+        <div class="card-evaluacion" id="contenedorRenderEspecialista">
+            <div class="text-center text-muted">Cargando consigna...</div>
         </div>
 
         <button id="btnNavegacion" class="btn-siguiente" disabled>FINALIZAR Y ENVIAR</button>
@@ -132,376 +128,283 @@
     <div id="secFin" class="card-evaluacion text-center hidden py-5"></div>
 </div>
 
+<!-- Librería de Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+<!-- Modulos de Especialistas -->
+<script src="js/especialista_om.js"></script>
+<script src="js/especialista_vf.js"></script>
+
+<!-- Script Director de la Evaluación -->
 <script>
     const SUPABASE_URL = 'https://bpwxxodhiswltefhqbol.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwd3h4b2RoaXN3bHRlZmhxYm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMzc3NjQsImV4cCI6MjEwNjYxMzc2NH0.tVs4JpCyJFAcakyIHMCV49xiuzNgNr2SeG1S5iUeF48';
 
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let preguntas = [];
-    let indiceActual = 0;
-    let respuestasGuardadas = {};
-    let alumnoActual = null;
-    let codTp = '';
-    let respVFActuales = {};
+    const Director = {
+        preguntas: [],
+        indiceActual: 0,
+        respuestasGuardadas: {},
+        puntosObtenidos: {},
+        alumnoActual: null,
+        codTp: '',
+        especialistaActual: null,
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        codTp = urlParams.get('tp') || '';
+        async iniciar() {
+            const urlParams = new URLSearchParams(window.location.search);
+            this.codTp = urlParams.get('tp') || '';
 
-        const sesionLocal = localStorage.getItem('alumnoSesion');
-        alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
+            const sesionLocal = localStorage.getItem('alumnoSesion');
+            this.alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
 
-        if (alumnoActual) {
-            await armarEncabezadoCompleto(alumnoActual);
-        }
+            if (this.alumnoActual) {
+                await this.armarEncabezado(this.alumnoActual);
+            }
 
-        await cargarPreguntasSupabase();
-    });
+            await this.cargarPreguntas();
+        },
 
-    async function armarEncabezadoCompleto(alumno) {
-        let escuelaNombre = 'S/E';
-        let cursoNombre = 'General';
+        async armarEncabezado(alumno) {
+            let escuelaNombre = 'S/E';
+            let cursoNombre = 'General';
 
-        try {
-            if (alumno.curso_id) {
-                const { data: curso } = await supabaseClient
-                    .from('cursos')
-                    .select('*')
-                    .eq('id', alumno.curso_id)
-                    .maybeSingle();
+            try {
+                if (alumno.curso_id) {
+                    const { data: curso } = await supabaseClient
+                        .from('cursos')
+                        .select('*')
+                        .eq('id', alumno.curso_id)
+                        .maybeSingle();
 
-                if (curso) {
-                    if (curso.escuela || curso.institucion) escuelaNombre = curso.escuela || curso.institucion;
-                    if (curso.anio_division) cursoNombre = curso.anio_division;
+                    if (curso) {
+                        if (curso.escuela || curso.institucion) escuelaNombre = curso.escuela || curso.institucion;
+                        if (curso.anio_division) cursoNombre = curso.anio_division;
+                    }
                 }
-            }
-        } catch (err) {
-            console.error('Error al obtener curso:', err);
-        }
-
-        const elemSub = document.getElementById('subtituloTP');
-        if (elemSub) elemSub.innerText = `Escuela: ${escuelaNombre} - Curso: ${cursoNombre}`;
-    }
-
-    async function cargarPreguntasSupabase() {
-        try {
-            if (!codTp) {
-                document.getElementById('textoConsigna').innerText = 'No se especificó ningún código de TP en la URL.';
-                return;
+            } catch (err) {
+                console.error('Error al obtener datos del curso:', err);
             }
 
-            // Búsqueda insensible a mayúsculas/minúsculas para evitar desconexión con el panel docente
-            let { data, error } = await supabaseClient
-                .from('banco_preguntas')
-                .select('*')
-                .ilike('cod_tp', codTp)
-                .order('N_de_orden_pregunta', { ascending: true });
+            const elemSub = document.getElementById('subtituloTP');
+            if (elemSub) elemSub.innerText = `Escuela: ${escuelaNombre} - Curso: ${cursoNombre}`;
+        },
 
-            if (!data || data.length === 0) {
-                const resFallback = await supabaseClient
-                    .from('tps_matematica')
+        async cargarPreguntas() {
+            try {
+                if (!this.codTp) {
+                    document.getElementById('contenedorRenderEspecialista').innerHTML = 
+                        '<div class="alert alert-warning text-center">No se especificó ningún código de TP en la URL.</div>';
+                    return;
+                }
+
+                // Consulta con coincidencia flexible de texto
+                let { data, error } = await supabaseClient
+                    .from('banco_preguntas')
                     .select('*')
-                    .ilike('cod_tp', codTp)
+                    .ilike('cod_tp', this.codTp)
                     .order('N_de_orden_pregunta', { ascending: true });
 
-                if (resFallback.data && resFallback.data.length > 0) {
-                    data = resFallback.data;
-                    error = null;
+                if (!data || data.length === 0) {
+                    const resFallback = await supabaseClient
+                        .from('tps_matematica')
+                        .select('*')
+                        .ilike('cod_tp', this.codTp)
+                        .order('N_de_orden_pregunta', { ascending: true });
+
+                    if (resFallback.data && resFallback.data.length > 0) {
+                        data = resFallback.data;
+                        error = null;
+                    }
                 }
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    document.getElementById('contenedorRenderEspecialista').innerHTML = 
+                        `<div class="alert alert-danger text-center">No hay preguntas cargadas para el TP [${this.codTp}].</div>`;
+                    return;
+                }
+
+                this.preguntas = data;
+                const elemTitulo = document.getElementById('tituloTP');
+                if (elemTitulo) {
+                    elemTitulo.innerText = this.preguntas[0].titulo_humano || this.preguntas[0].materia || `Evaluación (${this.codTp})`;
+                }
+
+                this.mostrarPregunta(0);
+
+            } catch (err) {
+                alert('Error al obtener preguntas: ' + err.message);
             }
+        },
 
-            if (error) throw error;
-
-            if (!data || data.length === 0) {
-                document.getElementById('textoConsigna').innerText = `No hay preguntas cargadas para el TP [${codTp}].`;
+        mostrarPregunta(index) {
+            if (index >= this.preguntas.length) {
+                this.guardarResultadoFinal();
                 return;
             }
 
-            preguntas = data;
-            const elemTitulo = document.getElementById('tituloTP');
-            if (elemTitulo) {
-                elemTitulo.innerText = preguntas[0].titulo_humano || preguntas[0].materia || `Evaluación (${codTp})`;
-            }
+            this.indiceActual = index;
+            const pRaw = this.preguntas[index];
 
-            mostrarPregunta(0);
+            document.getElementById('contadorTexto').innerText = `Pregunta ${index + 1} de ${this.preguntas.length}`;
 
-        } catch (err) {
-            alert('Error al obtener preguntas: ' + err.message);
-        }
-    }
+            // Determinar tipo de pregunta
+            const tipoPreg = String(pRaw.tipo || pRaw.tipo_pregunta || '').toUpperCase();
+            const opcionesStr = typeof pRaw.opciones === 'string' ? pRaw.opciones : JSON.stringify(pRaw.opciones || '');
+            const esVF = tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF' || opcionesStr.includes(',,,');
 
-    function mostrarPregunta(index) {
-        if (index >= preguntas.length) {
-            guardarResultadoFinal();
-            return;
-        }
-
-        const p = preguntas[index];
-        const elemContador = document.getElementById('contadorTexto');
-        if (elemContador) elemContador.innerText = `Pregunta ${index + 1} de ${preguntas.length}`;
-
-        const elemConsigna = document.getElementById('textoConsigna');
-        if (elemConsigna) elemConsigna.innerHTML = p.consigna || '';
-
-        const select = document.getElementById('selectRespuesta');
-        
-        let contenedorTabla = document.getElementById('contenedorTablaVF');
-        if (contenedorTabla) contenedorTabla.remove();
-
-        const tipoPreg = String(p.tipo || p.tipo_pregunta || '').toUpperCase();
-        const opcionesStr = typeof p.opciones === 'string' ? p.opciones : JSON.stringify(p.opciones || '');
-        
-        // Detección de matriz VF por tipo o delimitador triple coma
-        const esTablaVF = tipoPreg === 'VF' || 
-                          tipoPreg === 'MATRIZ_VF' || 
-                          opcionesStr.includes(',,,');
-
-        if (esTablaVF) {
-            if (select) select.classList.add('hidden');
-            respVFActuales = {};
-
-            let filas = [];
-            if (Array.isArray(p.opciones)) {
-                filas = p.opciones;
-            } else if (typeof p.opciones === 'string') {
-                filas = p.opciones.split(',,,');
-            }
-
-            const tablaDiv = document.createElement('div');
-            tablaDiv.id = 'contenedorTablaVF';
-            
-            let htmlTabla = `
-                <table class="tabla-vf">
-                    <thead>
-                        <tr>
-                            <th style="text-align: center;">Concepto</th>
-                            <th style="width: 60px; text-align: center;">V</th>
-                            <th style="width: 60px; text-align: center;">F</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            filas.forEach((filaTexto, fIdx) => {
-                const itemLimpio = String(filaTexto).trim();
-                if (itemLimpio) {
-                    htmlTabla += `
-                        <tr>
-                            <td class="col-concepto">${itemLimpio}</td>
-                            <td class="col-opcion">
-                                <button type="button" class="btn-vf-opcion btn-v-${fIdx}" onclick="seleccionarOpcionVF(${fIdx}, 'V', ${filas.length})">V</button>
-                            </td>
-                            <td class="col-opcion">
-                                <button type="button" class="btn-vf-opcion btn-f-${fIdx}" onclick="seleccionarOpcionVF(${fIdx}, 'F', ${filas.length})">F</button>
-                            </td>
-                        </tr>
-                    `;
-                }
-            });
-
-            htmlTabla += `</tbody></table>`;
-            tablaDiv.innerHTML = htmlTabla;
-            document.querySelector('.card-evaluacion')?.appendChild(tablaDiv);
-
-            if (respuestasGuardadas[p.id]) {
-                try {
-                    const estado = JSON.parse(respuestasGuardadas[p.id]);
-                    Object.keys(estado).forEach(fIdx => {
-                        seleccionarOpcionVF(parseInt(fIdx), estado[fIdx], filas.length);
-                    });
-                } catch (e) {}
+            // Delegar al especialista correspondiente
+            if (esVF && window.EspecialistaVF) {
+                this.especialistaActual = window.EspecialistaVF;
             } else {
-                habilitarBoton(false);
+                this.especialistaActual = window.EspecialistaOM;
             }
 
-        } else {
-            // Manejo de Opción Múltiple (OM)
-            if (select) {
-                select.classList.remove('hidden');
-                select.innerHTML = '<option value="">-- Selecciona una opción --</option>';
+            const pNormalizada = this.especialistaActual.normalizar(pRaw);
+            const respGuardada = this.respuestasGuardadas[pNormalizada.id] || null;
 
-                let listaOp = [];
-                if (Array.isArray(p.opciones)) {
-                    listaOp = p.opciones;
-                } else if (typeof p.opciones === 'string') {
-                    listaOp = p.opciones.split(',,,');
-                }
+            const html = this.especialistaActual.render(pNormalizada, respGuardada);
+            document.getElementById('contenedorRenderEspecialista').innerHTML = html;
 
-                listaOp.forEach(op => {
-                    const optText = String(op).trim();
-                    if (optText) {
-                        const optionEl = document.createElement('option');
-                        optionEl.value = optText;
-                        optionEl.textContent = optText;
-                        select.appendChild(optionEl);
-                    }
+            // Actualizar texto del botón de navegación
+            const btn = document.getElementById('btnNavegacion');
+            if (btn) {
+                btn.innerText = (index === this.preguntas.length - 1) ? 'FINALIZAR Y ENVIAR' : 'SIGUIENTE';
+            }
+
+            this.habilitarBotonNavegacion(respGuardada !== null && respGuardada !== '');
+
+            // Re-procesar MathJax para renderizar fórmulas en el nuevo HTML
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+        },
+
+        habilitarBotonNavegacion(activar) {
+            const btn = document.getElementById('btnNavegacion');
+            if (!btn) return;
+
+            if (activar) {
+                btn.removeAttribute('disabled');
+                btn.classList.add('activo');
+            } else {
+                btn.setAttribute('disabled', 'true');
+                btn.classList.remove('activo');
+            }
+        },
+
+        procesarSiguiente() {
+            const pRaw = this.preguntas[this.indiceActual];
+            const pNormalizada = this.especialistaActual.normalizar(pRaw);
+
+            const respuestaAlumno = this.especialistaActual.obtenerRespuesta();
+            this.respuestasGuardadas[pNormalizada.id] = respuestaAlumno;
+
+            // Calcular puntaje del ejercicio
+            let puntaje = 0;
+            if (pRaw.tipo === 'VF' || String(pRaw.opciones).includes(',,,')) {
+                puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.subPreguntas);
+            } else {
+                puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.correcta);
+            }
+
+            this.puntosObtenidos[pNormalizada.id] = puntaje;
+
+            this.indiceActual++;
+            if (this.indiceActual < this.preguntas.length) {
+                this.mostrarPregunta(this.indiceActual);
+            } else {
+                this.guardarResultadoFinal();
+            }
+        },
+
+        async guardarResultadoFinal() {
+            try {
+                let sumaPuntos = 0;
+                const totalPreguntas = this.preguntas.length;
+
+                const payloadRespuestas = this.preguntas.map(pRaw => {
+                    const pNorm = (pRaw.tipo === 'VF' || String(pRaw.opciones).includes(',,,')) 
+                        ? window.EspecialistaVF.normalizar(pRaw) 
+                        : window.EspecialistaOM.normalizar(pRaw);
+
+                    const respAlumno = this.respuestasGuardadas[pNorm.id] || '';
+                    const pt = this.puntosObtenidos[pNorm.id] || 0;
+                    sumaPuntos += pt;
+
+                    return {
+                        pregunta_id: pNorm.id,
+                        respuesta: respAlumno,
+                        correcta: pNorm.correcta || pNorm.subPreguntas,
+                        es_correcta: pt >= 0.8
+                    };
                 });
 
-                if (respuestasGuardadas[p.id]) {
-                    select.value = respuestasGuardadas[p.id];
-                    habilitarBoton(true);
-                } else {
-                    habilitarBoton(false);
-                }
+                const notaCalculada = Math.round((sumaPuntos / totalPreguntas) * 10);
+                const aprobado = notaCalculada >= 6;
+
+                const { error } = await supabaseClient
+                    .from('evaluaciones_resultados')
+                    .insert([{
+                        alumno_id: this.alumnoActual ? this.alumnoActual.id : null,
+                        curso_id: this.alumnoActual ? this.alumnoActual.curso_id : null,
+                        tp_codigo: this.codTp,
+                        nota: notaCalculada,
+                        nivel_bloom: 'Evaluación',
+                        tiempo_segundos: 0,
+                        foco_perdido: 0,
+                        detalle_respuestas: payloadRespuestas
+                    }]);
+
+                if (error) throw error;
+
+                this.finalizarTP(notaCalculada, sumaPuntos, totalPreguntas, aprobado);
+
+            } catch (err) {
+                console.error('Error al guardar:', err);
+                alert('Error al registrar tu entrega: ' + err.message);
             }
-        }
+        },
 
-        const btn = document.getElementById('btnNavegacion');
-        if (btn) {
-            btn.innerText = (index === preguntas.length - 1) ? 'FINALIZAR Y ENVIAR' : 'SIGUIENTE';
-        }
+        finalizarTP(nota, sumaPuntos, total, aprobado) {
+            document.getElementById('secPregunta')?.classList.add('hidden');
+            const secFin = document.getElementById('secFin');
+            if (!secFin) return;
+            secFin.classList.remove('hidden');
 
-        // Re-procesar LaTeX tras inyectar contenido dinámico
-        if (window.MathJax && window.MathJax.typesetPromise) {
-            window.MathJax.typesetPromise();
-        }
-    }
-
-    function seleccionarOpcionVF(filaIndex, valor, totalFilas) {
-        const btnV = document.querySelector(`.btn-v-${filaIndex}`);
-        const btnF = document.querySelector(`.btn-f-${filaIndex}`);
-
-        if (btnV && btnF) {
-            if (valor === 'V') {
-                btnV.classList.add('seleccionado-v');
-                btnF.classList.remove('seleccionado-f');
+            if (aprobado) {
+                secFin.innerHTML = `
+                    <div style="font-size: 3rem; margin-bottom: 10px;">🎉</div>
+                    <h2 style="color: #16a34a; font-size: 1.8rem; margin-bottom: 8px;">¡Felicitaciones! Aprobaste el TP</h2>
+                    <div style="font-size: 2.2rem; font-weight: 800; color: #16a34a; margin: 15px 0;">Nota: ${nota} / 10</div>
+                    <p style="color: #475569; margin-bottom: 25px;">Tu resultado ha sido registrado con éxito.</p>
+                    <button class="btn-siguiente activo" onclick="window.location.href='alumno.html'">VOLVER AL PORTAL</button>
+                `;
             } else {
-                btnF.classList.add('seleccionado-f');
-                btnV.classList.remove('seleccionado-v');
+                secFin.innerHTML = `
+                    <div style="font-size: 3rem; margin-bottom: 10px;">💪</div>
+                    <h2 style="color: #ea580c; font-size: 1.8rem; margin-bottom: 8px;">Debes rehacer la evaluación</h2>
+                    <div style="font-size: 2.2rem; font-weight: 800; color: #ea580c; margin: 15px 0;">Nota: ${nota} / 10</div>
+                    <p style="color: #475569; margin-bottom: 20px;">Necesitás al menos 6/10 para aprobar.</p>
+                    <button class="btn-siguiente activo" style="margin-bottom: 15px;" onclick="window.location.reload()">REHACER EVALUACIÓN</button>
+                    <br>
+                    <a href="alumno.html" style="color: #64748b; text-decoration: underline; font-size: 0.9rem;">Volver al Portal del Alumno</a>
+                `;
             }
         }
+    };
 
-        respVFActuales[filaIndex] = valor;
+    window.Director = Director;
 
-        const pActual = preguntas[indiceActual];
-        if (pActual) {
-            respuestasGuardadas[pActual.id] = JSON.stringify(respVFActuales);
-        }
+    document.addEventListener('DOMContentLoaded', () => {
+        Director.iniciar();
 
-        if (Object.keys(respVFActuales).length === totalFilas) {
-            habilitarBoton(true);
-        }
-    }
-
-    const selectEl = document.getElementById('selectRespuesta');
-    const btnNav = document.getElementById('btnNavegacion');
-
-    if (selectEl) {
-        selectEl.addEventListener('change', () => {
-            const haySeleccion = selectEl.value !== '';
-            habilitarBoton(haySeleccion);
+        document.getElementById('btnNavegacion')?.addEventListener('click', () => {
+            Director.procesarSiguiente();
         });
-    }
-
-    function habilitarBoton(activar) {
-        if (!btnNav) return;
-        if (activar) {
-            btnNav.removeAttribute('disabled');
-            btnNav.classList.add('activo');
-        } else {
-            btnNav.setAttribute('disabled', 'true');
-            btnNav.classList.remove('activo');
-        }
-    }
-
-    if (btnNav) {
-        btnNav.addEventListener('click', async () => {
-            const pActual = preguntas[indiceActual];
-            
-            const tipoPreg = String(pActual.tipo || pActual.tipo_pregunta || '').toUpperCase();
-            const opcionesStr = typeof pActual.opciones === 'string' ? pActual.opciones : JSON.stringify(pActual.opciones || '');
-            const esTablaVF = tipoPreg === 'VF' || 
-                              tipoPreg === 'MATRIZ_VF' || 
-                              opcionesStr.includes(',,,');
-            
-            if (!esTablaVF && selectEl) {
-                respuestasGuardadas[pActual.id] = selectEl.value;
-            }
-
-            indiceActual++;
-            if (indiceActual < preguntas.length) {
-                mostrarPregunta(indiceActual);
-            } else {
-                await guardarResultadoFinal();
-            }
-        });
-    }
-
-    async function guardarResultadoFinal() {
-        try {
-            let aciertos = 0;
-            const totalPreguntas = preguntas.length;
-
-            const payloadRespuestas = preguntas.map(p => {
-                const respAlumno = respuestasGuardadas[p.id] || '';
-                const respCorrecta = p.respuesta_correcta || '';
-                let esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
-
-                if (esCorrecta) aciertos++;
-
-                return {
-                    pregunta_id: p.id,
-                    respuesta: respAlumno,
-                    correcta: respCorrecta,
-                    es_correcta: esCorrecta
-                };
-            });
-
-            const notaCalculada = Math.round((aciertos / totalPreguntas) * 10);
-            const aprobado = notaCalculada >= 6;
-
-            const { error } = await supabaseClient
-                .from('evaluaciones_resultados')
-                .insert([{
-                    alumno_id: alumnoActual ? alumnoActual.id : null,
-                    curso_id: alumnoActual ? alumnoActual.curso_id : null,
-                    tp_codigo: codTp,
-                    nota: notaCalculada,
-                    nivel_bloom: 'Evaluación',
-                    tiempo_segundos: 0,
-                    foco_perdido: 0,
-                    detalle_respuestas: payloadRespuestas
-                }]);
-
-            if (error) throw error;
-
-            finalizarTP(notaCalculada, aciertos, totalPreguntas, aprobado);
-
-        } catch (err) {
-            console.error('Error al guardar:', err);
-            alert('Error al registrar tu entrega: ' + err.message);
-        }
-    }
-
-    function finalizarTP(nota, aciertos, total, aprobado) {
-        document.getElementById('secPregunta')?.classList.add('hidden');
-        const secFin = document.getElementById('secFin');
-        if (!secFin) return;
-        secFin.classList.remove('hidden');
-
-        if (aprobado) {
-            secFin.innerHTML = `
-                <div style="font-size: 3rem; margin-bottom: 10px;">🎉</div>
-                <h2 style="color: #16a34a; font-size: 1.8rem; margin-bottom: 8px;">¡Felicitaciones! Aprobaste el TP</h2>
-                <div style="font-size: 2.2rem; font-weight: 800; color: #16a34a; margin: 15px 0;">Nota: ${nota} / 10</div>
-                <p style="color: #475569; margin-bottom: 25px;">Respondiste correctamente ${aciertos} de ${total} preguntas. Tu resultado ha sido registrado con éxito.</p>
-                <button class="btn-siguiente activo" onclick="window.location.href='alumno.html'">VOLVER AL PORTAL</button>
-            `;
-        } else {
-            secFin.innerHTML = `
-                <div style="font-size: 3rem; margin-bottom: 10px;">💪</div>
-                <h2 style="color: #ea580c; font-size: 1.8rem; margin-bottom: 8px;">Debes rehacer la evaluación</h2>
-                <div style="font-size: 2.2rem; font-weight: 800; color: #ea580c; margin: 15px 0;">Nota: ${nota} / 10</div>
-                <p style="color: #475569; margin-bottom: 20px;">Respondiste correctamente ${aciertos} de ${total} preguntas. Necesitás al menos 6/10 para aprobar.</p>
-                <button class="btn-siguiente activo" style="margin-bottom: 15px;" onclick="window.location.reload()">REHACER EVALUACIÓN</button>
-                <br>
-                <a href="alumno.html" style="color: #64748b; text-decoration: underline; font-size: 0.9rem;">Volver al Portal del Alumno</a>
-            `;
-        }
-    }
+    });
 </script>
 </body>
 </html>
