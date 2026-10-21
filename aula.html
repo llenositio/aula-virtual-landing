@@ -4,54 +4,82 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aula Virtual - Evaluación</title>
-    <!-- Estilos básicos Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Configuración e inclusión de MathJax para renderizar fórmulas matemáticas -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
     <style>
         body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
-        .box-pregunta { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .box-pregunta { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; border: 1px solid #e2e8f0; }
         .hidden { display: none !important; }
-        .tabla-vf { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .tabla-vf th, .tabla-vf td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
-        .btn-vf-opcion { width: 40px; height: 40px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; font-weight: bold; cursor: pointer; }
+        
+        /* Banner superior como la imagen original */
+        .banner-aula {
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Estilo idéntico a la tabla azul original (Imagen 2) */
+        .tabla-vf { width: 100%; border-collapse: collapse; margin-top: 15px; border: 1px solid #cbd5e1; }
+        .tabla-vf th { background-color: #3b82f6; color: #ffffff; padding: 12px; font-weight: bold; text-align: center; border: 1px solid #cbd5e1; }
+        .tabla-vf th:first-child { text-align: center; }
+        .tabla-vf td { padding: 10px 14px; border: 1px solid #cbd5e1; vertical-align: middle; }
+        .tabla-vf td:first-child { text-align: center; font-weight: bold; }
+        
+        .btn-vf-opcion { width: 38px; height: 34px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .btn-vf-opcion:hover { border-color: #3b82f6; }
         .seleccionado-v { background-color: #2563eb !important; color: white !important; border-color: #2563eb !important; }
         .seleccionado-f { background-color: #dc2626 !important; color: white !important; border-color: #dc2626 !important; }
-        .btn-siguiente { width: 100%; padding: 12px; border-radius: 8px; border: none; background-color: #94a3b8; color: white; font-weight: bold; }
-        .btn-siguiente.activo { background-color: #2563eb; cursor: pointer; }
+        
+        .btn-siguiente { width: 100%; padding: 14px; border-radius: 8px; border: none; background-color: #94a3b8; color: white; font-weight: bold; letter-spacing: 0.5px; }
+        .btn-siguiente.activo { background-color: #3b82f6; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="container py-4" style="max-width: 768px;">
-    <!-- Encabezado de la evaluación -->
-    <div class="mb-4">
-        <span class="badge bg-secondary mb-1" id="codigoTP">Cargando...</span>
-        <h2 class="fw-bold text-dark mb-1" id="tituloTP">Cargando Trabajo Práctico...</h2>
-        <p class="text-muted small mb-0" id="subtituloTP">Estudiante: - | Curso: -</p>
+<div class="container py-4" style="max-width: 720px;">
+    
+    <!-- Encabezado superior con título centrado tipo Imagen 2 -->
+    <div class="text-center mb-3">
+        <h3 class="fw-bold text-primary mb-1" id="tituloTP">TP Nº 001 - UR</h3>
+        <p class="text-muted small mb-3" id="subtituloTP">Escuela: S/E - Curso: General</p>
+        
+        <!-- Banner del Aula Virtual -->
+        <img src="assets/banner-aula.png" onerror="this.style.display='none'" class="banner-aula" alt="Aula Virtual llenositio">
     </div>
 
-    <!-- Sección de Preguntas -->
+    <!-- Contador de Pregunta -->
+    <div class="mb-2">
+        <span class="text-secondary fw-bold small" id="contadorTexto">Pregunta 1 de 1</span>
+    </div>
+
+    <!-- Sección de Pregunta -->
     <div id="secPregunta">
         <div class="box-pregunta">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="badge bg-light text-primary border" id="contadorTexto">Pregunta 1</span>
-            </div>
-            
-            <div id="textoConsigna" class="fs-5 mb-4 text-dark">Cargando consigna...</div>
+            <div id="textoConsigna" class="fw-bold text-center mb-3 text-dark fs-6">Cargando consigna...</div>
 
-            <!-- Desplegable para Opción Múltiple -->
-            <select id="selectRespuesta" class="form-select mb-3 hidden">
+            <!-- Desplegable para Opción Múltiple (OM) -->
+            <select id="selectRespuesta" class="form-select form-select-lg mb-3 hidden fs-6">
                 <option value="">-- Selecciona una opción --</option>
             </select>
         </div>
 
-        <button id="btnNavegacion" class="btn-siguiente" disabled>SIGUIENTE</button>
+        <button id="btnNavegacion" class="btn-siguiente" disabled>FINALIZAR Y ENVIAR</button>
     </div>
 
-    <!-- Sección Final de Resultados -->
     <div id="secFin" class="box-pregunta text-center hidden py-5"></div>
 </div>
 
-<!-- Librerías externas -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
@@ -71,17 +99,11 @@
         const urlParams = new URLSearchParams(window.location.search);
         codTp = urlParams.get('tp') || 'CBMTP-1-MAT-001';
 
-        const elemCodigo = document.getElementById('codigoTP');
-        if (elemCodigo) elemCodigo.innerText = codTp;
-
         const sesionLocal = localStorage.getItem('alumnoSesion');
         alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
 
         if (alumnoActual) {
             await armarEncabezadoCompleto(alumnoActual);
-        } else {
-            const elemSub = document.getElementById('subtituloTP');
-            if (elemSub) elemSub.innerText = 'Estudiante: - | Curso: -';
         }
 
         await cargarPreguntasSupabase();
@@ -98,32 +120,43 @@
                     .from('cursos')
                     .select('*')
                     .eq('id', alumno.curso_id)
-                    .single();
+                    .maybeSingle();
 
                 if (curso) {
-                    if (curso.institucion && curso.institucion !== 'S/E') escuelaNombre = curso.institucion;
+                    if (curso.escuela || curso.institucion) escuelaNombre = curso.escuela || curso.institucion;
                     if (curso.anio_division) cursoNombre = curso.anio_division;
                 }
-            } else if (alumno.cursos) {
-                if (alumno.cursos.institucion && alumno.cursos.institucion !== 'S/E') escuelaNombre = alumno.cursos.institucion;
-                if (alumno.cursos.anio_division) cursoNombre = alumno.cursos.anio_division;
             }
         } catch (err) {
             console.error('Error al obtener datos del curso:', err);
         }
 
-        const textoEscuela = (escuelaNombre !== 'S/E') ? `Escuela: ${escuelaNombre} - ` : '';
         const elemSub = document.getElementById('subtituloTP');
-        if (elemSub) elemSub.innerText = `Estudiante: ${nombreAlumno} | ${textoEscuela}Curso: ${cursoNombre}`;
+        if (elemSub) elemSub.innerText = `Escuela: ${escuelaNombre} - Curso: ${cursoNombre}`;
     }
 
     async function cargarPreguntasSupabase() {
         try {
-            const { data, error } = await supabaseClient
+            // Consulta primaria al banco de preguntas
+            let { data, error } = await supabaseClient
                 .from('banco_preguntas')
                 .select('*')
                 .eq('cod_tp', codTp)
                 .order('N_de_orden_pregunta', { ascending: true });
+
+            // Respaldo secundario si la primera tabla no devuelve registros
+            if (!data || data.length === 0) {
+                const resFallback = await supabaseClient
+                    .from('tps_matematica')
+                    .select('*')
+                    .eq('cod_tp', codTp)
+                    .order('N_de_orden_pregunta', { ascending: true });
+
+                if (resFallback.data && resFallback.data.length > 0) {
+                    data = resFallback.data;
+                    error = null;
+                }
+            }
 
             if (error) throw error;
 
@@ -136,7 +169,7 @@
             preguntas = data;
             const elemTitulo = document.getElementById('tituloTP');
             if (elemTitulo) {
-                elemTitulo.innerText = preguntas[0].materia || 'Trabajo Práctico';
+                elemTitulo.innerText = preguntas[0].titulo_humano || preguntas[0].materia || `TP ${codTp}`;
             }
 
             mostrarPregunta(0);
@@ -166,10 +199,10 @@
 
         const tipoPreg = String(p.tipo || p.tipo_pregunta || '').toUpperCase();
         const opcionesStr = typeof p.opciones === 'string' ? p.opciones : JSON.stringify(p.opciones || '');
+        
         const esTablaVF = tipoPreg === 'VF' || 
                           tipoPreg === 'MATRIZ_VF' || 
-                          opcionesStr.includes(',,,') || 
-                          opcionesStr.includes(':::');
+                          opcionesStr.includes(',,,');
 
         if (esTablaVF) {
             if (select) select.classList.add('hidden');
@@ -179,7 +212,7 @@
             if (Array.isArray(p.opciones)) {
                 filas = p.opciones;
             } else if (typeof p.opciones === 'string') {
-                filas = p.opciones.includes(',,,') ? p.opciones.split(',,,') : p.opciones.split(':::');
+                filas = p.opciones.split(',,,');
             }
 
             const tablaDiv = document.createElement('div');
@@ -189,9 +222,9 @@
                 <table class="tabla-vf">
                     <thead>
                         <tr>
-                            <th>Concepto / Afirmación</th>
-                            <th style="width: 60px; text-align: center;">V</th>
-                            <th style="width: 60px; text-align: center;">F</th>
+                            <th>Concepto</th>
+                            <th style="width: 50px;">V</th>
+                            <th style="width: 50px;">F</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -230,6 +263,7 @@
             }
 
         } else {
+            // Renderizado estricto para Opción Múltiple (OM)
             if (select) {
                 select.classList.remove('hidden');
                 select.innerHTML = '<option value="">-- Selecciona una opción --</option>';
@@ -239,7 +273,7 @@
                     if (Array.isArray(p.opciones)) {
                         listaOp = p.opciones;
                     } else if (typeof p.opciones === 'string') {
-                        listaOp = p.opciones.includes(',,,') ? p.opciones.split(',,,') : p.opciones.split(',');
+                        listaOp = p.opciones.split(',,,');
                     }
 
                     listaOp.forEach(op => {
@@ -267,8 +301,9 @@
             btn.innerText = (index === preguntas.length - 1) ? 'FINALIZAR Y ENVIAR' : 'SIGUIENTE';
         }
 
+        // Renderizar fórmulas matemáticas dinámicamente con MathJax
         if (window.MathJax && window.MathJax.typesetPromise) {
-            MathJax.typesetPromise();
+            window.MathJax.typesetPromise();
         }
     }
 
@@ -327,8 +362,7 @@
             const opcionesStr = typeof pActual.opciones === 'string' ? pActual.opciones : JSON.stringify(pActual.opciones || '');
             const esTablaVF = tipoPreg === 'VF' || 
                               tipoPreg === 'MATRIZ_VF' || 
-                              opcionesStr.includes(',,,') || 
-                              opcionesStr.includes(':::');
+                              opcionesStr.includes(',,,');
             
             if (!esTablaVF && selectEl) {
                 respuestasGuardadas[pActual.id] = selectEl.value;
