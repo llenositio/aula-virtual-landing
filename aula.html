@@ -6,7 +6,7 @@
     <title>Aula Virtual - Evaluación</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    <!-- Configuración e inclusión de MathJax para renderizar fórmulas matemáticas -->
+    <!-- Configuración e inclusión de MathJax para renderizar LaTeX dinámico -->
     <script>
         window.MathJax = {
             tex: {
@@ -17,59 +17,111 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 
     <style>
-        body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
-        .box-pregunta { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; border: 1px solid #e2e8f0; }
-        .hidden { display: none !important; }
+        body { background-color: #f8fafc; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
         
-        /* Banner superior como la imagen original */
-        .banner-aula {
-            width: 100%;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        .card-evaluacion { 
+            background: #ffffff; 
+            padding: 30px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.01); 
+            border: 1px solid #edf2f7; 
+            margin-bottom: 20px; 
+        }
+        
+        .hidden { display: none !important; }
+
+        /* Estilo idéntico a la tabla azul original */
+        .tabla-vf { 
+            width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0;
+            margin-top: 15px; 
+            border: 1px solid #3b82f6; 
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .tabla-vf th { 
+            background-color: #3b82f6; 
+            color: #ffffff; 
+            padding: 14px 10px; 
+            font-weight: 700; 
+            text-align: center; 
+            font-size: 0.95rem;
+            border-bottom: 1px solid #3b82f6;
+        }
+        
+        .tabla-vf td { 
+            padding: 12px 16px; 
+            border-bottom: 1px solid #e2e8f0; 
+            border-right: 1px solid #edf2f7;
+            vertical-align: middle; 
+            background-color: #ffffff;
         }
 
-        /* Estilo idéntico a la tabla azul original (Imagen 2) */
-        .tabla-vf { width: 100%; border-collapse: collapse; margin-top: 15px; border: 1px solid #cbd5e1; }
-        .tabla-vf th { background-color: #3b82f6; color: #ffffff; padding: 12px; font-weight: bold; text-align: center; border: 1px solid #cbd5e1; }
-        .tabla-vf th:first-child { text-align: center; }
-        .tabla-vf td { padding: 10px 14px; border: 1px solid #cbd5e1; vertical-align: middle; }
-        .tabla-vf td:first-child { text-align: center; font-weight: bold; }
+        .tabla-vf tr:last-child td { border-bottom: none; }
+        .tabla-vf td:last-child { border-right: none; }
+        .tabla-vf td.col-concepto { text-align: center; }
+        .tabla-vf td.col-opcion { text-align: center; width: 60px; }
         
-        .btn-vf-opcion { width: 38px; height: 34px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; font-weight: bold; cursor: pointer; transition: all 0.2s; }
-        .btn-vf-opcion:hover { border-color: #3b82f6; }
-        .seleccionado-v { background-color: #2563eb !important; color: white !important; border-color: #2563eb !important; }
-        .seleccionado-f { background-color: #dc2626 !important; color: white !important; border-color: #dc2626 !important; }
+        .btn-vf-opcion { 
+            width: 36px; 
+            height: 36px; 
+            border-radius: 6px; 
+            border: 1px solid #cbd5e1; 
+            background: #ffffff; 
+            font-weight: 700; 
+            cursor: pointer; 
+            transition: all 0.15s ease-in-out; 
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
         
-        .btn-siguiente { width: 100%; padding: 14px; border-radius: 8px; border: none; background-color: #94a3b8; color: white; font-weight: bold; letter-spacing: 0.5px; }
+        .btn-vf-opcion:hover { border-color: #3b82f6; color: #3b82f6; }
+        .seleccionado-v { background-color: #2563eb !important; color: #ffffff !important; border-color: #2563eb !important; }
+        .seleccionado-f { background-color: #dc2626 !important; color: #ffffff !important; border-color: #dc2626 !important; }
+        
+        .btn-siguiente { 
+            width: 100%; 
+            padding: 14px; 
+            border-radius: 8px; 
+            border: none; 
+            background-color: #94a3b8; 
+            color: #ffffff; 
+            font-weight: 700; 
+            font-size: 0.95rem;
+            letter-spacing: 0.5px; 
+            transition: background-color 0.2s;
+        }
+        
         .btn-siguiente.activo { background-color: #3b82f6; cursor: pointer; }
+        .btn-siguiente.activo:hover { background-color: #2563eb; }
     </style>
 </head>
 <body>
 
 <div class="container py-4" style="max-width: 720px;">
     
-    <!-- Encabezado superior con título centrado tipo Imagen 2 -->
-    <div class="text-center mb-3">
-        <h3 class="fw-bold text-primary mb-1" id="tituloTP">TP Nº 001 - UR</h3>
-        <p class="text-muted small mb-3" id="subtituloTP">Escuela: S/E - Curso: General</p>
-        
-        <!-- Banner del Aula Virtual -->
-        <img src="assets/banner-aula.png" onerror="this.style.display='none'" class="banner-aula" alt="Aula Virtual llenositio">
+    <!-- Encabezado de la Evaluación -->
+    <div class="text-center mb-4">
+        <h2 class="fw-bold text-primary mb-1" id="tituloTP">Cargando Evaluación...</h2>
+        <p class="text-secondary small mb-0" id="subtituloTP">Escuela: - | Curso: -</p>
     </div>
 
-    <!-- Contador de Pregunta -->
-    <div class="mb-2">
-        <span class="text-secondary fw-bold small" id="contadorTexto">Pregunta 1 de 1</span>
+    <!-- Indicador de avance -->
+    <div class="mb-2 ms-1">
+        <span class="text-secondary fw-semibold small" id="contadorTexto">Pregunta 1 de 1</span>
     </div>
 
-    <!-- Sección de Pregunta -->
+    <!-- Contenedor Principal -->
     <div id="secPregunta">
-        <div class="box-pregunta">
+        <div class="card-evaluacion">
             <div id="textoConsigna" class="fw-bold text-center mb-3 text-dark fs-6">Cargando consigna...</div>
 
-            <!-- Desplegable para Opción Múltiple (OM) -->
-            <select id="selectRespuesta" class="form-select form-select-lg mb-3 hidden fs-6">
+            <!-- Desplegable Opción Múltiple -->
+            <select id="selectRespuesta" class="form-select form-select-lg mb-2 hidden fs-6">
                 <option value="">-- Selecciona una opción --</option>
             </select>
         </div>
@@ -77,7 +129,7 @@
         <button id="btnNavegacion" class="btn-siguiente" disabled>FINALIZAR Y ENVIAR</button>
     </div>
 
-    <div id="secFin" class="box-pregunta text-center hidden py-5"></div>
+    <div id="secFin" class="card-evaluacion text-center hidden py-5"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -97,7 +149,7 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         const urlParams = new URLSearchParams(window.location.search);
-        codTp = urlParams.get('tp') || 'CBMTP-1-MAT-001';
+        codTp = urlParams.get('tp') || '';
 
         const sesionLocal = localStorage.getItem('alumnoSesion');
         alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
@@ -110,7 +162,6 @@
     });
 
     async function armarEncabezadoCompleto(alumno) {
-        let nombreAlumno = alumno.nombre ? `${alumno.apellido || ''} ${alumno.nombre}`.trim() : 'Estudiante';
         let escuelaNombre = 'S/E';
         let cursoNombre = 'General';
 
@@ -128,7 +179,7 @@
                 }
             }
         } catch (err) {
-            console.error('Error al obtener datos del curso:', err);
+            console.error('Error al obtener curso:', err);
         }
 
         const elemSub = document.getElementById('subtituloTP');
@@ -137,19 +188,23 @@
 
     async function cargarPreguntasSupabase() {
         try {
-            // Consulta primaria al banco de preguntas
+            if (!codTp) {
+                document.getElementById('textoConsigna').innerText = 'No se especificó ningún código de TP en la URL.';
+                return;
+            }
+
+            // Búsqueda insensible a mayúsculas/minúsculas para evitar desconexión con el panel docente
             let { data, error } = await supabaseClient
                 .from('banco_preguntas')
                 .select('*')
-                .eq('cod_tp', codTp)
+                .ilike('cod_tp', codTp)
                 .order('N_de_orden_pregunta', { ascending: true });
 
-            // Respaldo secundario si la primera tabla no devuelve registros
             if (!data || data.length === 0) {
                 const resFallback = await supabaseClient
                     .from('tps_matematica')
                     .select('*')
-                    .eq('cod_tp', codTp)
+                    .ilike('cod_tp', codTp)
                     .order('N_de_orden_pregunta', { ascending: true });
 
                 if (resFallback.data && resFallback.data.length > 0) {
@@ -161,15 +216,14 @@
             if (error) throw error;
 
             if (!data || data.length === 0) {
-                const elemConsigna = document.getElementById('textoConsigna');
-                if (elemConsigna) elemConsigna.innerText = 'No hay preguntas disponibles para este TP.';
+                document.getElementById('textoConsigna').innerText = `No hay preguntas cargadas para el TP [${codTp}].`;
                 return;
             }
 
             preguntas = data;
             const elemTitulo = document.getElementById('tituloTP');
             if (elemTitulo) {
-                elemTitulo.innerText = preguntas[0].titulo_humano || preguntas[0].materia || `TP ${codTp}`;
+                elemTitulo.innerText = preguntas[0].titulo_humano || preguntas[0].materia || `Evaluación (${codTp})`;
             }
 
             mostrarPregunta(0);
@@ -200,6 +254,7 @@
         const tipoPreg = String(p.tipo || p.tipo_pregunta || '').toUpperCase();
         const opcionesStr = typeof p.opciones === 'string' ? p.opciones : JSON.stringify(p.opciones || '');
         
+        // Detección de matriz VF por tipo o delimitador triple coma
         const esTablaVF = tipoPreg === 'VF' || 
                           tipoPreg === 'MATRIZ_VF' || 
                           opcionesStr.includes(',,,');
@@ -222,9 +277,9 @@
                 <table class="tabla-vf">
                     <thead>
                         <tr>
-                            <th>Concepto</th>
-                            <th style="width: 50px;">V</th>
-                            <th style="width: 50px;">F</th>
+                            <th style="text-align: center;">Concepto</th>
+                            <th style="width: 60px; text-align: center;">V</th>
+                            <th style="width: 60px; text-align: center;">F</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -235,11 +290,11 @@
                 if (itemLimpio) {
                     htmlTabla += `
                         <tr>
-                            <td>${itemLimpio}</td>
-                            <td style="text-align: center;">
+                            <td class="col-concepto">${itemLimpio}</td>
+                            <td class="col-opcion">
                                 <button type="button" class="btn-vf-opcion btn-v-${fIdx}" onclick="seleccionarOpcionVF(${fIdx}, 'V', ${filas.length})">V</button>
                             </td>
-                            <td style="text-align: center;">
+                            <td class="col-opcion">
                                 <button type="button" class="btn-vf-opcion btn-f-${fIdx}" onclick="seleccionarOpcionVF(${fIdx}, 'F', ${filas.length})">F</button>
                             </td>
                         </tr>
@@ -249,7 +304,7 @@
 
             htmlTabla += `</tbody></table>`;
             tablaDiv.innerHTML = htmlTabla;
-            document.querySelector('.box-pregunta')?.appendChild(tablaDiv);
+            document.querySelector('.card-evaluacion')?.appendChild(tablaDiv);
 
             if (respuestasGuardadas[p.id]) {
                 try {
@@ -263,29 +318,27 @@
             }
 
         } else {
-            // Renderizado estricto para Opción Múltiple (OM)
+            // Manejo de Opción Múltiple (OM)
             if (select) {
                 select.classList.remove('hidden');
                 select.innerHTML = '<option value="">-- Selecciona una opción --</option>';
 
-                if (p.opciones) {
-                    let listaOp = [];
-                    if (Array.isArray(p.opciones)) {
-                        listaOp = p.opciones;
-                    } else if (typeof p.opciones === 'string') {
-                        listaOp = p.opciones.split(',,,');
-                    }
-
-                    listaOp.forEach(op => {
-                        const optText = String(op).trim();
-                        if (optText) {
-                            const optionEl = document.createElement('option');
-                            optionEl.value = optText;
-                            optionEl.textContent = optText;
-                            select.appendChild(optionEl);
-                        }
-                    });
+                let listaOp = [];
+                if (Array.isArray(p.opciones)) {
+                    listaOp = p.opciones;
+                } else if (typeof p.opciones === 'string') {
+                    listaOp = p.opciones.split(',,,');
                 }
+
+                listaOp.forEach(op => {
+                    const optText = String(op).trim();
+                    if (optText) {
+                        const optionEl = document.createElement('option');
+                        optionEl.value = optText;
+                        optionEl.textContent = optText;
+                        select.appendChild(optionEl);
+                    }
+                });
 
                 if (respuestasGuardadas[p.id]) {
                     select.value = respuestasGuardadas[p.id];
@@ -301,7 +354,7 @@
             btn.innerText = (index === preguntas.length - 1) ? 'FINALIZAR Y ENVIAR' : 'SIGUIENTE';
         }
 
-        // Renderizar fórmulas matemáticas dinámicamente con MathJax
+        // Re-procesar LaTeX tras inyectar contenido dinámico
         if (window.MathJax && window.MathJax.typesetPromise) {
             window.MathJax.typesetPromise();
         }
@@ -385,9 +438,7 @@
             const payloadRespuestas = preguntas.map(p => {
                 const respAlumno = respuestasGuardadas[p.id] || '';
                 const respCorrecta = p.respuesta_correcta || '';
-                let esCorrecta = false;
-
-                esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
+                let esCorrecta = respAlumno.trim().toLowerCase() === respCorrecta.trim().toLowerCase();
 
                 if (esCorrecta) aciertos++;
 
