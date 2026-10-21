@@ -147,7 +147,7 @@
 
         async iniciar() {
             const urlParams = new URLSearchParams(window.location.search);
-            this.codTp = urlParams.get('tp') || '';
+            this.codTp = urlParams.get('tp') || urlParams.get('TP') || urlParams.get('cod_tp') || '';
 
             const sesionLocal = localStorage.getItem('alumnoSesion');
             this.alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
