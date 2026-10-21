@@ -165,7 +165,7 @@
             await this.cargarPreguntas();
         },
 
-        async armarEncabezado(alumno) {
+       async armarEncabezado(alumno) {
             let escuelaNombre = 'S/E';
             let cursoNombre = 'General';
 
@@ -188,6 +188,18 @@
 
             const elemSub = document.getElementById('subtituloTP');
             if (elemSub) elemSub.innerText = `Escuela: ${escuelaNombre} - Curso: ${cursoNombre}`;
+
+            // Inserción del banner del logo
+            const elemTitulo = document.getElementById('tituloTP');
+            if (elemTitulo && !document.getElementById('bannerLogo')) {
+                const imgBanner = document.createElement('img');
+                imgBanner.id = 'bannerLogo';
+                imgBanner.src = 'banner.png';
+                imgBanner.className = 'img-fluid mb-3';
+                imgBanner.style.maxWidth = '100%';
+                imgBanner.style.borderRadius = '8px';
+                elemTitulo.parentNode.insertBefore(imgBanner, elemTitulo);
+            }
         },
 
         async cargarPreguntas() {
