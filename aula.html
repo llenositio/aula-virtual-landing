@@ -147,7 +147,7 @@
 
         async iniciar() {
             const urlParams = new URLSearchParams(window.location.search);
-            this.codTp = urlParams.get('tp') || urlParams.get('TP') || urlParams.get('cod_tp') || '';
+            this.codTp = urlParams.get('tp') || '';
 
             const sesionLocal = localStorage.getItem('alumnoSesion');
             this.alumnoActual = sesionLocal ? JSON.parse(sesionLocal) : null;
@@ -194,19 +194,19 @@
                     return;
                 }
 
-                // 1. Intento por coincidencia exacta en cod_tp_completo
+                // 1. Intento estricto por coincidencia exacta en cod_tp_completo
                 let { data, error } = await supabaseClient
                     .from('banco_preguntas')
                     .select('*')
                     .eq('cod_tp_completo', this.codTp)
                     .order('N_de_orden_pregunta', { ascending: true });
 
-                // 2. Fallback: Si no encuentra coincidencia exacta, busca coincidencias parciales en cod_tp_completo
+                // 2. Si viene sin la unidad (ej. CBMTP-1-MAT-002), busca exacto "CBMTP-1-MAT-002/%"
                 if (!error && (!data || data.length === 0)) {
                     const fallback = await supabaseClient
                         .from('banco_preguntas')
                         .select('*')
-                        .ilike('cod_tp_completo', `%${this.codTp}%`)
+                        .ilike('cod_tp_completo', `${this.codTp}/%`)
                         .order('N_de_orden_pregunta', { ascending: true });
 
                     if (fallback.data && fallback.data.length > 0) {
@@ -224,7 +224,7 @@
 
                 this.preguntas = data;
                 
-                // Muestra el título exacto de la columna titulo_humano
+                // Muestra el título exacto asignado por el docente
                 const elemTitulo = document.getElementById('tituloTP');
                 if (elemTitulo) {
                     elemTitulo.innerText = this.preguntas[0].titulo_humano || `TP Nº ${this.codTp}`;
