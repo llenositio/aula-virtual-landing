@@ -194,28 +194,12 @@
                     return;
                 }
 
-                // 1. Primer intento: Búsqueda exacta
+                // Consulta exacta a la nueva columna cod_tp_completo
                 let { data, error } = await supabaseClient
                     .from('banco_preguntas')
                     .select('*')
-                    .eq('cod_tp', this.codTp)
+                    .eq('cod_tp_completo', this.codTp)
                     .order('N_de_orden_pregunta', { ascending: true });
-
-                // 2. Si no encuentra y la URL viene tipo CBMTP-1-MAT-002, extraemos el número '002' y buscamos '002/'
-                if ((!data || data.length === 0) && this.codTp.includes('-')) {
-                    const partes = this.codTp.split('-');
-                    const num = partes[partes.length - 1]; // Extrae '002'
-
-                    const fallback = await supabaseClient
-                        .from('banco_preguntas')
-                        .select('*')
-                        .ilike('cod_tp', `${num}/%`) // Busca exactamente '002/U1', '002/U2', etc.
-                        .order('N_de_orden_pregunta', { ascending: true });
-
-                    if (fallback.data && fallback.data.length > 0) {
-                        data = fallback.data;
-                    }
-                }
 
                 if (error) throw error;
 
