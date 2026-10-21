@@ -237,13 +237,10 @@
 
             document.getElementById('contadorTexto').innerText = `Pregunta ${index + 1} de ${this.preguntas.length}`;
 
-            // Determinar tipo de pregunta
-            const tipoPreg = String(pRaw.tipo || pRaw.tipo_pregunta || '').toUpperCase();
-            const opcionesStr = typeof pRaw.opciones === 'string' ? pRaw.opciones : JSON.stringify(pRaw.opciones || '');
-            const esVF = tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF' || opcionesStr.includes(',,,');
+            // Prioridad absoluta a la columna 'tipo' de Supabase
+            const tipoPreg = String(pRaw.tipo || pRaw.tipo_pregunta || '').trim().toUpperCase();
 
-            // Delegar al especialista correspondiente
-            if (esVF && window.EspecialistaVF) {
+            if (tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF') {
                 this.especialistaActual = window.EspecialistaVF;
             } else {
                 this.especialistaActual = window.EspecialistaOM;
@@ -263,7 +260,7 @@
 
             this.habilitarBotonNavegacion(respGuardada !== null && respGuardada !== '');
 
-            // Re-procesar MathJax para renderizar fórmulas en el nuevo HTML
+            // Re-procesar MathJax para renderizar fórmulas
             if (window.MathJax && window.MathJax.typesetPromise) {
                 window.MathJax.typesetPromise();
             }
@@ -290,7 +287,9 @@
             this.respuestasGuardadas[pNormalizada.id] = respuestaAlumno;
 
             let puntaje = 0;
-            if (pRaw.tipo === 'VF' || String(pRaw.opciones).includes(',,,')) {
+            const tipoPreg = String(pRaw.tipo || pRaw.tipo_pregunta || '').trim().toUpperCase();
+
+            if (tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF') {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.subPreguntas);
             } else {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.correcta);
@@ -312,7 +311,10 @@
                 const totalPreguntas = this.preguntas.length;
 
                 const payloadRespuestas = this.preguntas.map(pRaw => {
-                    const pNorm = (pRaw.tipo === 'VF' || String(pRaw.opciones).includes(',,,')) 
+                    const tipoPreg = String(pRaw.tipo || pRaw.tipo_pregunta || '').trim().toUpperCase();
+                    const esVF = tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF';
+
+                    const pNorm = esVF
                         ? window.EspecialistaVF.normalizar(pRaw) 
                         : window.EspecialistaOM.normalizar(pRaw);
 
