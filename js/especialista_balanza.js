@@ -1,15 +1,13 @@
-// js/especialista_balanza.js - Especialista BALANZA (con Tarjetas para el Resultado Final)
+// js/especialista_balanza.js - Especialista BALANZA (con Vidas Proporcionales a los Pasos)
 
 const EspecialistaBalanza = {
     normalizar(pRaw) {
         let consignaLimpia = pRaw.consigna || pRaw.enunciado || 'Resuelve la siguiente ecuación paso a paso:';
         
-        // Si la consigna trae pasos concatenados por ',,,', toma solo el enunciado inicial
         if (consignaLimpia.includes(',,,')) {
             consignaLimpia = consignaLimpia.split(',,,')[0].trim();
         }
 
-        // Columna L: Pasos separados por triple coma (,,,)
         let pasosRaw = [];
         const rawOpciones = pRaw.opciones || pRaw.pasosDisponibles || '';
         if (Array.isArray(rawOpciones)) {
@@ -18,7 +16,6 @@ const EspecialistaBalanza = {
             pasosRaw = rawOpciones.split(',,,').map(p => p.trim()).filter(p => p !== '');
         }
 
-        // Estructuramos cada paso detectando el asterisco '*'
         const pasosEstructurados = pasosRaw
             .filter(pasoStr => pasoStr.includes(';') || pasoStr.includes('='))
             .map(pasoStr => {
@@ -39,12 +36,10 @@ const EspecialistaBalanza = {
 
                 return {
                     correcta: correctaLimpia,
-                    opciones: this.mezclarArray([...opcionesProcesadas])
+                    opcionesOriginales: [...opcionesProcesadas]
                 };
             });
 
-        // Parseo de opciones para el Resultado Final (Columna M / respuesta_correcta)
-        // Pueden venir varias alternativas separadas por ';' donde una incluye '*' o la primera es la correcta
         const rawResultado = String(pRaw.respuesta_correcta || pRaw.correcta || '').trim();
         let opcionesResultadoRaw = rawResultado.split(';').map(r => r.trim()).filter(r => r !== '');
 
@@ -66,16 +61,17 @@ const EspecialistaBalanza = {
             consigna: consignaLimpia,
             pasos: pasosEstructurados,
             resultadoCorrecto: resultadoCorrectoLimpio,
-            opcionesResultado: this.mezclarArray([...opcionesResultadoLimpias])
+            opcionesResultadoOriginales: [...opcionesResultadoLimpias]
         };
     },
 
     mezclarArray(arr) {
-        for (let i = arr.length - 1; i > 0; i--) {
+        const copia = [...arr];
+        for (let i = copia.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
+            [copia[i], copia[j]] = [copia[j], copia[i]];
         }
-        return arr;
+        return copia;
     },
 
     renderTextoConImagen(texto) {
@@ -86,14 +82,31 @@ const EspecialistaBalanza = {
         });
     },
 
-    render(pNormalizada, respGuardada) {
+    iniciarEstado(pNormalizada) {
+        // Mezclamos opciones por paso para cada nuevo intento
+        const pasosMezclados = pNormalizada.pasos.map(p => ({
+            correcta: p.correcta,
+            opciones: this.mezclarArray(p.opcionesOriginales)
+        }));
+
+        // CÁLCULO PROPORCIONAL DE VIDAS SEGÚN CANTIDAD DE PASOS
+        const totalPasos = pasosMezclados.length;
+        const vidasIniciales = totalPasos > 5 ? 3 : 2;
+
         window.balanzaEstado = {
             pasoActual: 0,
-            vidas: 2,
+            vidasIniciales: vidasIniciales,
+            vidas: vidasIniciales,
             pasosCompletados: false,
             resultadoSeleccionado: '',
-            pregunta: pNormalizada
+            pregunta: pNormalizada,
+            pasosMezclados: pasosMezclados,
+            opcionesResultadoMezcladas: this.mezclarArray(pNormalizada.opcionesResultadoOriginales)
         };
+    },
+
+    render(pNormalizada, respGuardada) {
+        this.iniciarEstado(pNormalizada);
 
         let html = `
             <div class="pregunta-balanza-container" style="max-width: 620px; margin: 0 auto; text-align: center;">
@@ -101,9 +114,9 @@ const EspecialistaBalanza = {
                     ${this.renderTextoConImagen(pNormalizada.consigna)}
                 </div>
 
-                <!-- Indicador de Vidas -->
+                <!-- Indicador Dinámico de Vidas -->
                 <div id="balanzaVidas" style="font-size: 1.4rem; margin-bottom: 15px;">
-                    💖 💖
+                    ${this.generarEstringVidasUI(window.balanzaEstado.vidas, window.balanzaEstado.vidasIniciales)}
                 </div>
 
                 <!-- Contenedor del Paso Actual -->
@@ -111,7 +124,7 @@ const EspecialistaBalanza = {
                     ${this.renderPasoActual()}
                 </div>
 
-                <!-- Bloque Final del Resultado en Tarjetas -->
+                <!-- Bloque Final del Resultado -->
                 <div class="card p-3 my-3 border-0 bg-light shadow-sm" style="border-radius: 10px;">
                     <label style="font-weight: 700; color: #2563eb; margin-bottom: 12px; font-size: 1rem;">
                         Resultado
@@ -126,9 +139,37 @@ const EspecialistaBalanza = {
         return html;
     },
 
+    generarEstringVidasUI(vidasActuales, vidasTotales) {
+        let stringVidas = '';
+        for (let i = 0; i < vidasTotales; i++) {
+            stringVidas += (i < vidasActuales) ? '💖 ' : '💔 ';
+        }
+        return stringVidas.trim();
+    },
+
+    reiniciarEjercicio() {
+        const est = window.balanzaEstado;
+        if (!est) return;
+
+        this.iniciarEstado(est.pregunta);
+
+        this.actualizarVidasUI();
+
+        if (window.Director) {
+            window.Director.habilitarBotonNavegacion(false);
+        }
+
+        document.getElementById('balanzaPasosArea').innerHTML = this.renderPasoActual();
+        document.getElementById('contenedorTarjetasResultado').innerHTML = this.renderTarjetasResultadoBloqueadas();
+
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise();
+        }
+    },
+
     renderPasoActual() {
         const est = window.balanzaEstado;
-        const totalPasos = est.pregunta.pasos.length;
+        const totalPasos = est.pasosMezclados.length;
 
         if (totalPasos === 0 || est.pasoActual >= totalPasos) {
             est.pasosCompletados = true;
@@ -140,7 +181,7 @@ const EspecialistaBalanza = {
             `;
         }
 
-        const pasoObj = est.pregunta.pasos[est.pasoActual];
+        const pasoObj = est.pasosMezclados[est.pasoActual];
 
         let html = `
             <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;">
@@ -180,7 +221,7 @@ const EspecialistaBalanza = {
 
         let html = `<div class="d-flex flex-wrap justify-content-center gap-2">`;
 
-        est.pregunta.opcionesResultado.forEach((optRes, idx) => {
+        est.opcionesResultadoMezcladas.forEach((optRes, idx) => {
             const optAttribute = optRes.replace(/"/g, '&quot;');
             html += `
                 <div class="tarjeta-cv" 
@@ -204,7 +245,6 @@ const EspecialistaBalanza = {
     seleccionarResultadoFinal(elemento) {
         const valorLimpio = elemento.getAttribute('data-valor') || '';
 
-        // Desmarcar las demás tarjetas de resultado
         document.querySelectorAll('#contenedorTarjetasResultado .tarjeta-cv').forEach(el => el.classList.remove('seleccionada'));
 
         if (window.balanzaEstado.resultadoSeleccionado === valorLimpio) {
@@ -222,7 +262,7 @@ const EspecialistaBalanza = {
     evaluarOpcionPaso(btnElem) {
         const est = window.balanzaEstado;
         const seleccion = btnElem.getAttribute('data-valor') || '';
-        const pasoObj = est.pregunta.pasos[est.pasoActual];
+        const pasoObj = est.pasosMezclados[est.pasoActual];
 
         if (seleccion.trim().toLowerCase() === pasoObj.correcta.trim().toLowerCase()) {
             est.pasoActual++;
@@ -241,8 +281,13 @@ const EspecialistaBalanza = {
 
             if (est.vidas <= 0) {
                 document.getElementById('balanzaPasosArea').innerHTML = `
-                    <div class="alert alert-danger py-2 fw-bold" style="border-radius: 8px;">
-                        Te quedaste sin vidas. Intentá nuevamente.
+                    <div class="alert alert-danger p-3 text-center" style="border-radius: 10px;">
+                        <div class="fw-bold mb-2">Te quedaste sin vidas. Intentá nuevamente.</div>
+                        <button class="btn btn-outline-danger btn-sm fw-bold px-3 py-2" 
+                                style="border-radius: 6px; background-color: #ffffff;"
+                                onclick="window.EspecialistaBalanza.reiniciarEjercicio()">
+                            🔄 REINTENTAR EJERCICIO
+                        </button>
                     </div>
                 `;
             }
@@ -254,9 +299,7 @@ const EspecialistaBalanza = {
         const elemVidas = document.getElementById('balanzaVidas');
         if (!elemVidas) return;
 
-        if (est.vidas === 2) elemVidas.innerText = '💖 💖';
-        else if (est.vidas === 1) elemVidas.innerText = '💖 💔';
-        else elemVidas.innerText = '💔 💔';
+        elemVidas.innerText = this.generarEstringVidasUI(est.vidas, est.vidasIniciales);
     },
 
     obtenerRespuesta() {
