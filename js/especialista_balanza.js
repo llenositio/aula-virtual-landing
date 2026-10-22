@@ -1,4 +1,4 @@
-// js/especialista_balanza.js - Especialista BALANZA Corregido
+// js/especialista_balanza.js - Especialista BALANZA (con Tarjetas para el Resultado Final)
 
 const EspecialistaBalanza = {
     normalizar(pRaw) {
@@ -27,34 +27,49 @@ const EspecialistaBalanza = {
                 let correctaLimpia = '';
                 const opcionesProcesadas = opcionesPaso.map(opt => {
                     if (opt.startsWith('*')) {
-                        // Es la opción correcta: le quitamos el '*'
                         correctaLimpia = opt.substring(1).trim();
                         return correctaLimpia;
                     }
                     return opt.trim();
                 });
 
-                // Si ninguna opción traía '*', la primera por defecto es la correcta
                 if (!correctaLimpia && opcionesProcesadas.length > 0) {
                     correctaLimpia = opcionesProcesadas[0];
                 }
 
                 return {
                     correcta: correctaLimpia,
-                    // Mezclamos las opciones aleatoriamente para evitar copias
                     opciones: this.mezclarArray([...opcionesProcesadas])
                 };
             });
+
+        // Parseo de opciones para el Resultado Final (Columna M / respuesta_correcta)
+        // Pueden venir varias alternativas separadas por ';' donde una incluye '*' o la primera es la correcta
+        const rawResultado = String(pRaw.respuesta_correcta || pRaw.correcta || '').trim();
+        let opcionesResultadoRaw = rawResultado.split(';').map(r => r.trim()).filter(r => r !== '');
+
+        let resultadoCorrectoLimpio = '';
+        const opcionesResultadoLimpias = opcionesResultadoRaw.map(opt => {
+            if (opt.startsWith('*')) {
+                resultadoCorrectoLimpio = opt.substring(1).trim();
+                return resultadoCorrectoLimpio;
+            }
+            return opt.trim();
+        });
+
+        if (!resultadoCorrectoLimpio && opcionesResultadoLimpias.length > 0) {
+            resultadoCorrectoLimpio = opcionesResultadoLimpias[0];
+        }
 
         return {
             id: pRaw.id || pRaw.N_de_orden_pregunta || 'preg_balanza',
             consigna: consignaLimpia,
             pasos: pasosEstructurados,
-            resultadoCorrecto: String(pRaw.respuesta_correcta || pRaw.correcta || '').trim()
+            resultadoCorrecto: resultadoCorrectoLimpio,
+            opcionesResultado: this.mezclarArray([...opcionesResultadoLimpias])
         };
     },
 
-    // Algoritmo para mezclar elementos del arreglo (Shuffle)
     mezclarArray(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -76,7 +91,7 @@ const EspecialistaBalanza = {
             pasoActual: 0,
             vidas: 2,
             pasosCompletados: false,
-            respuestaInput: '',
+            resultadoSeleccionado: '',
             pregunta: pNormalizada
         };
 
@@ -96,18 +111,14 @@ const EspecialistaBalanza = {
                     ${this.renderPasoActual()}
                 </div>
 
-                <!-- Bloque Final del Resultado -->
+                <!-- Bloque Final del Resultado en Tarjetas -->
                 <div class="card p-3 my-3 border-0 bg-light shadow-sm" style="border-radius: 10px;">
-                    <label style="font-weight: 700; color: #2563eb; margin-bottom: 8px; font-size: 0.95rem;">
-                        Resultado final ($x = \\dots$):
+                    <label style="font-weight: 700; color: #2563eb; margin-bottom: 12px; font-size: 1rem;">
+                        Resultado
                     </label>
-                    <input type="text" 
-                           id="inputResultadoBalanza" 
-                           class="form-control text-center mx-auto" 
-                           style="max-width: 280px; font-weight: 600;" 
-                           placeholder="Completá los pasos previos." 
-                           disabled 
-                           oninput="window.EspecialistaBalanza.onInputResultado(this.value)">
+                    <div id="contenedorTarjetasResultado">
+                        ${this.renderTarjetasResultadoBloqueadas()}
+                    </div>
                 </div>
             </div>
         `;
@@ -121,10 +132,10 @@ const EspecialistaBalanza = {
 
         if (totalPasos === 0 || est.pasoActual >= totalPasos) {
             est.pasosCompletados = true;
-            setTimeout(() => this.desbloquearInputFinal(), 50);
+            setTimeout(() => this.desbloquearResultadosFinales(), 50);
             return `
                 <div class="alert alert-success py-2 fw-bold" style="border-radius: 8px;">
-                    ¡Pasos completados correctamente! Ahora ingresá el resultado final.
+                    ¡Pasos completados correctamente! Ahora elegí el resultado.
                 </div>
             `;
         }
@@ -152,6 +163,60 @@ const EspecialistaBalanza = {
 
         html += `</div>`;
         return html;
+    },
+
+    renderTarjetasResultadoBloqueadas() {
+        return `
+            <div class="p-3 text-muted border rounded" style="background-color: #f1f5f9; font-size: 0.9rem; font-weight: 600;">
+                Completá los pasos previos.
+            </div>
+        `;
+    },
+
+    desbloquearResultadosFinales() {
+        const est = window.balanzaEstado;
+        const contenedor = document.getElementById('contenedorTarjetasResultado');
+        if (!contenedor) return;
+
+        let html = `<div class="d-flex flex-wrap justify-content-center gap-2">`;
+
+        est.pregunta.opcionesResultado.forEach((optRes, idx) => {
+            const optAttribute = optRes.replace(/"/g, '&quot;');
+            html += `
+                <div class="tarjeta-cv" 
+                     id="balanza_res_opt_${idx}"
+                     data-valor="${optAttribute}"
+                     style="min-width: 130px; padding: 12px 18px; min-height: 50px; font-weight: 600;"
+                     onclick="window.EspecialistaBalanza.seleccionarResultadoFinal(this)">
+                    ${this.renderTextoConImagen(optRes)}
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        contenedor.innerHTML = html;
+
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise();
+        }
+    },
+
+    seleccionarResultadoFinal(elemento) {
+        const valorLimpio = elemento.getAttribute('data-valor') || '';
+
+        // Desmarcar las demás tarjetas de resultado
+        document.querySelectorAll('#contenedorTarjetasResultado .tarjeta-cv').forEach(el => el.classList.remove('seleccionada'));
+
+        if (window.balanzaEstado.resultadoSeleccionado === valorLimpio) {
+            window.balanzaEstado.resultadoSeleccionado = '';
+        } else {
+            window.balanzaEstado.resultadoSeleccionado = valorLimpio;
+            elemento.classList.add('seleccionada');
+        }
+
+        if (window.Director) {
+            window.Director.habilitarBotonNavegacion(window.balanzaEstado.resultadoSeleccionado !== '');
+        }
     },
 
     evaluarOpcionPaso(btnElem) {
@@ -194,32 +259,16 @@ const EspecialistaBalanza = {
         else elemVidas.innerText = '💔 💔';
     },
 
-    desbloquearInputFinal() {
-        const input = document.getElementById('inputResultadoBalanza');
-        if (input) {
-            input.removeAttribute('disabled');
-            input.placeholder = 'Ingresá el valor numérico';
-            input.focus();
-        }
-    },
-
-    onInputResultado(val) {
-        window.balanzaEstado.respuestaInput = val.trim();
-        if (window.Director) {
-            window.Director.habilitarBotonNavegacion(val.trim() !== '');
-        }
-    },
-
     obtenerRespuesta() {
-        return window.balanzaEstado ? window.balanzaEstado.respuestaInput : '';
+        return window.balanzaEstado ? window.balanzaEstado.resultadoSeleccionado : '';
     },
 
     calcularPuntaje(respAlumnoStr, resultadoCorrectoStr) {
         const est = window.balanzaEstado;
         if (!est || !est.pasosCompletados || est.vidas <= 0) return 0;
 
-        const valAlumno = String(respAlumnoStr || '').trim().replace(',', '.').toLowerCase();
-        const valCorrecto = String(resultadoCorrectoStr || '').trim().replace(',', '.').toLowerCase();
+        const valAlumno = String(respAlumnoStr || '').trim().toLowerCase();
+        const valCorrecto = String(resultadoCorrectoStr || '').trim().toLowerCase();
 
         return (valAlumno === valCorrecto) ? 1 : 0;
     }
