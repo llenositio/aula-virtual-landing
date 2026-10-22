@@ -74,7 +74,51 @@
         .btn-vf-opcion:hover { border-color: #3b82f6; }
         .seleccionado-v { background-color: #2563eb !important; color: #ffffff !important; border-color: #2563eb !important; }
         .seleccionado-f { background-color: #dc2626 !important; color: #ffffff !important; border-color: #dc2626 !important; }
-        
+
+        /* =========================================================================
+           ESTILOS TARJETAS CV (CHECKLIST / VARIAS / SELECCIÓN MÚLTIPLE)
+           ========================================================================= */
+        .grid-cv {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .tarjeta-cv {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            background-color: #ffffff;
+            padding: 20px 10px;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.15s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+        }
+
+        .tarjeta-cv:hover {
+            border-color: #cbd5e1;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.06);
+        }
+
+        .tarjeta-cv.seleccionada {
+            border-color: #2563eb !important;
+            background-color: #eff6ff !important;
+            box-shadow: 0 0 0 1px #2563eb !important;
+        }
+
+        @media (max-width: 576px) {
+            .grid-cv { grid-template-columns: 1fr; }
+        }
+
+        /* Botón Siguiente */
         .btn-siguiente { 
             width: 100%; 
             padding: 12px; 
@@ -128,6 +172,7 @@
 <!-- Módulos de Especialistas -->
 <script src="js/especialista_om.js"></script>
 <script src="js/especialista_vf.js"></script>
+<script src="js/especialista_cv.js"></script>
 
 <!-- Script Director de la Evaluación -->
 <script>
@@ -250,11 +295,13 @@
 
             document.getElementById('contadorTexto').innerText = `Pregunta ${index + 1} de ${this.preguntas.length}`;
 
-            // Prioridad absoluta a la columna 'tipo' de Supabase
+            // Seleccionar especialista según el tipo
             const tipoPreg = String(pRaw.tipo || pRaw.tipo_pregunta || '').trim().toUpperCase();
 
             if (tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF') {
                 this.especialistaActual = window.EspecialistaVF;
+            } else if (tipoPreg === 'CV') {
+                this.especialistaActual = window.EspecialistaCV;
             } else {
                 this.especialistaActual = window.EspecialistaOM;
             }
@@ -304,6 +351,8 @@
 
             if (tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF') {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.subPreguntas);
+            } else if (tipoPreg === 'CV') {
+                puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.correctas);
             } else {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.correcta);
             }
@@ -326,10 +375,16 @@
                 const payloadRespuestas = this.preguntas.map(pRaw => {
                     const tipoPreg = String(pRaw.tipo || pRaw.tipo_pregunta || '').trim().toUpperCase();
                     const esVF = tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF';
+                    const esCV = tipoPreg === 'CV';
 
-                    const pNorm = esVF
-                        ? window.EspecialistaVF.normalizar(pRaw) 
-                        : window.EspecialistaOM.normalizar(pRaw);
+                    let pNorm;
+                    if (esVF) {
+                        pNorm = window.EspecialistaVF.normalizar(pRaw);
+                    } else if (esCV) {
+                        pNorm = window.EspecialistaCV.normalizar(pRaw);
+                    } else {
+                        pNorm = window.EspecialistaOM.normalizar(pRaw);
+                    }
 
                     const respAlumno = this.respuestasGuardadas[pNorm.id] || '';
                     const pt = this.puntosObtenidos[pNorm.id] || 0;
@@ -338,7 +393,7 @@
                     return {
                         pregunta_id: pNorm.id,
                         respuesta: respAlumno,
-                        correcta: pNorm.correcta || pNorm.subPreguntas,
+                        correcta: pNorm.correcta || pNorm.correctas || pNorm.subPreguntas,
                         es_correcta: pt >= 0.8
                     };
                 });
