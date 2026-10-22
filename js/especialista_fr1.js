@@ -1,4 +1,4 @@
-// js/especialista_fr1.js - Especialista FR1 con Placeholders Grisados
+// js/especialista_fr1.js - Especialista FR1 con Inputs Grisados Ultra Suaves
 (function() {
     const EspecialistaFR1 = {
         normalizar(pRaw) {
@@ -119,15 +119,22 @@
 
             let html = `
                 <style>
-                    /* Estilos para asegurar placeholders bien grisados y tenues */
-                    .input-fr1-placeholder::placeholder {
-                        color: #94a3b8 !important;
+                    /* Estilos estrictos para inputs y placeholders de FR1 */
+                    .input-fr1-estilo::placeholder {
+                        color: #cbd5e1 !important;
+                        opacity: 1 !important;
                         font-weight: 400 !important;
-                        opacity: 0.7 !important;
                     }
-                    .input-fr1-placeholder:disabled {
-                        background-color: #f8fafc !important;
-                        border-color: #e2e8f0 !important;
+                    
+                    /* Forzar que los campos deshabilitados se vean limpios con texto muy tenue */
+                    .input-fr1-estilo:disabled {
+                        background-color: #ffffff !important;
+                        border-color: #cbd5e1 !important;
+                        color: #cbd5e1 !important;
+                        -webkit-text-fill-color: #cbd5e1 !important;
+                        opacity: 1 !important;
+                        font-weight: 400 !important;
+                        box-shadow: none !important;
                     }
                 </style>
                 <div class="pregunta-fr1-container" style="max-width: 600px; margin: 0 auto;">
@@ -146,7 +153,7 @@
                         <div class="d-flex align-items-center justify-content-center">
                             <input type="text" 
                                    id="inputFr1Mcm" 
-                                   class="form-control text-center input-fr1-placeholder" 
+                                   class="form-control text-center input-fr1-estilo" 
                                    style="max-width: 180px; font-weight: 600;" 
                                    placeholder="Ej: 12" 
                                    oninput="window.EspecialistaFR1.onInputMcm(this.value)">
@@ -187,11 +194,12 @@
         renderCamposNumeradoresBloqueados(cantidad) {
             let html = `<div class="d-flex flex-wrap align-items-center justify-content-center gap-2">`;
             for (let i = 0; i < cantidad; i++) {
+                const ejValor = i === 0 ? '4' : (i === 1 ? '15' : '8');
                 html += `
                     <input type="text" 
-                           class="form-control text-center input-fr1-placeholder" 
-                           style="width: 75px; font-weight: 500;" 
-                           placeholder="Ej: ${i === 0 ? '4' : (i === 1 ? '15' : '8')}" 
+                           class="form-control text-center input-fr1-estilo" 
+                           style="width: 80px;" 
+                           value="Ej: ${ejValor}" 
                            disabled>
                     ${i < cantidad - 1 ? '<span class="fw-bold text-secondary">,</span>' : ''}
                 `;
@@ -246,8 +254,8 @@
                 html += `
                     <input type="text" 
                            id="inputNumFr1_${i}" 
-                           class="form-control text-center input-fr1-placeholder" 
-                           style="width: 80px; font-weight: 700; color: #1e293b;" 
+                           class="form-control text-center input-fr1-estilo" 
+                           style="width: 80px; font-weight: 700; color: #1e293b !important; -webkit-text-fill-color: #1e293b !important;" 
                            placeholder="Num ${i + 1}" 
                            oninput="window.EspecialistaFR1.onInputNumerador(${i}, this.value)">
                     ${i < cantidad - 1 ? '<span class="fw-bold text-secondary">,</span>' : ''}
@@ -259,7 +267,8 @@
             const inputMcm = document.getElementById('inputFr1Mcm');
             if (inputMcm) {
                 inputMcm.disabled = true;
-                inputMcm.style.color = #2563eb;
+                inputMcm.style.color = '#2563eb';
+                inputMcm.style.webkitTextFillColor = '#2563eb';
             }
         },
 
@@ -287,6 +296,7 @@
                 if (input) {
                     input.disabled = true;
                     input.style.color = '#2563eb';
+                    input.style.webkitTextFillColor = '#2563eb';
                 }
             });
 
