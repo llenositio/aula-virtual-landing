@@ -239,14 +239,12 @@
                     return;
                 }
 
-                // 1. Intento estricto por coincidencia exacta en cod_tp_completo
                 let { data, error } = await supabaseClient
                     .from('banco_preguntas')
                     .select('*')
                     .eq('cod_tp_completo', this.codTp)
                     .order('N_de_orden_pregunta', { ascending: true });
 
-                // 2. Si viene sin la unidad (ej. CBMTP-1-MAT-002), busca exacto "CBMTP-1-MAT-002/%"
                 if (!error && (!data || data.length === 0)) {
                     const fallback = await supabaseClient
                         .from('banco_preguntas')
@@ -269,7 +267,6 @@
 
                 this.preguntas = data;
                 
-                // Muestra el título exacto asignado por el docente
                 const elemTitulo = document.getElementById('tituloTP');
                 if (elemTitulo) {
                     elemTitulo.innerText = this.preguntas[0].titulo_humano || `TP Nº ${this.codTp}`;
@@ -295,7 +292,6 @@
 
             document.getElementById('contadorTexto').innerText = `Pregunta ${index + 1} de ${this.preguntas.length}`;
 
-            // Seleccionar especialista según el tipo
             const tipoPreg = String(pRaw.tipo || pRaw.tipo_pregunta || '').trim().toUpperCase();
 
             if (tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF') {
@@ -312,7 +308,6 @@
             const html = this.especialistaActual.render(pNormalizada, respGuardada);
             document.getElementById('contenedorRenderEspecialista').innerHTML = html;
 
-            // Actualizar texto del botón de navegación
             const btn = document.getElementById('btnNavegacion');
             if (btn) {
                 btn.innerText = (index === this.preguntas.length - 1) ? 'FINALIZAR Y ENVIAR' : 'SIGUIENTE';
@@ -320,7 +315,6 @@
 
             this.habilitarBotonNavegacion(respGuardada !== null && respGuardada !== '');
 
-            // Re-procesar MathJax para renderizar fórmulas
             if (window.MathJax && window.MathJax.typesetPromise) {
                 window.MathJax.typesetPromise();
             }
