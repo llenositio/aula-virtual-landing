@@ -173,6 +173,7 @@
 <script src="js/especialista_om.js"></script>
 <script src="js/especialista_vf.js"></script>
 <script src="js/especialista_cv.js"></script>
+<script src="js/especialista_rm.js"></script>
 
 <!-- Script Director de la Evaluación -->
 <script>
@@ -298,6 +299,8 @@
                 this.especialistaActual = window.EspecialistaVF;
             } else if (tipoPreg === 'CV') {
                 this.especialistaActual = window.EspecialistaCV;
+            } else if (tipoPreg === 'RM') {
+                this.especialistaActual = window.EspecialistaRM;
             } else {
                 this.especialistaActual = window.EspecialistaOM;
             }
@@ -370,12 +373,15 @@
                     const tipoPreg = String(pRaw.tipo || pRaw.tipo_pregunta || '').trim().toUpperCase();
                     const esVF = tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF';
                     const esCV = tipoPreg === 'CV';
+                    const esRM = tipoPreg === 'RM';
 
                     let pNorm;
                     if (esVF) {
                         pNorm = window.EspecialistaVF.normalizar(pRaw);
                     } else if (esCV) {
                         pNorm = window.EspecialistaCV.normalizar(pRaw);
+                    } else if (esRM) {
+                        pNorm = window.EspecialistaRM.normalizar(pRaw);
                     } else {
                         pNorm = window.EspecialistaOM.normalizar(pRaw);
                     }
