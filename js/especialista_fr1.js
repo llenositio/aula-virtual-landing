@@ -1,4 +1,4 @@
-// js/especialista_fr1.js - Especialista FR1 Dinámico (Suma, Resta, Multiplicación y División)
+// js/especialista_fr1.js - Especialista FR1 con Placeholders Grisados
 (function() {
     const EspecialistaFR1 = {
         normalizar(pRaw) {
@@ -58,7 +58,7 @@
             return {
                 id: pRaw.id || pRaw.N_de_orden_pregunta || 'preg_fr1',
                 consigna: consignaLimpia,
-                operacion: tipoOperacion, // SUMA, RESTA, MULTIPLICACION, DIVISION
+                operacion: tipoOperacion,
                 mcmCorrecto: mcmCorrecto,
                 equivalentesCorrectos: equivalentesArr,
                 resultadoCorrecto: resultadoCorrectoLimpio,
@@ -118,13 +118,24 @@
             };
 
             let html = `
+                <style>
+                    /* Estilos para asegurar placeholders bien grisados y tenues */
+                    .input-fr1-placeholder::placeholder {
+                        color: #94a3b8 !important;
+                        font-weight: 400 !important;
+                        opacity: 0.7 !important;
+                    }
+                    .input-fr1-placeholder:disabled {
+                        background-color: #f8fafc !important;
+                        border-color: #e2e8f0 !important;
+                    }
+                </style>
                 <div class="pregunta-fr1-container" style="max-width: 600px; margin: 0 auto;">
                     <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 20px; text-align: center; color: #1e293b;">
                         ${this.renderTextoConImagen(pNormalizada.consigna)}
                     </div>
             `;
 
-            // Si es SUMA o RESTA, mostramos los pasos intermedios de MCM y Numeradores
             if (!esDirecto) {
                 html += `
                     <!-- Paso 1: MCM -->
@@ -132,11 +143,11 @@
                         <label class="fw-bold text-dark mb-2" style="font-size: 0.95rem;">
                             Paso 1: MCM
                         </label>
-                        <div class="d-flex align-items-center gap-2">
+                        <div class="d-flex align-items-center justify-content-center">
                             <input type="text" 
                                    id="inputFr1Mcm" 
-                                   class="form-control text-center fw-bold" 
-                                   style="max-width: 180px;" 
+                                   class="form-control text-center input-fr1-placeholder" 
+                                   style="max-width: 180px; font-weight: 600;" 
                                    placeholder="Ej: 12" 
                                    oninput="window.EspecialistaFR1.onInputMcm(this.value)">
                         </div>
@@ -154,7 +165,6 @@
                 `;
             }
 
-            // Bloque del Resultado Final
             html += `
                 <div class="card p-3 mb-3 border-0 bg-light shadow-sm" style="border-radius: 10px;">
                     <label class="fw-bold text-primary mb-2" style="font-size: 1rem;">
@@ -179,9 +189,9 @@
             for (let i = 0; i < cantidad; i++) {
                 html += `
                     <input type="text" 
-                           class="form-control text-center fw-bold" 
-                           style="width: 75px;" 
-                           placeholder="Ej: ${i === 0 ? '4' : '15'}" 
+                           class="form-control text-center input-fr1-placeholder" 
+                           style="width: 75px; font-weight: 500;" 
+                           placeholder="Ej: ${i === 0 ? '4' : (i === 1 ? '15' : '8')}" 
                            disabled>
                     ${i < cantidad - 1 ? '<span class="fw-bold text-secondary">,</span>' : ''}
                 `;
@@ -236,8 +246,8 @@
                 html += `
                     <input type="text" 
                            id="inputNumFr1_${i}" 
-                           class="form-control text-center fw-bold" 
-                           style="width: 80px;" 
+                           class="form-control text-center input-fr1-placeholder" 
+                           style="width: 80px; font-weight: 700; color: #1e293b;" 
                            placeholder="Num ${i + 1}" 
                            oninput="window.EspecialistaFR1.onInputNumerador(${i}, this.value)">
                     ${i < cantidad - 1 ? '<span class="fw-bold text-secondary">,</span>' : ''}
@@ -247,7 +257,10 @@
             contenedor.innerHTML = html;
 
             const inputMcm = document.getElementById('inputFr1Mcm');
-            if (inputMcm) inputMcm.disabled = true;
+            if (inputMcm) {
+                inputMcm.disabled = true;
+                inputMcm.style.color = #2563eb;
+            }
         },
 
         onInputNumerador(idx, val) {
@@ -271,7 +284,10 @@
 
             est.pregunta.equivalentesCorrectos.forEach((_, i) => {
                 const input = document.getElementById(`inputNumFr1_${i}`);
-                if (input) input.disabled = true;
+                if (input) {
+                    input.disabled = true;
+                    input.style.color = '#2563eb';
+                }
             });
 
             contenedor.innerHTML = this.renderTarjetasResultadoActivas(est.pregunta);
