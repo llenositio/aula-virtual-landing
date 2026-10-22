@@ -4,7 +4,7 @@ const EspecialistaBalanza = {
     normalizar(pRaw) {
         let consignaLimpia = pRaw.consigna || pRaw.enunciado || 'Resuelve la siguiente ecuación paso a paso:';
         
-        // Si la consigna contiene comas de pasos concatenados, toma solo el encabezado inicial
+        // Si la consigna trae pasos concatenados por ',,,', toma solo el enunciado inicial
         if (consignaLimpia.includes(',,,')) {
             consignaLimpia = consignaLimpia.split(',,,')[0].trim();
         }
@@ -18,14 +18,31 @@ const EspecialistaBalanza = {
             pasosRaw = rawOpciones.split(',,,').map(p => p.trim()).filter(p => p !== '');
         }
 
-        // Si el primer elemento era parte del enunciado, lo salta si no contiene ';'
+        // Estructuramos cada paso detectando el asterisco '*'
         const pasosEstructurados = pasosRaw
             .filter(pasoStr => pasoStr.includes(';') || pasoStr.includes('='))
             .map(pasoStr => {
                 const opcionesPaso = pasoStr.split(';').map(o => o.trim()).filter(o => o !== '');
+                
+                let correctaLimpia = '';
+                const opcionesProcesadas = opcionesPaso.map(opt => {
+                    if (opt.startsWith('*')) {
+                        // Es la opción correcta: le quitamos el '*'
+                        correctaLimpia = opt.substring(1).trim();
+                        return correctaLimpia;
+                    }
+                    return opt.trim();
+                });
+
+                // Si ninguna opción traía '*', la primera por defecto es la correcta
+                if (!correctaLimpia && opcionesProcesadas.length > 0) {
+                    correctaLimpia = opcionesProcesadas[0];
+                }
+
                 return {
-                    correcta: opcionesPaso[0] || '',
-                    opciones: this.mezclarArray([...opcionesPaso])
+                    correcta: correctaLimpia,
+                    // Mezclamos las opciones aleatoriamente para evitar copias
+                    opciones: this.mezclarArray([...opcionesProcesadas])
                 };
             });
 
@@ -37,8 +54,13 @@ const EspecialistaBalanza = {
         };
     },
 
+    // Algoritmo para mezclar elementos del arreglo (Shuffle)
     mezclarArray(arr) {
-        return arr.sort(() => Math.random() - 0.5);
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
     },
 
     renderTextoConImagen(texto) {
