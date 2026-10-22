@@ -379,6 +379,7 @@
                     const esVF = tipoPreg === 'VF' || tipoPreg === 'MATRIZ_VF';
                     const esCV = tipoPreg === 'CV';
                     const esRM = tipoPreg === 'RM';
+                    const esBalanza = tipoPreg === 'BALANZA';
 
                     let pNorm;
                     if (esVF) {
@@ -397,10 +398,15 @@
                     const pt = this.puntosObtenidos[pNorm.id] || 0;
                     sumaPuntos += pt;
 
+                    let respuestaCorrectaEsperada = pNorm.correcta;
+                    if (esCV) respuestaCorrectaEsperada = pNorm.correctas;
+                    if (esVF) respuestaCorrectaEsperada = pNorm.subPreguntas;
+                    if (esBalanza) respuestaCorrectaEsperada = pNorm.resultadoCorrecto;
+
                     return {
                         pregunta_id: pNorm.id,
                         respuesta: respAlumno,
-                        correcta: esCV ? pNorm.correctas : (pNorm.correcta || pNorm.subPreguntas),
+                        correcta: respuestaCorrectaEsperada,
                         es_correcta: pt >= 0.8
                     };
                 });
