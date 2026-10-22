@@ -175,6 +175,7 @@
 <script src="js/especialista_cv.js"></script>
 <script src="js/especialista_rm.js"></script>
 <script src="js/especialista_balanza.js"></script>
+<script src="js/especialista_fr1.js"></script> <!-- 👈 NUEVO: Especialista FR1 -->
 
 <!-- Script Director de la Evaluación -->
 <script>
@@ -304,6 +305,8 @@
                 this.especialistaActual = window.EspecialistaRM;
             } else if (tipoPreg === 'BALANZA') {
                 this.especialistaActual = window.EspecialistaBalanza;
+            } else if (tipoPreg === 'FR1') {
+                this.especialistaActual = window.EspecialistaFR1; // 👈 NUEVO: Enruta a FR1
             } else {
                 this.especialistaActual = window.EspecialistaOM;
             }
@@ -355,6 +358,8 @@
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.correctas);
             } else if (tipoPreg === 'BALANZA') {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.resultadoCorrecto);
+            } else if (tipoPreg === 'FR1') {
+                puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.resultadoCorrecto); // 👈 NUEVO: Evaluación FR1
             } else {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.correcta);
             }
@@ -380,6 +385,7 @@
                     const esCV = tipoPreg === 'CV';
                     const esRM = tipoPreg === 'RM';
                     const esBalanza = tipoPreg === 'BALANZA';
+                    const esFR1 = tipoPreg === 'FR1'; // 👈 NUEVO
 
                     let pNorm;
                     if (esVF) {
@@ -390,6 +396,8 @@
                         pNorm = window.EspecialistaRM.normalizar(pRaw);
                     } else if (esBalanza) {
                         pNorm = window.EspecialistaBalanza.normalizar(pRaw);
+                    } else if (esFR1) {
+                        pNorm = window.EspecialistaFR1.normalizar(pRaw); // 👈 NUEVO
                     } else {
                         pNorm = window.EspecialistaOM.normalizar(pRaw);
                     }
@@ -401,7 +409,7 @@
                     let respuestaCorrectaEsperada = pNorm.correcta;
                     if (esCV) respuestaCorrectaEsperada = pNorm.correctas;
                     if (esVF) respuestaCorrectaEsperada = pNorm.subPreguntas;
-                    if (esBalanza) respuestaCorrectaEsperada = pNorm.resultadoCorrecto;
+                    if (esBalanza || esFR1) respuestaCorrectaEsperada = pNorm.resultadoCorrecto;
 
                     return {
                         pregunta_id: pNorm.id,
