@@ -1,9 +1,15 @@
-// js/especialista_balanza.js - Especialista para Ecuaciones Paso a Paso (BALANZA)
+// js/especialista_balanza.js - Especialista BALANZA Corregido
 
 const EspecialistaBalanza = {
     normalizar(pRaw) {
+        let consignaLimpia = pRaw.consigna || pRaw.enunciado || 'Resuelve la siguiente ecuación paso a paso:';
+        
+        // Si la consigna contiene comas de pasos concatenados, toma solo el encabezado inicial
+        if (consignaLimpia.includes(',,,')) {
+            consignaLimpia = consignaLimpia.split(',,,')[0].trim();
+        }
+
         // Columna L: Pasos separados por triple coma (,,,)
-        // Cada paso contiene: opción_correcta ; distractor1 ; distractor2
         let pasosRaw = [];
         const rawOpciones = pRaw.opciones || pRaw.pasosDisponibles || '';
         if (Array.isArray(rawOpciones)) {
@@ -12,20 +18,22 @@ const EspecialistaBalanza = {
             pasosRaw = rawOpciones.split(',,,').map(p => p.trim()).filter(p => p !== '');
         }
 
-        // Estructuramos cada paso separando las alternativas por ';'
-        const pasosEstructurados = pasosRaw.map(pasoStr => {
-            const opcionesPaso = pasoStr.split(';').map(o => o.trim()).filter(o => o !== '');
-            return {
-                correcta: opcionesPaso[0] || '', // La primera opción antes del ';' siempre es la correcta
-                opciones: this.mezclarArray([...opcionesPaso]) // Se mezclan para no mostrar siempre la correcta primera
-            };
-        });
+        // Si el primer elemento era parte del enunciado, lo salta si no contiene ';'
+        const pasosEstructurados = pasosRaw
+            .filter(pasoStr => pasoStr.includes(';') || pasoStr.includes('='))
+            .map(pasoStr => {
+                const opcionesPaso = pasoStr.split(';').map(o => o.trim()).filter(o => o !== '');
+                return {
+                    correcta: opcionesPaso[0] || '',
+                    opciones: this.mezclarArray([...opcionesPaso])
+                };
+            });
 
         return {
             id: pRaw.id || pRaw.N_de_orden_pregunta || 'preg_balanza',
-            consigna: pRaw.consigna || pRaw.enunciado || 'Resuelve la siguiente ecuación paso a paso:',
+            consigna: consignaLimpia,
             pasos: pasosEstructurados,
-            resultadoCorrecto: String(pRaw.respuesta_correcta || pRaw.correcta || pRaw.respuestasCorrectas?.[0] || '').trim()
+            resultadoCorrecto: String(pRaw.respuesta_correcta || pRaw.correcta || '').trim()
         };
     },
 
@@ -42,7 +50,6 @@ const EspecialistaBalanza = {
     },
 
     render(pNormalizada, respGuardada) {
-        // Estado interno del ejercicio
         window.balanzaEstado = {
             pasoActual: 0,
             vidas: 2,
@@ -70,7 +77,7 @@ const EspecialistaBalanza = {
                 <!-- Bloque Final del Resultado -->
                 <div class="card p-3 my-3 border-0 bg-light shadow-sm" style="border-radius: 10px;">
                     <label style="font-weight: 700; color: #2563eb; margin-bottom: 8px; font-size: 0.95rem;">
-                        Resultado final ($x = \dots$):
+                        Resultado final ($x = \\dots$):
                     </label>
                     <input type="text" 
                            id="inputResultadoBalanza" 
@@ -90,7 +97,7 @@ const EspecialistaBalanza = {
         const est = window.balanzaEstado;
         const totalPasos = est.pregunta.pasos.length;
 
-        if (est.pasoActual >= totalPasos) {
+        if (totalPasos === 0 || est.pasoActual >= totalPasos) {
             est.pasosCompletados = true;
             setTimeout(() => this.desbloquearInputFinal(), 50);
             return `
@@ -109,7 +116,7 @@ const EspecialistaBalanza = {
             <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
         `;
 
-        pasoObj.opciones.forEach((optStr, idx) => {
+        pasoObj.opciones.forEach((optStr) => {
             const optAttribute = optStr.replace(/"/g, '&quot;');
             html += `
                 <button class="btn btn-outline-primary fw-semibold px-3 py-2" 
@@ -130,18 +137,14 @@ const EspecialistaBalanza = {
         const seleccion = btnElem.getAttribute('data-valor') || '';
         const pasoObj = est.pregunta.pasos[est.pasoActual];
 
-        // Comparación limpia contra la opción correcta del paso
         if (seleccion.trim().toLowerCase() === pasoObj.correcta.trim().toLowerCase()) {
-            // Correcto: Avanza al siguiente paso
             est.pasoActual++;
             document.getElementById('balanzaPasosArea').innerHTML = this.renderPasoActual();
 
-            // Re-procesar MathJax para refrescar las fórmulas del nuevo paso
             if (window.MathJax && window.MathJax.typesetPromise) {
                 window.MathJax.typesetPromise();
             }
         } else {
-            // Incorrecto: Descuenta una vida
             est.vidas--;
             this.actualizarVidasUI();
 
@@ -173,7 +176,7 @@ const EspecialistaBalanza = {
         const input = document.getElementById('inputResultadoBalanza');
         if (input) {
             input.removeAttribute('disabled');
-            input.placeholder = 'Ingresá el valor de x';
+            input.placeholder = 'Ingresá el valor numérico';
             input.focus();
         }
     },
@@ -193,7 +196,6 @@ const EspecialistaBalanza = {
         const est = window.balanzaEstado;
         if (!est || !est.pasosCompletados || est.vidas <= 0) return 0;
 
-        // Compara reemplazando coma por punto por si ingresan decimales
         const valAlumno = String(respAlumnoStr || '').trim().replace(',', '.').toLowerCase();
         const valCorrecto = String(resultadoCorrectoStr || '').trim().replace(',', '.').toLowerCase();
 
