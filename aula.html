@@ -387,7 +387,7 @@
                     return {
                         pregunta_id: pNorm.id,
                         respuesta: respAlumno,
-                        correcta: pNorm.correcta || pNorm.correctas || pNorm.subPreguntas,
+                        correcta: esCV ? pNorm.correctas : (pNorm.correcta || pNorm.subPreguntas),
                         es_correcta: pt >= 0.8
                     };
                 });
