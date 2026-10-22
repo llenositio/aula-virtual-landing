@@ -174,6 +174,7 @@
 <script src="js/especialista_vf.js"></script>
 <script src="js/especialista_cv.js"></script>
 <script src="js/especialista_rm.js"></script>
+<script src="js/especialista_balanza.js"></script>
 
 <!-- Script Director de la Evaluación -->
 <script>
@@ -301,6 +302,8 @@
                 this.especialistaActual = window.EspecialistaCV;
             } else if (tipoPreg === 'RM') {
                 this.especialistaActual = window.EspecialistaRM;
+            } else if (tipoPreg === 'BALANZA') {
+                this.especialistaActual = window.EspecialistaBalanza;
             } else {
                 this.especialistaActual = window.EspecialistaOM;
             }
@@ -350,6 +353,8 @@
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.subPreguntas);
             } else if (tipoPreg === 'CV') {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.correctas);
+            } else if (tipoPreg === 'BALANZA') {
+                puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.resultadoCorrecto);
             } else {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.correcta);
             }
@@ -382,6 +387,8 @@
                         pNorm = window.EspecialistaCV.normalizar(pRaw);
                     } else if (esRM) {
                         pNorm = window.EspecialistaRM.normalizar(pRaw);
+                    } else if (esBalanza) {
+                        pNorm = window.EspecialistaBalanza.normalizar(pRaw);
                     } else {
                         pNorm = window.EspecialistaOM.normalizar(pRaw);
                     }
