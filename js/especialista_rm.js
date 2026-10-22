@@ -42,13 +42,16 @@ const EspecialistaRM = {
         `;
 
         pNormalizada.opciones.forEach((opt, idx) => {
-            const estaSeleccionada = (window.respuestaRMActual.trim().toLowerCase() === opt.trim().toLowerCase());
+            const estaSeleccionada = (window.respuestaRMActual.trim() === opt.trim());
             const claseSel = estaSeleccionada ? 'seleccionada' : '';
+            // Escapamos comillas dobles para guardarlo de manera 100% segura en el HTML
+            const optAttribute = opt.replace(/"/g, '&quot;');
 
             html += `
                 <div class="tarjeta-cv ${claseSel}" 
                      id="rm_opt_${idx}" 
-                     onclick="window.EspecialistaRM.seleccionar('${opt.replace(/'/g, "\\'")}', this)">
+                     data-valor="${optAttribute}"
+                     onclick="window.EspecialistaRM.seleccionar(this)">
                     ${this.renderTextoConImagen(opt)}
                 </div>
             `;
@@ -58,8 +61,9 @@ const EspecialistaRM = {
         return html;
     },
 
-    seleccionar(valor, elemento) {
-        const valorLimpio = String(valor).trim();
+    seleccionar(elemento) {
+        // Leemos el valor directo desde el atributo dataset para preservar intactos los carácteres como la '\' de LaTeX
+        const valorLimpio = elemento.getAttribute('data-valor') || '';
 
         // 1. Desmarcar todas las demás tarjetas
         document.querySelectorAll('.grid-cv .tarjeta-cv').forEach(el => el.classList.remove('seleccionada'));
@@ -84,7 +88,7 @@ const EspecialistaRM = {
 
     calcularPuntaje(respAlumnoStr, correctaStr) {
         if (!respAlumnoStr || !correctaStr) return 0;
-        return (String(respAlumnoStr).trim().toLowerCase() === String(correctaStr).trim().toLowerCase()) ? 1 : 0;
+        return (String(respAlumnoStr).trim() === String(correctaStr).trim()) ? 1 : 0;
     }
 };
 
