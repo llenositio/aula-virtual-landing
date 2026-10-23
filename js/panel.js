@@ -497,7 +497,7 @@ async function renderizarMatrizSeguimiento(cursoId) {
         // 3. Obtener los resultados/intentos
         const { data: resultados, error: errRes } = await supabase
             .from('evaluaciones_resultados')
-            .select('alumno_id, tp_codigo, cod_tp, nota, tiempo_segundos, foco_perdido, created_at')
+            .select('alumno_id, tp_codigo, nota, tiempo_segundos, foco_perdido, created_at')
             .eq('curso_id', cursoId);
 
         if (errRes) throw errRes;
@@ -537,11 +537,10 @@ async function renderizarMatrizSeguimiento(cursoId) {
                 const codBuscar = tp.cod_tp_completo || tp.cod_tp;
                 
                 // Buscar entrega coincidente
-                const entrega = (resultados || []).find(r => 
-                    r.alumno_id === alumno.id && 
-                    ((r.tp_codigo && r.tp_codigo === codBuscar) || (r.cod_tp && r.cod_tp === codBuscar))
+               const entrega = (resultados || []).find(r => 
+                r.alumno_id === alumno.id && 
+                (r.tp_codigo === codBuscar || r.tp_codigo === tp.cod_tp)
                 );
-
                 const fechaVenc = tp.fecha_vencimiento ? new Date(tp.fecha_vencimiento) : null;
                 const estaVencido = fechaVenc && ahora > fechaVenc;
 
