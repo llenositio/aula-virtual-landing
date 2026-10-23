@@ -20,7 +20,7 @@
         /* Estilos de la Matriz de Seguimiento */
         .style-matriz td, .style-matriz th { font-size: 0.85rem; padding: 6px; position: relative; vertical-align: middle; }
         .sticky-col { position: sticky; left: 0; background-color: #f8f9fa; z-index: 2; text-align: left; min-width: 170px; }
-        .celda-tp { cursor: pointer; transition: all 0.2s; }
+        .celda-tp { cursor: pointer; transition: all 0.2s; position: relative; }
         .fila-nota { font-weight: bold; border-radius: 4px; padding: 2px 4px; font-size: 0.85rem; }
         .fila-meta { font-size: 0.72rem; color: #6c757d; margin-top: 2px; }
 
@@ -32,9 +32,46 @@
         .estado-sin-hacer{ background-color: #e9ecef; color: #6c757d; }
         .estado-no-asignado { background-color: #f8f9fa; color: #adb5bd; }
 
-        /* Tooltip Flotante */
-        .celda-tp .tooltip-info { display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); width: 220px; background: #212529; color: #fff; padding: 8px; border-radius: 6px; font-size: 0.75rem; text-align: left; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.3); pointer-events: none; line-height: 1.3; }
-        .celda-tp:hover .tooltip-info { display: block; }
+        /* 1. PERMITIR MÁS LÍNEAS EN LOS ENCABEZADOS DE LA MATRIZ */
+        #tablaMatrizHeader th {
+            white-space: normal !important;      /* Permite salto de línea */
+            vertical-align: bottom;              /* Alinea el texto al fondo */
+            padding: 8px 6px !important;
+        }
+
+        #tablaMatrizHeader th .text-truncate {
+            max-width: 140px !important;
+            white-space: normal !important;      /* Anula la restricción de 1 sola línea */
+            overflow: visible !important;        /* Muestra el texto completo */
+            text-overflow: clip !important;
+            line-height: 1.2;
+            display: block;
+        }
+
+        /* 2. CORREGIR POSICIONAMIENTO Y CAPA Z DEL TOOLTIP (FLOTANTE) */
+        .celda-tp .tooltip-info { 
+            display: none; 
+            position: absolute; 
+            bottom: 100%; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            min-width: 210px; 
+            background: #1e293b !important; /* Fondo oscuro sólido */
+            color: #ffffff !important; 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            font-size: 0.75rem; 
+            text-align: left; 
+            z-index: 99999 !important; /* Queda por encima de tablas y sticky headers */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); 
+            pointer-events: none; 
+            line-height: 1.3; 
+            white-space: normal;
+        }
+        
+        .celda-tp:hover .tooltip-info { 
+            display: block !important; 
+        }
     </style>
 </head>
 <body>
@@ -516,17 +553,110 @@
                             <input type="text" class="form-control" id="perfilApellido" placeholder="PERENGANO" required style="text-transform: uppercase;">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Nombre(s)</label>
-                            <input type="text" class="form-control" id="perfilNombre" placeholder="Luis Alberto" required>
+                            <label class="form-label fw-bold">NOMBRE(S)</label>
+                            <input type="text" class="form-control" id="perfilNombre" placeholder="José" required>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mt-2">Guardar Perfil y Continuar</button>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Guardar y Continuar</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- MODAL GENERAR E IMPRIMIR INFORME PEDAGÓGICO PARA TUTORES -->
+    <div class="modal fade" id="modalInformeTutor" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content card-custom">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold" id="tituloModalInforme">📄 Informe Pedagógico para el Tutor</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-4">
+                        
+                        <!-- PANEL DE CONFIGURACIÓN (IZQUIERDA) -->
+                        <div class="col-md-4 border-end pe-3">
+                            <h6 class="fw-bold text-primary mb-3">⚙️ Configuración del Reporte</h6>
+                            
+                            <input type="hidden" id="reporteAlumnoId">
+                            
+                            <!-- Rango de Selección -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-muted">Tipo de Rango</label>
+                                <select id="tipoRangoInforme" class="form-select form-select-sm">
+                                    <option value="TPs">Por Trabajos Prácticos (Alias)</option>
+                                    <option value="Fechas">Por Rango de Fechas</option>
+                                </select>
+                            </div>
+
+                            <!-- Selector por TPs -->
+                            <div id="selectorRangoTPs" class="mb-3">
+                                <label class="form-label fw-bold small text-muted">Desde TP:</label>
+                                <select id="informeTpDesde" class="form-select form-select-sm mb-2"></select>
+                                
+                                <label class="form-label fw-bold small text-muted">Hasta TP:</label>
+                                <select id="informeTpHasta" class="form-select form-select-sm"></select>
+                            </div>
+
+                            <!-- Selector por Fechas -->
+                            <div id="selectorRangoFechas" class="mb-3 d-none">
+                                <label class="form-label fw-bold small text-muted">Fecha Desde:</label>
+                                <input type="date" id="informeFechaDesde" class="form-control form-control-sm mb-2">
+                                
+                                <label class="form-label fw-bold small text-muted">Fecha Hasta:</label>
+                                <input type="date" id="informeFechaHasta" class="form-control form-control-sm">
+                            </div>
+
+                            <!-- Opciones de Contenido -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-muted">Contenido a Incluir</label>
+                                <div class="form-check small">
+                                    <input class="form-check-input" type="checkbox" id="checkIncluirFoco" checked>
+                                    <label class="form-label mb-0" for="checkIncluirFoco">Diagnóstico de Autonomía y Foco</label>
+                                </div>
+                                <div class="form-check small">
+                                    <input class="form-check-input" type="checkbox" id="checkIncluirSaberes" checked>
+                                    <label class="form-label mb-0" for="checkIncluirSaberes">Fortalezas y Saberes a Reforzar</label>
+                                </div>
+                            </div>
+
+                            <!-- Observación Personalizada -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-muted">Observación Docente (Opcional)</label>
+                                <textarea id="observacionDocenteInforme" class="form-control form-control-sm" rows="3" placeholder="Ej: Muestra buen compromiso en clase, se sugiere repasar coordenadas..."></textarea>
+                            </div>
+
+                            <button id="btnActualizarVistaPrevia" class="btn btn-outline-primary btn-sm w-100 fw-bold">
+                                🔄 Actualizar Vista Previa
+                            </button>
+                        </div>
+
+                        <!-- PREVISUALIZACIÓN DE LA HOJA A4 (DERECHA) -->
+                        <div class="col-md-8 bg-light p-3 rounded d-flex flex-column align-items-center">
+                            <span class="badge bg-secondary mb-2">Vista Previa del Documento</span>
+                            
+                            <div id="hojaPrevisualizacionPDF" class="bg-white shadow p-4 text-dark rounded" style="width: 100%; max-width: 650px; min-height: 750px; font-size: 0.85rem; font-family: Arial, sans-serif;">
+                                <!-- Se renderiza dinámicamente el borrador del informe -->
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <div class="me-auto small text-muted">
+                        📧 Destinatario Tutor: <strong id="textoEmailTutorDestino">Cargando...</strong>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="btnDescargarPDF" class="btn btn-outline-dark btn-sm fw-bold">📥 Descargar PDF</button>
+                    <button type="button" id="btnEnviarEmailTutor" class="btn btn-primary btn-sm fw-bold">✉️ Enviar a Tutor</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script principal Bootstrap -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script type="module" src="js/panel.js"></script>
+    <!-- Lógica del Panel JS -->
+    <script src="js/panel.js"></script>
 </body>
 </html>
