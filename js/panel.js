@@ -35,9 +35,10 @@ let cursoActualId = null;
 let cursoActualInfo = null;
 let modalPerfilInstancia = null;
 let alumnoInformeActual = null;
+let listaAlumnosCursoActual = [];
 
 // =========================================================================
-// EVENTOS PRINCIPALES DE AUTENTICACIÓN
+// EVENTOS PRINCIPALES DE AUTENTICACIÓN Y CONFIGURACIÓN
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
     const btnGoogle = document.getElementById('btnGoogleAuth');
@@ -84,6 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    iniciarUIAsignacionDiferenciada();
 });
 
 if (toggleAuthMode) {
@@ -273,7 +276,7 @@ if (modalInscribirAlumnos) {
 }
 
 // =========================================================================
-// GESTIÓN DE CURSOS Y ALUMNOS
+// GESTIÓN DE CURSOS
 // =========================================================================
 async function cargarCursos(profesorId) {
     if (!contenedorCursos) return;
@@ -365,7 +368,72 @@ async function verDetalleCurso(cursoId, nombre, escuela) {
 }
 
 // =========================================================================
-// RENDERIZADO COMPLETO DE LA MATRIZ DE SEGUIMIENTO CON TOOLTIPS Y DIAGNÓSTICO
+// ASIGNACIÓN DIFERENCIADA UI
+// =========================================================================
+function iniciarUIAsignacionDiferenciada() {
+    const contenedorForm = document.getElementById('inputCodTPAsignar')?.closest('.row, .card-body, form');
+    if (!contenedorForm || document.getElementById('radioAlcanceTodos')) return;
+
+    const divAlcance = document.createElement('div');
+    divAlcance.className = 'col-12 my-3 p-3 bg-light border rounded';
+    divAlcance.innerHTML = `
+        <label class="form-label fw-bold small mb-2 text-dark">👥 Alcance de la Asignación:</label>
+        <div class="d-flex gap-4 align-items-center mb-2">
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="radioAlcanceAsignacion" id="radioAlcanceTodos" value="TODOS" checked>
+                <label class="form-check-label small fw-semibold" for="radioAlcanceTodos">
+                    Asignar a Todo el Curso
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="radioAlcanceAsignacion" id="radioAlcanceSeleccion" value="SELECCION">
+                <label class="form-check-label small fw-semibold" for="radioAlcanceSeleccion">
+                    🎯 Asignación Diferenciada (Seleccionar Alumnos)
+                </label>
+            </div>
+        </div>
+        <div id="contenedorListaAlumnosDiferenciados" class="d-none border-top pt-2 mt-2">
+            <span class="small text-muted d-block mb-2">Marque los alumnos que deberán resolver este Trabajo Práctico:</span>
+            <div id="checkListAlumnosCurso" class="row g-2" style="max-height: 150px; overflow-y: auto;"></div>
+        </div>`;
+
+    contenedorForm.prepend(divAlcance);
+
+    document.querySelectorAll('input[name="radioAlcanceAsignacion"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const contenedorLista = document.getElementById('contenedorListaAlumnosDiferenciados');
+            if (e.target.value === 'SELECCION') {
+                contenedorLista.classList.remove('d-none');
+                poblarCheckListAlumnos();
+            } else {
+                contenedorLista.classList.add('d-none');
+            }
+        });
+    });
+}
+
+function poblarCheckListAlumnos() {
+    const contenedor = document.getElementById('checkListAlumnosCurso');
+    if (!contenedor) return;
+
+    if (listaAlumnosCursoActual.length === 0) {
+        contenedor.innerHTML = `<div class="col-12 small text-muted">No hay alumnos inscriptos en este curso.</div>`;
+        return;
+    }
+
+    contenedor.innerHTML = listaAlumnosCursoActual.map(al => `
+        <div class="col-md-6">
+            <div class="form-check">
+                <input class="form-check-input chk-alumno-diferenciado" type="checkbox" value="${al.id}" id="chkAl_${al.id}">
+                <label class="form-check-label small" for="chkAl_${al.id}">
+                    ${al.apellido}, ${al.nombre}
+                </label>
+            </div>
+        </div>`).join('');
+}
+
+// =========================================================================
+// RENDERIZADO COMPLETO DE LA MATRIZ DE SEGUIMIENTO CON ASIGNACIÓN DIFERENCIADA
 // =========================================================================
 async function renderizarMatrizSeguimiento(cursoId) {
     const headerRow = document.getElementById('tablaMatrizHeader');
@@ -384,7 +452,7 @@ async function renderizarMatrizSeguimiento(cursoId) {
 
         const { data: tps, error: errTPs } = await supabase
             .from('curso_planificacion')
-            .select('id, cod_tp, cod_tp_completo, alias_tp, fecha_vencimiento, activo')
+            .select('id, cod_tp, cod_tp_completo, alias_tp, fecha_vencimiento, activo, alumnos_asignados')
             .eq('curso_id', cursoId)
             .eq('activo', true)
             .order('created_at', { ascending: true });
@@ -408,10 +476,14 @@ async function renderizarMatrizSeguimiento(cursoId) {
         tps.forEach(tp => {
             const tituloFantasia = tp.alias_tp || tp.cod_tp_completo || tp.cod_tp;
             const codTecnico = tp.cod_tp_completo || tp.cod_tp;
+            const esDiferenciado = Array.isArray(tp.alumnos_asignados) && tp.alumnos_asignados.length > 0;
+
             htmlHeader += `
             <th class="text-center" style="min-width: 120px; vertical-align: bottom;">
                 <div class="fw-bold" style="max-width: 140px; font-size: 0.82rem; line-height: 1.2; white-space: normal;">${tituloFantasia}</div>
-                <div class="text-muted fw-normal mt-1" style="font-size: 0.68rem;">${codTecnico}</div>
+                <div class="text-muted fw-normal mt-1" style="font-size: 0.68rem;">
+                    ${codTecnico} ${esDiferenciado ? '<span title="Tarea Diferenciada para alumnos específicos">🎯</span>' : ''}
+                </div>
             </th>`;
         });
         headerRow.innerHTML = htmlHeader;
@@ -430,6 +502,23 @@ async function renderizarMatrizSeguimiento(cursoId) {
 
             tps.forEach(tp => {
                 const codBuscar = tp.cod_tp_completo || tp.cod_tp;
+                const estaAsignado = !Array.isArray(tp.alumnos_asignados) || tp.alumnos_asignados.length === 0 || tp.alumnos_asignados.includes(alumno.id);
+
+                // ALUMNO NO ASIGNADO A ESTA TAREA DIFERENCIADA
+                if (!estaAsignado) {
+                    htmlBody += `
+                        <td class="celda-tp bg-light opacity-50">
+                            <div class="fila-nota text-muted fw-normal" style="font-size: 0.75rem;">No asignado</div>
+                            <div class="fila-meta"><span class="badge bg-secondary-subtle text-secondary">Eximido</span></div>
+                            <div class="tooltip-info">
+                                <strong>${alumno.apellido}, ${alumno.nombre}</strong><br>
+                                📌 <em>${tp.alias_tp || codBuscar}</em><br>
+                                • Estado: <strong>Eximido / No asignado</strong> (Tarea diferenciada)
+                            </div>
+                        </td>`;
+                    return;
+                }
+
                 const entrega = (resultados || []).find(r => 
                     r.alumno_id === alumno.id && (r.tp_codigo === codBuscar || r.tp_codigo === tp.cod_tp)
                 );
@@ -528,8 +617,6 @@ async function cargarAlumnosCurso(cursoId) {
     if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">Cargando datos...</td></tr>`;
 
     try {
-        await renderizarMatrizSeguimiento(cursoId);
-
         const { data: alumnos, error } = await supabase
             .from('alumnos')
             .select('*')
@@ -537,6 +624,10 @@ async function cargarAlumnosCurso(cursoId) {
             .order('apellido', { ascending: true });
 
         if (error) throw error;
+
+        listaAlumnosCursoActual = alumnos || [];
+
+        await renderizarMatrizSeguimiento(cursoId);
 
         if (!alumnos || alumnos.length === 0) {
             if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">No hay alumnos inscriptos en este curso.</td></tr>`;
@@ -808,25 +899,12 @@ if (formEditarAlumno) {
     });
 }
 
-// Búsqueda del Banco y Asignaciones
+// ASIGNACIÓN DE TP A PLANIFICACIÓN CON SOPORTE DIFERENCIADO
 document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () => {
-    const codTp = document.getElementById('inputCodTPAsignar').value;
-    const periodo = document.getElementById('inputNuevoPeriodo').value.trim() || '1° Trimestre';
-    const unidad = document.getElementById('inputNuevaUnidad').value.trim() || 'Unidad 1';
-
-    if (!cursoActualId || !codTp) {
-        alert('Por favor seleccioná un TP.');
-        return;
-    }
-
-    try {
-        await supabase.from('curso_planificacion').insert([{ curso_id: cursoActualId, cod_tp: codTp, cod_tp_completo: codTp, periodo_evaluativo: periodo, unidad_tematica: unidad, alias_tp: codTp, activo: true }]);
-        document.getElementById('inputCodTPAsignar').value = '';
+    ejecutarAsignacionTP(cursoActualId, supabase, () => {
         cargarPlanificacionCurso(cursoActualId, supabase, renderizarMatrizSeguimiento);
         renderizarMatrizSeguimiento(cursoActualId);
-    } catch (err) {
-        alert('Error: ' + err.message);
-    }
+    });
 });
 
 const modalAsignarTP = document.getElementById('modalAsignarTP');
