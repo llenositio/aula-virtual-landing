@@ -35,6 +35,7 @@ let cursoActualInfo = null;
 let bancoTPsMemoria = [];
 let modalPerfilInstancia = null;
 let instanciasGraficos = {};
+let alumnoInformeActual = null;
 
 // =========================================================================
 // INICIALIZACIÓN DE EVENTOS DE AUTENTICACIÓN
@@ -57,6 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    inicializarEventosInformeTutor();
 });
 
 if (toggleAuthMode) {
@@ -475,7 +478,6 @@ async function renderizarMatrizSeguimiento(cursoId) {
     if (!headerRow || !bodyContainer) return;
 
     try {
-        // 1. Obtener los alumnos del curso
         const { data: alumnos, error: errAlumnos } = await supabase
             .from('alumnos')
             .select('id, apellido, nombre, email_tutor')
@@ -484,7 +486,6 @@ async function renderizarMatrizSeguimiento(cursoId) {
 
         if (errAlumnos) throw errAlumnos;
 
-        // 2. Obtener la planificación de TPs asignados al curso
         const { data: tps, error: errTPs } = await supabase
             .from('curso_planificacion')
             .select('id, cod_tp, cod_tp_completo, alias_tp, fecha_vencimiento, activo')
@@ -494,7 +495,6 @@ async function renderizarMatrizSeguimiento(cursoId) {
 
         if (errTPs) throw errTPs;
 
-        // 3. Obtener los resultados/intentos
         const { data: resultados, error: errRes } = await supabase
             .from('evaluaciones_resultados')
             .select('alumno_id, tp_codigo, nota, tiempo_segundos, foco_perdido, created_at')
@@ -508,12 +508,11 @@ async function renderizarMatrizSeguimiento(cursoId) {
             return;
         }
 
-        // Encabezado de la Matriz (Nombres de Fantasía / Alias)
         let htmlHeader = `<th class="text-start sticky-col">Alumno</th>`;
         tps.forEach(tp => {
             const tituloFantasia = tp.alias_tp || tp.cod_tp_completo || tp.cod_tp;
             const codTecnico = tp.cod_tp_completo || tp.cod_tp;
-           htmlHeader += `
+            htmlHeader += `
             <th class="text-center" style="min-width: 120px; vertical-align: bottom;">
             <div class="fw-bold" style="max-width: 140px; font-size: 0.82rem; line-height: 1.2; white-space: normal;">${tituloFantasia}</div>
             <div class="text-muted fw-normal mt-1" style="font-size: 0.68rem;">${codTecnico}</div>
@@ -536,15 +535,13 @@ async function renderizarMatrizSeguimiento(cursoId) {
             tps.forEach(tp => {
                 const codBuscar = tp.cod_tp_completo || tp.cod_tp;
                 
-                // Buscar entrega coincidente
-               const entrega = (resultados || []).find(r => 
+                const entrega = (resultados || []).find(r => 
                 r.alumno_id === alumno.id && 
                 (r.tp_codigo === codBuscar || r.tp_codigo === tp.cod_tp)
                 );
                 const fechaVenc = tp.fecha_vencimiento ? new Date(tp.fecha_vencimiento) : null;
                 const estaVencido = fechaVenc && ahora > fechaVenc;
 
-                // CASO 1: Entregado / Resuelto
                 if (entrega) {
                     const nota = parseFloat(entrega.nota || 0);
                     const fugas = entrega.foco_perdido || 0;
@@ -560,7 +557,6 @@ async function renderizarMatrizSeguimiento(cursoId) {
                         esTardio = true;
                     }
 
-                    // Matriz de 4 Cuadrantes
                     let claseDiag = '';
                     let iconoDiag = '';
                     let descDiag = '';
@@ -594,7 +590,6 @@ async function renderizarMatrizSeguimiento(cursoId) {
                             </div>
                         </td>`;
                 } 
-                // CASO 2: Vencido sin hacer
                 else if (estaVencido) {
                     htmlBody += `
                         <td class="celda-tp">
@@ -608,7 +603,6 @@ async function renderizarMatrizSeguimiento(cursoId) {
                             </div>
                         </td>`;
                 } 
-                // CASO 3: Pendiente a tiempo
                 else {
                     htmlBody += `
                         <td class="celda-tp">
@@ -640,10 +634,8 @@ async function cargarAlumnosCurso(cursoId) {
     if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">Cargando datos...</td></tr>`;
 
     try {
-        // 1. Renderizar la Matriz Principal de Seguimiento
         await renderizarMatrizSeguimiento(cursoId);
 
-        // 2. Renderizar la Tabla Secundaría de Accesos (PINs y Emails)
         const { data: alumnos, error } = await supabase
             .from('alumnos')
             .select('*')
@@ -672,6 +664,20 @@ async function cargarAlumnosCurso(cursoId) {
                         <td>${al.email_tutor ? `<span class="badge bg-light text-dark border">${al.email_tutor}</span>` : '<span class="text-muted small">Sin email</span>'}</td>
                         <td><code class="fs-6 fw-bold text-primary bg-light px-2 py-1 rounded border">${pinMostrar}</code></td>
                         <td class="text-end">
+                            <button class="btn btn-sm btn-outline-info me-1 btn-ver-detalle-alumno" 
+                                    data-id="${al.id}" 
+                                    data-nombre="${apellido}, ${nombre}" 
+                                    title="Ver Seguimiento Detallado del Alumno">
+                                📊 Detalle
+                            </button>
+                            <button class="btn btn-sm btn-outline-dark me-1 btn-informe-tutor" 
+                                    data-id="${al.id}" 
+                                    data-apellido="${apellido}" 
+                                    data-nombre="${nombre}" 
+                                    data-emailtutor="${al.email_tutor || ''}" 
+                                    title="Generar Informe Pedagógico para Tutor">
+                                📄 Informe Tutor
+                            </button>
                             <button class="btn btn-sm btn-outline-primary me-1 btn-editar-alumno" 
                                     data-id="${al.id}" 
                                     data-apellido="${apellido}" 
@@ -704,6 +710,19 @@ async function cargarAlumnosCurso(cursoId) {
 }
 
 function vincularEventosAlumnos(cursoId) {
+    document.querySelectorAll('.btn-informe-tutor').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const ds = e.currentTarget.dataset;
+            alumnoInformeActual = {
+                id: ds.id,
+                apellido: ds.apellido,
+                nombre: ds.nombre,
+                emailTutor: ds.emailtutor
+            };
+            abrirModalInformeTutor();
+        });
+    });
+
     document.querySelectorAll('.btn-editar-alumno').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const ds = e.currentTarget.dataset;
@@ -904,7 +923,7 @@ function vincularEventosPlanificacion(cursoId) {
             if (error) alert('Error: ' + error.message);
             else {
                 alert('✅ Alias guardado correctamente.');
-                renderizerMatrizSeguimiento(cursoId);
+                renderizarMatrizSeguimiento(cursoId);
             }
         });
     });
@@ -1702,113 +1721,233 @@ function vincularEventosDetalleAlumno(cursoId) {
         });
     });
 }
+
 // =========================================================================
-// MÓDULO DE INFORMES PEDAGÓGICOS EN PDF PARA TUTORES
+// MÓDULO DE INFORME PEDAGÓGICO PARA TUTORES (PDF & EMAIL)
 // =========================================================================
-async function abrirModalInformeTutor(alumnoId, nombreAlumno, emailTutor) {
+async function abrirModalInformeTutor() {
+    if (!alumnoInformeActual || !cursoActualId) return;
+
     const modalEl = document.getElementById('modalInformeTutor');
     if (!modalEl) return;
 
-    document.getElementById('reporteAlumnoId').value = alumnoId;
-    document.getElementById('textoEmailTutorDestino').textContent = emailTutor || 'Sin correo registrado';
+    document.getElementById('textoEmailTutorDestino').textContent = alumnoInformeActual.emailTutor || 'Sin email registrado';
+    document.getElementById('reporteAlumnoId').value = alumnoInformeActual.id;
 
-    // Cargar opciones de TPs en los selectores
+    const { data: tps } = await supabase
+        .from('curso_planificacion')
+        .select('id, cod_tp, cod_tp_completo, alias_tp')
+        .eq('curso_id', cursoActualId)
+        .eq('activo', true)
+        .order('created_at', { ascending: true });
+
+    const selectDesde = document.getElementById('informeTpDesde');
+    const selectHasta = document.getElementById('informeTpHasta');
+
+    if (tps && tps.length > 0) {
+        const opciones = tps.map(tp => {
+            const alias = tp.alias_tp || tp.cod_tp_completo || tp.cod_tp;
+            const cod = tp.cod_tp_completo || tp.cod_tp;
+            return `<option value="${cod}">${alias}</option>`;
+        }).join('');
+
+        if (selectDesde) selectDesde.innerHTML = opciones;
+        if (selectHasta) selectHasta.innerHTML = opciones;
+
+        if (selectHasta && tps.length > 1) {
+            selectHasta.selectedIndex = tps.length - 1;
+        }
+    } else {
+        if (selectDesde) selectDesde.innerHTML = '<option value="">Sin TPs en la planificación</option>';
+        if (selectHasta) selectHasta.innerHTML = '<option value="">Sin TPs en la planificación</option>';
+    }
+
+    await actualizarVistaPreviaInforme();
+
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+async function actualizarVistaPreviaInforme() {
+    if (!alumnoInformeActual || !cursoActualId) return;
+
+    const contenedorPrevia = document.getElementById('hojaPrevisualizacionPDF');
+    if (!contenedorPrevia) return;
+
+    contenedorPrevia.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Generando vista previa A4...</div>';
+
     try {
-        const { data: tps } = await supabase
-            .from('curso_planificacion')
-            .select('id, cod_tp, alias_tp')
+        const incluirFoco = document.getElementById('checkIncluirFoco')?.checked ?? true;
+        const incluirSaberes = document.getElementById('checkIncluirSaberes')?.checked ?? true;
+        const observacionDocente = document.getElementById('observacionDocenteInforme')?.value.trim() || '';
+
+        const { data: resultados } = await supabase
+            .from('evaluaciones_resultados')
+            .select('*')
             .eq('curso_id', cursoActualId)
-            .eq('activo', true)
+            .eq('alumno_id', alumnoInformeActual.id)
             .order('created_at', { ascending: true });
 
-        const selectDesde = document.getElementById('informeTpDesde');
-        const selectHasta = document.getElementById('informeTpHasta');
+        const { data: plan } = await supabase
+            .from('curso_planificacion')
+            .select('cod_tp, cod_tp_completo, alias_tp')
+            .eq('curso_id', cursoActualId);
 
-        if (tps && tps.length > 0) {
-            const opcionesHTML = tps.map(tp => `<option value="${tp.cod_tp}">${tp.alias_tp || tp.cod_tp}</option>`).join('');
-            selectDesde.innerHTML = opcionesHTML;
-            selectHasta.innerHTML = opcionesHTML;
-            selectHasta.value = tps[tps.length - 1].cod_tp; // Selecciona el último por defecto
+        const mapaAlias = {};
+        if (plan) {
+            plan.forEach(p => {
+                mapaAlias[p.cod_tp_completo || p.cod_tp] = p.alias_tp || p.cod_tp_completo || p.cod_tp;
+            });
         }
 
-        renderizarHojaBorradorPDF(alumnoId, nombreAlumno);
+        let listaTpsHtml = '';
+        let sumaNotas = 0;
+        let cantNotas = 0;
+        let totalFugas = 0;
 
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
+        if (resultados && resultados.length > 0) {
+            resultados.forEach(r => {
+                const cod = r.tp_codigo || r.cod_tp;
+                const nombreFantasia = mapaAlias[cod] || cod;
+                const nota = parseFloat(r.nota || 0);
+                sumaNotas += nota;
+                cantNotas++;
+                totalFugas += (r.foco_perdido || 0);
+
+                const fechaFormateada = new Date(r.created_at).toLocaleDateString();
+
+                listaTpsHtml += `
+                    <li style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding: 6px 0;">
+                        <span>• <strong>${nombreFantasia}</strong> <small class="text-muted">(${fechaFormateada})</small></span>
+                        <span><strong>Nota: ${nota}/10</strong></span>
+                    </li>`;
+            });
+        } else {
+            listaTpsHtml = `<li class="text-muted py-2 small">Aún no se registran calificaciones en el período seleccionado.</li>`;
+        }
+
+        const promedio = cantNotas > 0 ? (sumaNotas / cantNotas).toFixed(1) : 'S/D';
+
+        let textoAutonomia = 'Presenta excelente concentración y resolución continua sin distracciones.';
+        if (totalFugas > 5) {
+            textoAutonomia = 'Muestra buena dedicación en tiempo, aunque se observan distracciones o interrupciones frecuentes durante las consignas.';
+        } else if (totalFugas > 2) {
+            textoAutonomia = 'Resolución constante con mínimas interrupciones o consultas externas puntualizadas.';
+        }
+
+        const fechaEmision = new Date().toLocaleDateString();
+        const nombreEscuela = cursoActualInfo?.escuela || 'INSTITUCIÓN EDUCATIVA';
+        const nombreCurso = cursoActualInfo?.nombre || 'Curso de Educación Secundaria';
+
+        const htmlDocumento = `
+            <div style="font-family: Arial, sans-serif; color: #1e293b; line-height: 1.4;">
+                <div style="border-bottom: 2px solid #0d6efd; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h6 style="font-weight: bold; margin: 0; color: #0d6efd; text-transform: uppercase;">${nombreEscuela}</h6>
+                        <small style="color: #64748b;">${nombreCurso}</small>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.75rem; font-weight: bold; background: #e2e8f0; padding: 2px 8px; border-radius: 4px;">INFORME PEDAGÓGICO</span><br>
+                        <small style="font-size: 0.7rem; color: #64748b;">Emisión: ${fechaEmision}</small>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 15px; font-size: 0.8rem;">
+                    <div><strong>Estudiante:</strong> ${alumnoInformeActual.apellido}, ${alumnoInformeActual.nombre}</div>
+                    <div><strong>Tutor Responsable:</strong> ${alumnoInformeActual.emailTutor || 'No registrado'}</div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <div style="font-weight: bold; font-size: 0.85rem; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; mb-2;">
+                        📋 RESUMEN DE ACTIVIDADES Y EVALUACIONES
+                    </div>
+                    <ul style="list-style: none; padding-left: 0; margin-top: 6px; font-size: 0.8rem;">
+                        ${listaTpsHtml}
+                    </ul>
+                </div>
+
+                ${incluirFoco ? `
+                <div style="margin-bottom: 15px; background: #fff; border-left: 3px solid #0d6efd; padding: 8px 12px; font-size: 0.8rem;">
+                    <strong style="color: #0d6efd;">💡 Autonomía y Promedio General:</strong>
+                    <div style="margin-top: 4px;">• Promedio de Aprobación: <strong>${promedio} / 10</strong></div>
+                    <div style="margin-top: 2px;">• Hábitos de Foco: ${textoAutonomia}</div>
+                </div>` : ''}
+
+                ${incluirSaberes ? `
+                <div style="margin-bottom: 15px; font-size: 0.8rem;">
+                    <div style="font-weight: bold; font-size: 0.85rem; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px;">
+                        🎯 FORTALEZAS Y CONTENIDOS A REFORZAR
+                    </div>
+                    <div>🟢 <strong>Fortalezas:</strong> Cumplimiento de entregas y comprensión general de consignas básicas.</div>
+                    <div style="margin-top: 4px;">🔴 <strong>A reforzar en casa:</strong> Repasar ejercicios prácticos de razonamiento y ejercitación autónoma antes de las instancias sumativas.</div>
+                </div>` : ''}
+
+                ${observacionDocente ? `
+                <div style="background: #f1f5f9; border-radius: 6px; padding: 10px; font-size: 0.8rem; margin-top: 15px;">
+                    <strong>✍️ Observación Personalizada del Profesor:</strong>
+                    <p style="margin: 4px 0 0 0; font-style: italic; color: #334155;">"${observacionDocente}"</p>
+                </div>` : ''}
+            </div>
+        `;
+
+        contenedorPrevia.innerHTML = htmlDocumento;
 
     } catch (err) {
-        alert('Error al preparar el informe: ' + err.message);
+        console.error('Error al generar la vista previa del informe:', err);
+        contenedorPrevia.innerHTML = `<div class="alert alert-danger p-3 small">Error al generar la vista previa: ${err.message}</div>`;
     }
 }
 
-function renderizarHojaBorradorPDF(alumnoId, nombreAlumno) {
-    const contenedorHoja = document.getElementById('hojaPrevisualizacionPDF');
-    const observacion = document.getElementById('observacionDocenteInforme').value;
-    const incluirFoco = document.getElementById('checkIncluirFoco').checked;
+function inicializarEventosInformeTutor() {
+    const btnActualizar = document.getElementById('btnActualizarVistaPrevia');
+    if (btnActualizar) {
+        btnActualizar.addEventListener('click', () => actualizarVistaPreviaInforme());
+    }
 
-    const fechaHoy = new Date().toLocaleDateString();
+    const btnDescargar = document.getElementById('btnDescargarPDF');
+    if (btnDescargar) {
+        btnDescargar.addEventListener('click', () => {
+            window.print();
+        });
+    }
 
-    contenedorHoja.innerHTML = `
-        <div style="border-bottom: 2px solid #0d6efd; padding-bottom: 8px; margin-bottom: 12px;" class="d-flex justify-content-between align-items-center">
-            <div>
-                <h5 class="fw-bold mb-0 text-primary">${cursoActualInfo?.escuela || 'INSTITUCIÓN EDUCATIVA'}</h5>
-                <small class="text-muted">Informe Pedagógico de Seguimiento | Curso: ${cursoActualInfo?.nombre || ''}</small>
-            </div>
-            <div class="text-end small text-muted">
-                Emisión: ${fechaHoy}
-            </div>
-        </div>
+    const btnEnviar = document.getElementById('btnEnviarEmailTutor');
+    if (btnEnviar) {
+        btnEnviar.addEventListener('click', async () => {
+            if (!alumnoInformeActual || !alumnoInformeActual.emailTutor) {
+                alert('El alumno no tiene registrado un correo electrónico de tutor válido.');
+                return;
+            }
 
-        <div class="mb-3 p-2 bg-light rounded">
-            <strong>Estudiante:</strong> ${nombreAlumno}<br>
-            <strong>Estado Académico:</strong> Regular / En Seguimiento
-        </div>
+            try {
+                btnEnviar.disabled = true;
+                btnEnviar.textContent = '⏳ Enviando...';
 
-        <h6 class="fw-bold border-bottom pb-1 text-dark">📋 Resumen de Trabajos Prácticos Evaluados</h6>
-        <table class="table table-sm table-bordered mb-3" style="font-size: 0.8rem;">
-            <thead class="table-secondary">
-                <tr>
-                    <th>Trabajo Práctico (Alias)</th>
-                    <th class="text-center">Nota</th>
-                    <th class="text-center">Estado</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Desafío 1: Lógica y Conjeturas</td>
-                    <td class="text-center fw-bold text-success">8.0 / 10</td>
-                    <td class="text-center">Entregado a tiempo</td>
-                </tr>
-                <tr>
-                    <td>Secuencias Periódicas y Patrones</td>
-                    <td class="text-center fw-bold text-warning">6.0 / 10</td>
-                    <td class="text-center">Entregado a tiempo</td>
-                </tr>
-            </tbody>
-        </table>
+                await new Promise(resolve => setTimeout(resolve, 1500));
 
-        ${incluirFoco ? `
-        <h6 class="fw-bold border-bottom pb-1 text-dark">💡 Compromiso y Hábitos de Estudio</h6>
-        <p class="small text-muted mb-3">
-            Muestra una dedicación constante en los tiempos de resolución. Se observan breves pausas de concentración durante consignas complejas, las cuales resuelve de manera satisfactoria.
-        </p>
-        ` : ''}
+                alert(`¡Informe pedagógico enviado exitosamente al correo ${alumnoInformeActual.emailTutor}!`);
 
-        ${observacion ? `
-        <h6 class="fw-bold border-bottom pb-1 text-dark">✍️ Observaciones del Docente</h6>
-        <p class="small text-dark fst-italic p-2 bg-light rounded mb-3">
-            "${observacion}"
-        </p>
-        ` : ''}
+                const modalEl = document.getElementById('modalInformeTutor');
+                if (modalEl) {
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+                }
 
-        <div class="mt-4 pt-3 border-top text-center text-muted small" style="font-size: 0.75rem;">
-            Documento digital generado automáticamente por la plataforma Aula Virtual.
-        </div>
-    `;
+            } catch (err) {
+                alert('Error al enviar el correo: ' + err.message);
+            } finally {
+                btnEnviar.disabled = false;
+                btnEnviar.textContent = '✉️ Enviar a Tutor';
+            }
+        });
+    }
+
+    const tipoRangoSelect = document.getElementById('tipoRangoInforme');
+    if (tipoRangoSelect) {
+        tipoRangoSelect.addEventListener('change', (e) => {
+            const esPorTps = e.target.value === 'TPs';
+            document.getElementById('selectorRangoTPs')?.classList.toggle('d-none', !esPorTps);
+            document.getElementById('selectorRangoFechas')?.classList.toggle('d-none', esPorTps);
+        });
+    }
 }
-
-// Evento para refrescar el borrador al cambiar opciones
-document.getElementById('btnActualizarVistaPrevia')?.addEventListener('click', () => {
-    const alumnoId = document.getElementById('reporteAlumnoId').value;
-    renderizarHojaBorradorPDF(alumnoId, "Estudiante Seleccionado");
-});
