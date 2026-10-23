@@ -513,11 +513,11 @@ async function renderizarMatrizSeguimiento(cursoId) {
         tps.forEach(tp => {
             const tituloFantasia = tp.alias_tp || tp.cod_tp_completo || tp.cod_tp;
             const codTecnico = tp.cod_tp_completo || tp.cod_tp;
-            htmlHeader += `
-                <th class="text-center" style="min-width: 125px;">
-                    <div class="fw-bold text-truncate" style="max-width: 130px;" title="${tituloFantasia}">${tituloFantasia}</div>
-                    <div class="text-muted fw-normal" style="font-size: 0.68rem;">${codTecnico}</div>
-                </th>`;
+           htmlHeader += `
+            <th class="text-center" style="min-width: 120px; vertical-align: bottom;">
+            <div class="fw-bold" style="max-width: 140px; font-size: 0.82rem; line-height: 1.2; white-space: normal;">${tituloFantasia}</div>
+            <div class="text-muted fw-normal mt-1" style="font-size: 0.68rem;">${codTecnico}</div>
+    </th>`;
         });
         headerRow.innerHTML = htmlHeader;
 
