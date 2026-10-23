@@ -70,7 +70,7 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
         // Renderizar gráficos estándar
         renderizarGraficosBasicos(planFiltrado, notasPorTp, todasLasNotasValidas, mapaUltimaNotaAlumno);
 
-        // Renderizar el MAPA DE CALOR CON SELECTORES Y MODOS DE VISTA
+        // Renderizar el MAPA DE CALOR
         renderizarMapaDeCalorSaberes(alumnos || [], planFiltrado, mapaUltimaNotaAlumno);
 
         if (selectFiltroEstructura) {
@@ -106,23 +106,19 @@ function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumn
                     <span class="badge bg-warning text-dark">Matriz de Error Común</span>
                 </div>
                 <div class="card-body p-3">
-                    <!-- BARRA DE CONTROLES Y MODOS DE VISTA -->
                     <div class="row g-3 align-items-center mb-3 bg-light p-2 rounded border">
                         <div class="col-md-4">
                             <label class="form-label small fw-bold mb-1">🔍 Modo de Visualización:</label>
                             <select id="selectModoMapaCalor" class="form-select form-select-sm">
-                                <option value="TP_UNICO">Analizar 1 TP Específico (Pregunta por Pregunta)</option>
+                                <option value="TP_UNICO">Analizar 1 TP Específico (Desglose por Ítem/V-F)</option>
                                 <option value="MICRO_SABERES">Agrupar por Micro-Saberes (Cruzando TPs)</option>
                             </select>
                         </div>
                         <div class="col-md-8">
                             <label class="form-label small fw-bold mb-1">📌 Seleccionar TP(s) a incluir:</label>
-                            <select id="selectFiltroTpMapaCalor" class="form-select form-select-sm">
-                                <!-- Opciones cargadas dinámicamente -->
-                            </select>
+                            <select id="selectFiltroTpMapaCalor" class="form-select form-select-sm"></select>
                         </div>
                     </div>
-
                     <div id="contenedorMapaCalorSaberes" class="table-responsive"></div>
                 </div>
             </div>`;
@@ -136,31 +132,7 @@ function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumn
 
     if (!selectModo || !selectTp || !contenedorTabla) return;
 
-    // Llenar el selector de TPs según el modo actual
-    const modoActual = selectModo.value;
-    
-    if (modoActual === 'TP_UNICO') {
-        selectTp.innerHTML = planFiltrado.map(p => {
-            const cod = p.cod_tp_completo || p.cod_tp;
-            return `<option value="${cod}">${p.alias_tp || cod}</option>`;
-        }).join('');
-    } else {
-        selectTp.innerHTML = `<option value="TODOS_PLAN">Todos los TPs del Período</option>` +
-            planFiltrado.map(p => {
-                const cod = p.cod_tp_completo || p.cod_tp;
-                return `<option value="${cod}">${p.alias_tp || cod}</option>`;
-            }).join('');
-    }
-
-    const ejecutarDibujoMatriz = () => {
-        const modo = selectModo.value;
-        const tpSeleccionado = selectTp.value;
-
-        dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, tpSeleccionado, contenedorTabla);
-    };
-
-    selectModo.onchange = () => {
-        // Reconstruir selector de TPs al cambiar de modo
+    const actualizarOpcionesSelect = () => {
         if (selectModo.value === 'TP_UNICO') {
             selectTp.innerHTML = planFiltrado.map(p => {
                 const cod = p.cod_tp_completo || p.cod_tp;
@@ -173,11 +145,20 @@ function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumn
                     return `<option value="${cod}">${p.alias_tp || cod}</option>`;
                 }).join('');
         }
+    };
+
+    const ejecutarDibujoMatriz = () => {
+        dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, selectModo.value, selectTp.value, contenedorTabla);
+    };
+
+    selectModo.onchange = () => {
+        actualizarOpcionesSelect();
         ejecutarDibujoMatriz();
     };
 
     selectTp.onchange = ejecutarDibujoMatriz;
 
+    actualizarOpcionesSelect();
     ejecutarDibujoMatriz();
 }
 
@@ -189,46 +170,57 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
 
     let columnasEvaluadas = [];
 
-    if (modo === 'TP_UNICO') {
-        const tpPlan = planFiltrado.find(p => (p.cod_tp_completo || p.cod_tp) === tpSeleccionado);
-        const cod = tpSeleccionado;
-        const alias = tpPlan ? (tpPlan.alias_tp || cod) : cod;
+    const tpsAIncluir = (modo === 'TP_UNICO') 
+        ? [tpSeleccionado]
+        : (tpSeleccionado === 'TODOS_PLAN' ? planFiltrado.map(p => p.cod_tp_completo || p.cod_tp) : [tpSeleccionado]);
+
+    tpsAIncluir.forEach(cod => {
+        const tpPlan = planFiltrado.find(p => (p.cod_tp_completo || p.cod_tp) === cod);
+        const aliasTP = tpPlan ? (tpPlan.alias_tp || cod) : cod;
 
         const muestra = Object.values(mapaUltimaNotaAlumno).find(item => item.tp === cod && Array.isArray(item.respuestas));
+        
         if (muestra && muestra.respuestas) {
-            muestra.respuestas.forEach((preg, idx) => {
-                columnasEvaluadas.push({
-                    key: `${cod}_p${idx}`,
-                    tpCod: cod,
-                    idxPreg: idx,
-                    label: `Pregunta ${idx + 1}`,
-                    subLabel: preg.saber_evaluado || preg.consigna ? preg.consigna.substring(0, 30) + '...' : alias
-                });
+            muestra.respuestas.forEach((preg, idxPreg) => {
+                let respObj = preg.respuesta;
+
+                if (typeof respObj === 'string' && respObj.trim().startsWith('{')) {
+                    try { respObj = JSON.parse(respObj); } catch(e){}
+                }
+
+                // SI ES UN VERDADERO / FALSO O TABLA DE MATRIZ (Objeto con sub-claves)
+                if (respObj && typeof respObj === 'object' && !Array.isArray(respObj)) {
+                    Object.keys(respObj).forEach((subKey) => {
+                        const numItem = parseInt(subKey) + 1;
+                        
+                        let textoSub = `P${idxPreg + 1} - Ítem ${numItem}`;
+                        let descSub = preg.saber_evaluado || (preg.opciones && Array.isArray(preg.opciones) ? preg.opciones[subKey] : null) || aliasTP;
+
+                        columnasEvaluadas.push({
+                            key: `${cod}_p${idxPreg}_sub${subKey}`,
+                            tpCod: cod,
+                            idxPreg: idxPreg,
+                            subKey: subKey,
+                            esSubItem: true,
+                            label: textoSub,
+                            subLabel: descSub
+                        });
+                    });
+                } 
+                // SI ES UNA PREGUNTA ESTÁNDAR (Opción Múltiple / Única)
+                else {
+                    columnasEvaluadas.push({
+                        key: `${cod}_p${idxPreg}`,
+                        tpCod: cod,
+                        idxPreg: idxPreg,
+                        esSubItem: false,
+                        label: `Pregunta ${idxPreg + 1}`,
+                        subLabel: preg.saber_evaluado || preg.consigna ? preg.consigna.substring(0, 30) + '...' : aliasTP
+                    });
+                }
             });
         }
-    } else {
-        // MODO MICRO-SABERES (Agrupado por tema/eje)
-        const tpsAIncluir = (tpSeleccionado === 'TODOS_PLAN') 
-            ? planFiltrado.map(p => p.cod_tp_completo || p.cod_tp)
-            : [tpSeleccionado];
-
-        tpsAIncluir.forEach(cod => {
-            const muestra = Object.values(mapaUltimaNotaAlumno).find(item => item.tp === cod && Array.isArray(item.respuestas));
-            if (muestra && muestra.respuestas) {
-                muestra.respuestas.forEach((preg, idx) => {
-                    const saberNombre = preg.saber_evaluado || preg.eje_tematico || `Saber P${idx + 1} (${cod})`;
-                    
-                    columnasEvaluadas.push({
-                        key: `${cod}_p${idx}`,
-                        tpCod: cod,
-                        idxPreg: idx,
-                        label: saberNombre,
-                        subLabel: `Origen: ${cod}`
-                    });
-                });
-            }
-        });
-    }
+    });
 
     if (columnasEvaluadas.length === 0) {
         contenedor.innerHTML = `<div class="alert alert-info text-center py-3">Esperando entregas registradas para la selección actual.</div>`;
@@ -246,7 +238,7 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
         html += `
             <th title="${col.subLabel}" style="max-width: 130px; font-size: 0.73rem; vertical-align: bottom;" class="px-2 py-1">
                 <div class="fw-bold">${col.label}</div>
-                <div class="text-muted fw-normal" style="font-size: 0.65rem;">${col.subLabel}</div>
+                <div class="text-muted fw-normal" style="font-size: 0.65rem; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${col.subLabel}</div>
             </th>`;
     });
 
@@ -268,8 +260,26 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
 
             if (entrega && Array.isArray(entrega.respuestas) && entrega.respuestas[col.idxPreg]) {
                 const preg = entrega.respuestas[col.idxPreg];
-                const esOk = preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true || 
-                             (preg.opcionSeleccionada !== undefined && preg.opcionSeleccionada === preg.opcionCorrecta);
+                let esOk = false;
+
+                if (col.esSubItem) {
+                    let respAlumno = preg.respuesta;
+                    if (typeof respAlumno === 'string' && respAlumno.trim().startsWith('{')) {
+                        try { respAlumno = JSON.parse(respAlumno); } catch(e){}
+                    }
+
+                    let respCorrecta = preg.correcta;
+                    if (typeof respCorrecta === 'string' && respCorrecta.trim().startsWith('{')) {
+                        try { respCorrecta = JSON.parse(respCorrecta); } catch(e){}
+                    }
+
+                    if (respAlumno && respCorrecta && respAlumno[col.subKey] !== undefined) {
+                        esOk = String(respAlumno[col.subKey]).trim().toUpperCase() === String(respCorrecta[col.subKey]).trim().toUpperCase();
+                    }
+                } else {
+                    esOk = preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true || 
+                           (preg.opcionSeleccionada !== undefined && preg.opcionSeleccionada === preg.opcionCorrecta);
+                }
 
                 evaluadosAlumno++;
                 if (esOk) aciertosAlumno++;
