@@ -44,7 +44,6 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
         if (resultados) {
             resultados.forEach(r => {
                 const cod = r.tp_codigo || r.cod_tp;
-                
                 const perteneceAlPlan = planFiltrado.some(p => (p.cod_tp_completo || p.cod_tp) === cod);
                 if (!perteneceAlPlan) return;
 
@@ -71,7 +70,7 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
         // Renderizar gráficos estándar
         renderizarGraficosBasicos(planFiltrado, notasPorTp, todasLasNotasValidas, mapaUltimaNotaAlumno);
 
-        // Renderizar el MAPA DE CALOR DE SABERES
+        // Renderizar el MAPA DE CALOR CON SELECTORES Y MODOS DE VISTA
         renderizarMapaDeCalorSaberes(alumnos || [], planFiltrado, mapaUltimaNotaAlumno);
 
         if (selectFiltroEstructura) {
@@ -84,18 +83,15 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
 }
 
 function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumno) {
-    let contenedor = document.getElementById('contenedorMapaCalorSaberes');
+    let contenedorCard = document.getElementById('wrapperMapaCalorCard');
 
-    if (!contenedor) {
-        // Buscamos la tarjeta donde está el selector de período
+    if (!contenedorCard) {
         const selectFiltro = document.getElementById('filtroAnaliticaEstructura');
         let cardPadre = selectFiltro ? selectFiltro.closest('.card, .row, .mb-4') : null;
 
         if (!cardPadre) {
             const chartCanvas = document.getElementById('chartRendimientoTp');
-            if (chartCanvas) {
-                cardPadre = chartCanvas.closest('.row');
-            }
+            if (chartCanvas) cardPadre = chartCanvas.closest('.row');
         }
 
         if (!cardPadre) return;
@@ -105,68 +101,156 @@ function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumn
         divWrapper.id = 'wrapperMapaCalorCard';
         divWrapper.innerHTML = `
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-                    <h5 class="mb-0 fw-bold">🔥 Mapa de Calor de Saberes Requeridos (Matriz de Error Común)</h5>
-                    <span class="badge bg-warning text-dark">Diagnóstico Fino</span>
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
+                    <h5 class="mb-0 fw-bold">🔥 Mapa de Calor de Saberes Requeridos</h5>
+                    <span class="badge bg-warning text-dark">Matriz de Error Común</span>
                 </div>
                 <div class="card-body p-3">
-                    <p class="small text-muted mb-3">
-                        Esta matriz desglosa el nivel de logro por cada <strong>Micro-saber / Habilidad evaluada</strong> en las consignas. 
-                        Permite identificar de un vistazo vacíos conceptuales generales del grupo (columnas rojas) o dificultades individuales (filas rojas).
-                    </p>
+                    <!-- BARRA DE CONTROLES Y MODOS DE VISTA -->
+                    <div class="row g-3 align-items-center mb-3 bg-light p-2 rounded border">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold mb-1">🔍 Modo de Visualización:</label>
+                            <select id="selectModoMapaCalor" class="form-select form-select-sm">
+                                <option value="TP_UNICO">Analizar 1 TP Específico (Pregunta por Pregunta)</option>
+                                <option value="MICRO_SABERES">Agrupar por Micro-Saberes (Cruzando TPs)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold mb-1">📌 Seleccionar TP(s) a incluir:</label>
+                            <select id="selectFiltroTpMapaCalor" class="form-select form-select-sm">
+                                <!-- Opciones cargadas dinámicamente -->
+                            </select>
+                        </div>
+                    </div>
+
                     <div id="contenedorMapaCalorSaberes" class="table-responsive"></div>
                 </div>
             </div>`;
 
-        // Insertar justo debajo de la tarjeta de Filtro de Períodos
         cardPadre.parentNode.insertBefore(divWrapper, cardPadre.nextSibling);
-        contenedor = document.getElementById('contenedorMapaCalorSaberes');
     }
 
-    if (!contenedor) return;
+    const selectModo = document.getElementById('selectModoMapaCalor');
+    const selectTp = document.getElementById('selectFiltroTpMapaCalor');
+    const contenedorTabla = document.getElementById('contenedorMapaCalorSaberes');
 
+    if (!selectModo || !selectTp || !contenedorTabla) return;
+
+    // Llenar el selector de TPs según el modo actual
+    const modoActual = selectModo.value;
+    
+    if (modoActual === 'TP_UNICO') {
+        selectTp.innerHTML = planFiltrado.map(p => {
+            const cod = p.cod_tp_completo || p.cod_tp;
+            return `<option value="${cod}">${p.alias_tp || cod}</option>`;
+        }).join('');
+    } else {
+        selectTp.innerHTML = `<option value="TODOS_PLAN">Todos los TPs del Período</option>` +
+            planFiltrado.map(p => {
+                const cod = p.cod_tp_completo || p.cod_tp;
+                return `<option value="${cod}">${p.alias_tp || cod}</option>`;
+            }).join('');
+    }
+
+    const ejecutarDibujoMatriz = () => {
+        const modo = selectModo.value;
+        const tpSeleccionado = selectTp.value;
+
+        dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, tpSeleccionado, contenedorTabla);
+    };
+
+    selectModo.onchange = () => {
+        // Reconstruir selector de TPs al cambiar de modo
+        if (selectModo.value === 'TP_UNICO') {
+            selectTp.innerHTML = planFiltrado.map(p => {
+                const cod = p.cod_tp_completo || p.cod_tp;
+                return `<option value="${cod}">${p.alias_tp || cod}</option>`;
+            }).join('');
+        } else {
+            selectTp.innerHTML = `<option value="TODOS_PLAN">Todos los TPs del Período</option>` +
+                planFiltrado.map(p => {
+                    const cod = p.cod_tp_completo || p.cod_tp;
+                    return `<option value="${cod}">${p.alias_tp || cod}</option>`;
+                }).join('');
+        }
+        ejecutarDibujoMatriz();
+    };
+
+    selectTp.onchange = ejecutarDibujoMatriz;
+
+    ejecutarDibujoMatriz();
+}
+
+function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, tpSeleccionado, contenedor) {
     if (alumnos.length === 0 || planFiltrado.length === 0) {
-        contenedor.innerHTML = `<div class="alert alert-light text-center py-3 text-muted">Sin datos suficientes para generar la matriz térmica de saberes.</div>`;
+        contenedor.innerHTML = `<div class="alert alert-light text-center py-3 text-muted">Sin datos suficientes.</div>`;
         return;
     }
 
-    // Extraer micro-saberes / ítems evaluados
-    const mapaSaberes = []; 
-    planFiltrado.forEach(p => {
-        const cod = p.cod_tp_completo || p.cod_tp;
-        const alias = p.alias_tp || cod;
-        
+    let columnasEvaluadas = [];
+
+    if (modo === 'TP_UNICO') {
+        const tpPlan = planFiltrado.find(p => (p.cod_tp_completo || p.cod_tp) === tpSeleccionado);
+        const cod = tpSeleccionado;
+        const alias = tpPlan ? (tpPlan.alias_tp || cod) : cod;
+
         const muestra = Object.values(mapaUltimaNotaAlumno).find(item => item.tp === cod && Array.isArray(item.respuestas));
         if (muestra && muestra.respuestas) {
             muestra.respuestas.forEach((preg, idx) => {
-                const nombreSaber = preg.saber_evaluado || preg.eje_tematico || `P${idx + 1}: ${preg.consigna ? preg.consigna.substring(0, 22) + '...' : alias}`;
-                mapaSaberes.push({
+                columnasEvaluadas.push({
                     key: `${cod}_p${idx}`,
                     tpCod: cod,
                     idxPreg: idx,
-                    label: nombreSaber
+                    label: `Pregunta ${idx + 1}`,
+                    subLabel: preg.saber_evaluado || preg.consigna ? preg.consigna.substring(0, 30) + '...' : alias
                 });
             });
         }
-    });
+    } else {
+        // MODO MICRO-SABERES (Agrupado por tema/eje)
+        const tpsAIncluir = (tpSeleccionado === 'TODOS_PLAN') 
+            ? planFiltrado.map(p => p.cod_tp_completo || p.cod_tp)
+            : [tpSeleccionado];
 
-    if (mapaSaberes.length === 0) {
-        contenedor.innerHTML = `<div class="alert alert-info text-center py-3">Esperando las primeras entregas para mapear la matriz de errores conceptuales.</div>`;
+        tpsAIncluir.forEach(cod => {
+            const muestra = Object.values(mapaUltimaNotaAlumno).find(item => item.tp === cod && Array.isArray(item.respuestas));
+            if (muestra && muestra.respuestas) {
+                muestra.respuestas.forEach((preg, idx) => {
+                    const saberNombre = preg.saber_evaluado || preg.eje_tematico || `Saber P${idx + 1} (${cod})`;
+                    
+                    columnasEvaluadas.push({
+                        key: `${cod}_p${idx}`,
+                        tpCod: cod,
+                        idxPreg: idx,
+                        label: saberNombre,
+                        subLabel: `Origen: ${cod}`
+                    });
+                });
+            }
+        });
+    }
+
+    if (columnasEvaluadas.length === 0) {
+        contenedor.innerHTML = `<div class="alert alert-info text-center py-3">Esperando entregas registradas para la selección actual.</div>`;
         return;
     }
 
-    // Construir la tabla térmica
+    // Renderizar HTML de la Tabla
     let html = `
         <table class="table table-bordered align-middle text-center mb-0" style="font-size: 0.8rem;">
             <thead class="table-light">
                 <tr>
-                    <th class="text-start sticky-col bg-light" style="min-width: 180px;">Estudiante / Micro-Saber</th>`;
-    
-    mapaSaberes.forEach(s => {
-        html += `<th title="${s.label}" style="max-width: 110px; font-size: 0.72rem; vertical-align: bottom;" class="px-2 py-1">${s.label}</th>`;
+                    <th class="text-start sticky-col bg-light" style="min-width: 180px;">Estudiante</th>`;
+
+    columnasEvaluadas.forEach(col => {
+        html += `
+            <th title="${col.subLabel}" style="max-width: 130px; font-size: 0.73rem; vertical-align: bottom;" class="px-2 py-1">
+                <div class="fw-bold">${col.label}</div>
+                <div class="text-muted fw-normal" style="font-size: 0.65rem;">${col.subLabel}</div>
+            </th>`;
     });
 
-    html += `   <th class="bg-light" style="min-width: 90px;">% Dominio</th>
+    html += `   <th class="bg-light" style="min-width: 90px;">% Logro</th>
                 </tr>
             </thead>
             <tbody>`;
@@ -178,26 +262,22 @@ function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumn
         html += `<tr>`;
         html += `<td class="text-start fw-semibold sticky-col bg-white">${alumno.apellido}, ${alumno.nombre}</td>`;
 
-        mapaSaberes.forEach(saber => {
-            const clave = `${alumno.id}_${saber.tpCod}`;
+        columnasEvaluadas.forEach(col => {
+            const clave = `${alumno.id}_${col.tpCod}`;
             const entrega = mapaUltimaNotaAlumno[clave];
 
-            if (entrega && Array.isArray(entrega.respuestas) && entrega.respuestas[saber.idxPreg]) {
-                const preg = entrega.respuestas[saber.idxPreg];
+            if (entrega && Array.isArray(entrega.respuestas) && entrega.respuestas[col.idxPreg]) {
+                const preg = entrega.respuestas[col.idxPreg];
                 const esOk = preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true || 
                              (preg.opcionSeleccionada !== undefined && preg.opcionSeleccionada === preg.opcionCorrecta);
-                
+
                 evaluadosAlumno++;
                 if (esOk) aciertosAlumno++;
 
                 const bgClass = esOk ? 'bg-success text-white' : 'bg-danger text-white';
                 const simbolo = esOk ? '✓' : '✗';
-                const estadoTexto = esOk ? 'Logrado' : 'Error Común / Re-enseñar';
 
-                html += `
-                    <td class="${bgClass} fw-bold" style="cursor: pointer;" title="${alumno.apellido}: ${saber.label} -> ${estadoTexto}">
-                        ${simbolo}
-                    </td>`;
+                html += `<td class="${bgClass} fw-bold" title="${alumno.apellido}: ${col.label}">${simbolo}</td>`;
             } else {
                 html += `<td class="bg-light text-muted" title="Sin realizar">-</td>`;
             }
