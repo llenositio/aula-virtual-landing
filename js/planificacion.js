@@ -14,7 +14,10 @@ export async function cargarPlanificacionCurso(cursoId, supabase, callbackRender
             .order('periodo_evaluativo', { ascending: true })
             .order('unidad_tematica', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Error al consultar planificación:', error);
+            throw error;
+        }
 
         if (!plan || plan.length === 0) {
             contenedor.innerHTML = `
@@ -57,9 +60,13 @@ export async function cargarPlanificacionCurso(cursoId, supabase, callbackRender
             agrupado[periodo].forEach(tp => {
                 const cod = tp.cod_tp_completo || tp.cod_tp;
                 const alias = tp.alias_tp || cod;
-                const esDiferenciado = Array.isArray(tp.alumnos_asignados) && tp.alumnos_asignados.length > 0;
+                
+                // Lectura segura del campo de alumnos asignados
+                const asignadosArr = (tp.alumnos_asignados && Array.isArray(tp.alumnos_asignados)) ? tp.alumnos_asignados : [];
+                const esDiferenciado = asignadosArr.length > 0;
+
                 const badgeAlcance = esDiferenciado 
-                    ? `<span class="badge bg-warning text-dark">🎯 ${tp.alumnos_asignados.length} Alumno(s) Seleccionado(s)</span>`
+                    ? `<span class="badge bg-warning text-dark">🎯 ${asignadosArr.length} Alumno(s) Seleccionado(s)</span>`
                     : `<span class="badge bg-info text-dark">👥 Todo el Curso</span>`;
 
                 html += `
@@ -89,7 +96,7 @@ export async function cargarPlanificacionCurso(cursoId, supabase, callbackRender
 
         contenedor.innerHTML = html;
 
-        // Eventos para eliminar TPs del plan
+        // Eliminar TP de la planificación
         document.querySelectorAll('.btn-eliminar-tp-plan').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const idTp = e.currentTarget.dataset.id;
@@ -107,7 +114,7 @@ export async function cargarPlanificacionCurso(cursoId, supabase, callbackRender
         });
 
     } catch (err) {
-        contenedor.innerHTML = `<div class="alert alert-danger">Error al cargar la planificación: ${err.message}</div>`;
+        contenedor.innerHTML = `<div class="alert alert-danger my-3">Error al cargar la planificación de la base de datos: ${err.message}</div>`;
     }
 }
 
@@ -184,7 +191,6 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
     const unidad = document.getElementById('inputNuevaUnidad')?.value.trim() || 'Unidad 1';
     const fechaVenc = document.getElementById('inputFechaVencimientoTP')?.value || null;
 
-    // Lógica para detectar si la asignación es a Todo el Curso o Diferenciada
     const radioAlcance = document.querySelector('input[name="radioAlcanceAsignacion"]:checked')?.value || 'TODOS';
     let alumnosSeleccionados = null;
 
@@ -204,7 +210,7 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
     }
 
     try {
-        const { error } = await supabase.from('curso_planificacion').insert([{
+        const datosInsert = {
             curso_id: cursoId,
             cod_tp: codTp,
             cod_tp_completo: codTp,
@@ -212,9 +218,15 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
             unidad_tematica: unidad,
             alias_tp: codTp,
             fecha_vencimiento: fechaVenc,
-            alumnos_asignados: alumnosSeleccionados, // null si es para todos, array de IDs si es diferenciado
             activo: true
-        }]);
+        };
+
+        // Enviar alumnos_asignados solo si el usuario seleccionó diferenciado
+        if (alumnosSeleccionados !== null) {
+            datosInsert.alumnos_asignados = alumnosSeleccionados;
+        }
+
+        const { error } = await supabase.from('curso_planificacion').insert([datosInsert]);
 
         if (error) throw error;
 
