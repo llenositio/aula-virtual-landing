@@ -16,6 +16,25 @@
         .nav-pills .nav-link.active { background-color: #0d6efd; color: #fff; }
         .nav-pills .nav-link { color: #495057; background-color: #e9ecef; }
         .chart-container { position: relative; height: 260px; width: 100%; }
+
+        /* Estilos de la Matriz de Seguimiento */
+        .style-matriz td, .style-matriz th { font-size: 0.85rem; padding: 6px; position: relative; vertical-align: middle; }
+        .sticky-col { position: sticky; left: 0; background-color: #f8f9fa; z-index: 2; text-align: left; min-width: 170px; }
+        .celda-tp { cursor: pointer; transition: all 0.2s; }
+        .fila-nota { font-weight: bold; border-radius: 4px; padding: 2px 4px; font-size: 0.85rem; }
+        .fila-meta { font-size: 0.72rem; color: #6c757d; margin-top: 2px; }
+
+        /* Colores Diagnósticos de la Matriz */
+        .diag-fluido     { background-color: #d1e7dd; color: #0f5132; } /* Verde */
+        .diag-busqueda   { background-color: #fff3cd; color: #664d03; } /* Amarillo */
+        .diag-dificultad { background-color: #ffe5d0; color: #9a3412; } /* Naranja */
+        .diag-frustrado  { background-color: #f8d7da; color: #842029; } /* Rojo */
+        .estado-sin-hacer{ background-color: #e9ecef; color: #6c757d; }
+        .estado-no-asignado { background-color: #f8f9fa; color: #adb5bd; }
+
+        /* Tooltip Flotante */
+        .celda-tp .tooltip-info { display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); width: 220px; background: #212529; color: #fff; padding: 8px; border-radius: 6px; font-size: 0.75rem; text-align: left; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.3); pointer-events: none; line-height: 1.3; }
+        .celda-tp:hover .tooltip-info { display: block; }
     </style>
 </head>
 <body>
@@ -234,18 +253,15 @@
                             </button>
                         </div>
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Alumno</th>
-                                        <th>Estado General</th>
-                                        <th>Promedio</th>
-                                        <th class="text-end">Informes</th>
+                            <table class="table table-bordered align-middle mb-0 text-center style-matriz">
+                                <thead class="table-dark text-nowrap">
+                                    <tr id="tablaMatrizHeader">
+                                        <th class="text-start sticky-col">Alumno</th>
+                                        <!-- Columnas dinámicas de TPs mapeadas por JS -->
                                     </tr>
                                 </thead>
                                 <tbody id="tablaMatrizBody">
-                                    <tr><td colspan="5" class="text-center py-4">Cargando nómina...</td></tr>
+                                    <tr><td colspan="100%" class="text-center py-4 text-muted">Cargando nómina y calificaciones...</td></tr>
                                 </tbody>
                             </table>
                         </div>
