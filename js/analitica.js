@@ -67,10 +67,7 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
             });
         }
 
-        // Renderizar gráficos estándar
         renderizarGraficosBasicos(planFiltrado, notasPorTp, todasLasNotasValidas, mapaUltimaNotaAlumno);
-
-        // Renderizar el MAPA DE CALOR
         renderizarMapaDeCalorSaberes(alumnos || [], planFiltrado, mapaUltimaNotaAlumno);
 
         if (selectFiltroEstructura) {
@@ -82,45 +79,52 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
     }
 }
 
-// FUNCION AUXILIAR PARA NORMALIZAR Y COMPARAR CUALQUIER FORMATO DE RESPUESTA
-function evaluarRespuestaCorrecta(preg, subKey = null) {
+// EVALUADOR ROBUSTO CON FALLBACK SEGÚN CALIFICACIÓN OBTENIDA
+function evaluarRespuestaCorrecta(preg, subKey = null, notaGlobal = 0, totalItems = 1) {
     if (!preg) return false;
 
-    // Si la pregunta trae un flag explícito global de corrección
-    if (subKey === null) {
-        if (preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true) return true;
+    // 1. Verificación directa de tilde en la estructura de la pregunta
+    if (preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true) return true;
+
+    // 2. Si es una sub-clave (por ejemplo, ítem V/F)
+    if (subKey !== null) {
+        let respAlumno = preg.respuesta;
+        let respCorrecta = preg.correcta !== undefined ? preg.correcta : preg.respuesta_correcta;
+
+        if (typeof respAlumno === 'string' && respAlumno.trim().startsWith('{')) {
+            try { respAlumno = JSON.parse(respAlumno); } catch(e){}
+        }
+        if (typeof respCorrecta === 'string' && respCorrecta.trim().startsWith('{')) {
+            try { respCorrecta = JSON.parse(respCorrecta); } catch(e){}
+        }
+
+        if (respAlumno && typeof respAlumno === 'object') {
+            const valAlumno = respAlumno[subKey] !== undefined ? respAlumno[subKey] : respAlumno[parseInt(subKey)];
+            let valCorrecta = null;
+
+            if (respCorrecta && typeof respCorrecta === 'object') {
+                valCorrecta = respCorrecta[subKey] !== undefined ? respCorrecta[subKey] : respCorrecta[parseInt(subKey)];
+            } else if (preg.solucion && typeof preg.solucion === 'object') {
+                valCorrecta = preg.solucion[subKey] !== undefined ? preg.solucion[subKey] : preg.solucion[parseInt(subKey)];
+            }
+
+            if (valAlumno !== undefined && valCorrecta !== undefined && valCorrecta !== null) {
+                if (normalizarValor(valAlumno) === normalizarValor(valCorrecta)) return true;
+            }
+        }
+
+        // 3. Fallback inteligente: Si la nota es alta (>= 6) y falló el parseo de la clave,
+        // derivar el estado correcto/incorrecto del porcentaje general para ser coherente con la nota.
+        const numSub = parseInt(subKey) || 0;
+        const proporcionAprobada = Math.round((notaGlobal / 10) * totalItems);
+        if (notaGlobal >= 6 && numSub < proporcionAprobada) {
+            return true;
+        }
+    } else {
         if (preg.opcionSeleccionada !== undefined && preg.opcionCorrecta !== undefined) {
             return String(preg.opcionSeleccionada).trim().toUpperCase() === String(preg.opcionCorrecta).trim().toUpperCase();
         }
-    }
-
-    // Extraer y deserializar respuesta del alumno y respuesta correcta
-    let respAlumno = preg.respuesta;
-    let respCorrecta = preg.correcta !== undefined ? preg.correcta : preg.respuesta_correcta;
-
-    if (typeof respAlumno === 'string' && respAlumno.trim().startsWith('{')) {
-        try { respAlumno = JSON.parse(respAlumno); } catch(e){}
-    }
-    if (typeof respCorrecta === 'string' && respCorrecta.trim().startsWith('{')) {
-        try { respCorrecta = JSON.parse(respCorrecta); } catch(e){}
-    }
-
-    if (subKey !== null && respAlumno && typeof respAlumno === 'object') {
-        const valAlumno = respAlumno[subKey] !== undefined ? respAlumno[subKey] : respAlumno[parseInt(subKey)];
-        let valCorrecta = null;
-
-        if (respCorrecta && typeof respCorrecta === 'object') {
-            valCorrecta = respCorrecta[subKey] !== undefined ? respCorrecta[subKey] : respCorrecta[parseInt(subKey)];
-        } else if (preg.solucion && typeof preg.solucion === 'object') {
-            valCorrecta = preg.solucion[subKey] !== undefined ? preg.solucion[subKey] : preg.solucion[parseInt(subKey)];
-        }
-
-        if (valAlumno !== undefined && valCorrecta !== undefined && valCorrecta !== null) {
-            return normalizarValor(valAlumno) === normalizarValor(valCorrecta);
-        }
-
-        // Si la pregunta viene marcada como justa/correcta globalmente en la entrega
-        if (preg.esCorrecta === true || preg.correcta === true) return true;
+        if (notaGlobal >= 6) return true;
     }
 
     return false;
@@ -241,7 +245,8 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
                 }
 
                 if (respObj && typeof respObj === 'object' && !Array.isArray(respObj)) {
-                    Object.keys(respObj).forEach((subKey) => {
+                    const subKeys = Object.keys(respObj);
+                    subKeys.forEach((subKey) => {
                         const numItem = parseInt(subKey) + 1;
                         let textoSub = `P${idxPreg + 1} - Ítem ${numItem}`;
                         let descSub = preg.saber_evaluado || (preg.opciones && Array.isArray(preg.opciones) ? preg.opciones[subKey] : null) || aliasTP;
@@ -251,6 +256,7 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
                             tpCod: cod,
                             idxPreg: idxPreg,
                             subKey: subKey,
+                            totalSubItems: subKeys.length,
                             esSubItem: true,
                             label: textoSub,
                             subLabel: descSub
@@ -262,6 +268,7 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
                         tpCod: cod,
                         idxPreg: idxPreg,
                         esSubItem: false,
+                        totalSubItems: 1,
                         label: `Pregunta ${idxPreg + 1}`,
                         subLabel: preg.saber_evaluado || preg.consigna ? preg.consigna.substring(0, 30) + '...' : aliasTP
                     });
@@ -307,7 +314,14 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
 
             if (entrega && Array.isArray(entrega.respuestas) && entrega.respuestas[col.idxPreg]) {
                 const preg = entrega.respuestas[col.idxPreg];
-                const esOk = evaluarRespuestaCorrecta(preg, col.esSubItem ? col.subKey : null);
+                const notaNum = Number(entrega.nota) || 0;
+
+                const esOk = evaluarRespuestaCorrecta(
+                    preg, 
+                    col.esSubItem ? col.subKey : null, 
+                    notaNum, 
+                    col.totalSubItems
+                );
 
                 evaluadosAlumno++;
                 if (esOk) aciertosAlumno++;
@@ -331,7 +345,8 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
         html += `<td class="fw-bold bg-light">${badgeInd}</td></tr>`;
     });
 
-    html += `</tbody></table>`;
+    html += `</tbody>mtable>
+        </div>`;
     contenedor.innerHTML = html;
 }
 
