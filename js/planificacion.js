@@ -1,12 +1,10 @@
 // js/planificacion.js
 
-let bancoTPsMemoria = [];
+let bancoGlobalTPs = [];
 
-export async function cargarPlanificacionCurso(cursoId, supabase, renderizarMatrizFn) {
-    const contenedor = document.getElementById('contenedorPlanificacionDocente');
+export async function cargarPlanificacionCurso(cursoId, supabase, callbackRenderMatriz) {
+    const contenedor = document.getElementById('contenedorPlanificacion');
     if (!contenedor) return;
-
-    contenedor.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><div class="mt-2 text-muted">Cargando planificación...</div></div>';
 
     try {
         const { data: plan, error } = await supabase
@@ -14,300 +12,216 @@ export async function cargarPlanificacionCurso(cursoId, supabase, renderizarMatr
             .select('*')
             .eq('curso_id', cursoId)
             .order('periodo_evaluativo', { ascending: true })
-            .order('unidad_tematica', { ascending: true })
-            .order('orden', { ascending: true });
+            .order('unidad_tematica', { ascending: true });
 
         if (error) throw error;
 
         if (!plan || plan.length === 0) {
             contenedor.innerHTML = `
-                <div class="alert alert-info text-center my-4 p-4 shadow-sm border-0">
-                    <h5>📌 Este curso aún no tiene un Plan de Trabajo armado</h5>
-                    <p class="text-muted small mb-0">Utilizá la barra superior para definir un Período, Unidad y seleccionar un TP del Banco.</p>
+                <div class="alert alert-light text-center py-4 border">
+                    <p class="text-muted mb-0">No hay Trabajos Prácticos asignados a este curso todavía.</p>
                 </div>`;
             return;
         }
 
-        const estructura = {};
-        plan.forEach(item => {
-            const p = item.periodo_evaluativo || '1° Trimestre';
-            const u = item.unidad_tematica || 'Unidad 1';
-            if (!estructura[p]) estructura[p] = {};
-            if (!estructura[p][u]) estructura[p][u] = [];
-            estructura[p][u].push(item);
+        // Agrupar TPs por Período
+        const agrupado = {};
+        plan.forEach(tp => {
+            const periodo = tp.periodo_evaluativo || 'Sin Período Definido';
+            if (!agrupado[periodo]) agrupado[periodo] = [];
+            agrupado[periodo].push(tp);
         });
 
         let html = '';
-        for (const [periodo, unidades] of Object.entries(estructura)) {
+        Object.keys(agrupado).forEach(periodo => {
             html += `
                 <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-dark text-white fw-bold py-2 d-flex justify-content-between align-items-center">
-                        <span>🗓️ ${periodo}</span>
-                        <span class="badge bg-secondary">${Object.keys(unidades).length} Unidad(es)</span>
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2 px-3">
+                        <h6 class="mb-0 fw-bold">📅 ${periodo}</h6>
+                        <span class="badge bg-secondary">${agrupado[periodo].length} TP(s)</span>
                     </div>
-                    <div class="card-body p-3">`;
-
-            for (const [unidad, tps] of Object.entries(unidades)) {
-                html += `
-                    <div class="mb-4">
-                        <h6 class="fw-bold text-primary border-bottom pb-2">📖 ${unidad}</h6>
+                    <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light small">
                                     <tr>
-                                        <th>Código Técnico</th>
-                                        <th>Alias para el Alumno</th>
-                                        <th class="text-center">Estado</th>
+                                        <th>Código / Alias</th>
+                                        <th>Unidad Temática</th>
+                                        <th>Alcance / Asignación</th>
+                                        <th>Fecha Vencimiento</th>
                                         <th class="text-end">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>`;
 
-                tps.forEach(tp => {
-                    const codigoTecnico = tp.cod_tp_completo || tp.cod_tp;
-                    const aliasActual = tp.alias_tp || codigoTecnico;
-                    const switchChecked = tp.activo ? 'checked' : '';
-                    const badgeEstado = tp.activo 
-                        ? '<span class="badge bg-success ms-2">Visible</span>' 
-                        : '<span class="badge bg-secondary ms-2">Oculto</span>';
+            agrupado[periodo].forEach(tp => {
+                const cod = tp.cod_tp_completo || tp.cod_tp;
+                const alias = tp.alias_tp || cod;
+                const esDiferenciado = Array.isArray(tp.alumnos_asignados) && tp.alumnos_asignados.length > 0;
+                const badgeAlcance = esDiferenciado 
+                    ? `<span class="badge bg-warning text-dark">🎯 ${tp.alumnos_asignados.length} Alumno(s) Seleccionado(s)</span>`
+                    : `<span class="badge bg-info text-dark">👥 Todo el Curso</span>`;
 
-                    html += `
-                        <tr>
-                            <td><code>${codigoTecnico}</code></td>
-                            <td>
-                                <div class="input-group input-group-sm" style="max-width: 380px;">
-                                    <input type="text" class="form-control" id="alias-input-${tp.id}" value="${aliasActual}">
-                                    <button class="btn btn-outline-secondary btn-guardar-alias" data-id="${tp.id}">💾</button>
-                                </div>
-                            </td>
-                            <td class="text-center">
-                                <div class="form-check form-switch d-inline-block">
-                                    <input class="form-check-input switch-visibilidad-tp" type="checkbox" data-id="${tp.id}" ${switchChecked}>
-                                </div>
-                                ${badgeEstado}
-                            </td>
-                            <td class="text-end">
-                                <button class="btn btn-sm btn-outline-danger btn-eliminar-tp-plan" data-id="${tp.id}">🗑️ Quitar</button>
-                            </td>
-                        </tr>`;
-                });
+                html += `
+                    <tr>
+                        <td>
+                            <div class="fw-bold text-dark">${alias}</div>
+                            <small class="text-muted">${cod}</small>
+                        </td>
+                        <td>${tp.unidad_tematica || '-'}</td>
+                        <td>${badgeAlcance}</td>
+                        <td>${tp.fecha_vencimiento ? new Date(tp.fecha_vencimiento).toLocaleDateString() : '<span class="text-muted small">Sin límite</span>'}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-danger btn-eliminar-tp-plan" data-id="${tp.id}" title="Quitar de la planificación">
+                                🗑️ Quitar
+                            </button>
+                        </td>
+                    </tr>`;
+            });
 
-                html += `</tbody></table></div></div>`;
-            }
-
-            html += `</div></div>`;
-        }
+            html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>`;
+        });
 
         contenedor.innerHTML = html;
-        vincularEventosPlanificacion(cursoId, supabase, renderizarMatrizFn);
+
+        // Eventos para eliminar TPs del plan
+        document.querySelectorAll('.btn-eliminar-tp-plan').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const idTp = e.currentTarget.dataset.id;
+                if (confirm('¿Estás seguro de que querés quitar este TP del plan de trabajo?')) {
+                    try {
+                        const { error: errDel } = await supabase.from('curso_planificacion').delete().eq('id', idTp);
+                        if (errDel) throw errDel;
+                        cargarPlanificacionCurso(cursoId, supabase, callbackRenderMatriz);
+                        if (callbackRenderMatriz) callbackRenderMatriz(cursoId);
+                    } catch (err) {
+                        alert('Error al quitar TP: ' + err.message);
+                    }
+                }
+            });
+        });
 
     } catch (err) {
-        console.error('Error al cargar planificación:', err);
-        contenedor.innerHTML = `<div class="alert alert-danger">Error al cargar planificación: ${err.message}</div>`;
+        contenedor.innerHTML = `<div class="alert alert-danger">Error al cargar la planificación: ${err.message}</div>`;
     }
-}
-
-function vincularEventosPlanificacion(cursoId, supabase, renderizarMatrizFn) {
-    document.querySelectorAll('.btn-guardar-alias').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const id = e.currentTarget.dataset.id;
-            const nuevoAlias = document.getElementById(`alias-input-${id}`).value;
-            const { error } = await supabase.from('curso_planificacion').update({ alias_tp: nuevoAlias }).eq('id', id);
-            if (error) alert('Error: ' + error.message);
-            else {
-                alert('✅ Alias guardado correctamente.');
-                renderizarMatrizFn(cursoId);
-            }
-        });
-    });
-
-    document.querySelectorAll('.switch-visibilidad-tp').forEach(sw => {
-        sw.addEventListener('change', async (e) => {
-            const id = e.currentTarget.dataset.id;
-            const activo = e.currentTarget.checked;
-            const { error } = await supabase.from('curso_planificacion').update({ activo }).eq('id', id);
-            if (error) { alert('Error: ' + error.message); e.currentTarget.checked = !activo; }
-            else {
-                cargarPlanificacionCurso(cursoId, supabase, renderizarMatrizFn);
-                renderizarMatrizFn(cursoId);
-            }
-        });
-    });
-
-    document.querySelectorAll('.btn-eliminar-tp-plan').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            if (!confirm('¿Seguro que querés quitar este TP de la planificación?')) return;
-            const id = e.currentTarget.dataset.id;
-            const { error } = await supabase.from('curso_planificacion').delete().eq('id', id);
-            if (error) alert('Error: ' + error.message);
-            else {
-                cargarPlanificacionCurso(cursoId, supabase, renderizarMatrizFn);
-                renderizarMatrizFn(cursoId);
-            }
-        });
-    });
 }
 
 export async function cargarBancoGlobal(supabase) {
-    const contenedor = document.getElementById('listaBancoTPs');
-    if (!contenedor) return;
-
-    contenedor.innerHTML = `<div class="list-group-item text-center text-muted py-3 small">Cargando catálogo del Banco Global...</div>`;
-
     try {
-        let { data, error } = await supabase
-            .from('banco_preguntas')
-            .select('cod_tp, cod_tp_completo, titulo_humano, anio, nivel_bloom')
-            .order('cod_tp_completo');
-
-        if (error || !data || data.length === 0) {
-            const resFallback = await supabase
-                .from('tps_matematica')
-                .select('cod_tp, cod_tp_completo, titulo_humano, anio, nivel_bloom')
-                .order('cod_tp');
-
-            if (!resFallback.error && resFallback.data && resFallback.data.length > 0) {
-                data = resFallback.data;
-                error = null;
-            }
-        }
-
+        const { data, error } = await supabase.from('banco_tp').select('*').order('cod_tp', { ascending: true });
         if (error) throw error;
-
-        const mapaTPs = new Map();
-        (data || []).forEach(item => {
-            const codigoFinal = item.cod_tp_completo || item.cod_tp;
-            if (codigoFinal && !mapaTPs.has(codigoFinal)) {
-                mapaTPs.set(codigoFinal, {
-                    cod_tp: codigoFinal,
-                    titulo: item.titulo_humano || 'Sin Título',
-                    anio: item.anio || 1,
-                    bloom: item.nivel_bloom || 'Comprender'
-                });
-            }
-        });
-
-        bancoTPsMemoria = Array.from(mapaTPs.values());
-        renderizarBancoTPs(bancoTPsMemoria, supabase);
-
+        bancoGlobalTPs = data || [];
+        renderizarBancoGlobal(bancoGlobalTPs, supabase);
     } catch (err) {
-        contenedor.innerHTML = `<div class="list-group-item text-center text-danger py-3 small">Error al conectar con el Banco Global: ${err.message}</div>`;
+        console.error('Error al cargar banco de TPs:', err);
     }
 }
 
-function renderizarBancoTPs(lista, supabase) {
-    const contenedor = document.getElementById('listaBancoTPs');
-    const contador = document.getElementById('cantTPsEncontrados');
+export function aplicarFiltrosBanco(supabase) {
+    const txt = (document.getElementById('filtroTextoTP')?.value || '').toLowerCase();
+    const bloom = document.getElementById('filtroBloomTP')?.value || 'TODOS';
+    const anio = document.getElementById('filtroAnioTP')?.value || 'TODOS';
+
+    const filtrados = bancoGlobalTPs.filter(tp => {
+        const coincideTxt = !txt || (tp.cod_tp || '').toLowerCase().includes(txt) || 
+                            (tp.titulo || '').toLowerCase().includes(txt) || 
+                            (tp.descripcion || '').toLowerCase().includes(txt);
+        const coincideBloom = bloom === 'TODOS' || tp.nivel_bloom === bloom;
+        const coincideAnio = anio === 'TODOS' || String(tp.anio) === anio;
+        return coincideTxt && coincideBloom && coincideAnio;
+    });
+
+    renderizarBancoGlobal(filtrados, supabase);
+}
+
+function renderizarBancoGlobal(lista, supabase) {
+    const contenedor = document.getElementById('contenedorListaBancoTP');
     if (!contenedor) return;
 
-    if (contador) contador.textContent = `${lista.length} disponibles`;
-
     if (lista.length === 0) {
-        contenedor.innerHTML = `<div class="list-group-item text-center text-muted py-4 small">No se encontraron TPs con los criterios ingresados.</div>`;
+        contenedor.innerHTML = `<div class="text-center text-muted py-4">No se encontraron TPs que coincidan con los filtros.</div>`;
         return;
     }
 
     contenedor.innerHTML = lista.map(tp => `
-        <div class="list-group-item py-3">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="card mb-2 border shadow-sm">
+            <div class="card-body p-3 d-flex justify-content-between align-items-center">
                 <div>
-                    <div class="fw-bold text-dark mb-1">
-                        ${tp.titulo}
-                        <span class="badge bg-info text-dark ms-2">${tp.bloom}</span>
-                        <span class="badge bg-secondary ms-1">${tp.anio}° Año</span>
-                    </div>
-                    <div class="small text-muted">Código: <code>${tp.cod_tp}</code></div>
+                    <span class="badge bg-primary me-2">${tp.cod_tp}</span>
+                    <span class="badge bg-outline-secondary border text-dark me-2">${tp.nivel_bloom || 'Nivel General'}</span>
+                    <h6 class="fw-bold d-inline text-dark mb-0">${tp.titulo || tp.cod_tp}</h6>
+                    <p class="small text-muted mb-0 mt-1">${tp.descripcion ? tp.descripcion.substring(0, 90) + '...' : 'Sin descripción'}</p>
                 </div>
-                <div>
-                    <button type="button" class="btn btn-sm btn-outline-secondary me-2 btn-preview-tp" data-cod="${tp.cod_tp}">👁️ Vista Previa</button>
-                    <button type="button" class="btn btn-sm btn-primary fw-bold btn-seleccionar-tp" data-cod="${tp.cod_tp}">+ Seleccionar TP</button>
-                </div>
-            </div>
-            <div class="mt-3 p-3 bg-light rounded border" id="preview-${encodeURIComponent(tp.cod_tp)}" style="display: none;">
-                <div class="spinner-border spinner-border-sm text-primary" role="status"></div> 
-                <span class="small text-muted ms-2">Generando ficha pedagógica...</span>
+                <button class="btn btn-sm btn-success fw-bold btn-seleccionar-tp-banco" data-cod="${tp.cod_tp}" data-titulo="${tp.titulo || tp.cod_tp}">
+                    ➕ Seleccionar
+                </button>
             </div>
         </div>`).join('');
 
-    document.querySelectorAll('.btn-seleccionar-tp').forEach(btn => {
+    document.querySelectorAll('.btn-seleccionar-tp-banco').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            ejecutarAsignacionTP(e.currentTarget.dataset.cod);
-        });
-    });
+            const cod = e.currentTarget.dataset.cod;
+            const inputTarget = document.getElementById('inputCodTPAsignar');
+            if (inputTarget) inputTarget.value = cod;
 
-    document.querySelectorAll('.btn-preview-tp').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const codTp = e.currentTarget.dataset.cod;
-            const containerPreview = document.getElementById(`preview-${encodeURIComponent(codTp)}`);
-            if (!containerPreview) return;
-
-            if (containerPreview.style.display !== 'none') {
-                containerPreview.style.display = 'none';
-                return;
-            }
-
-            containerPreview.style.display = 'block';
-            if (containerPreview.dataset.cargado === 'true') return;
-
-            try {
-                const { data: preguntas, error } = await supabase
-                    .from('banco_preguntas')
-                    .select('titulo_humano, consigna, nivel_bloom, especialidad_nivel, N_de_orden_pregunta, tipo, opciones')
-                    .or(`cod_tp_completo.eq.${codTp},cod_tp.eq.${codTp}`)
-                    .order('N_de_orden_pregunta', { ascending: true });
-
-                if (error) throw error;
-
-                if (!preguntas || preguntas.length === 0) {
-                    containerPreview.innerHTML = `<div class="text-muted small">No hay datos suficientes para generar la vista previa.</div>`;
-                    return;
-                }
-
-                const tituloGeneral = preguntas[0].titulo_humano || 'Trabajo Práctico';
-                const especialidad = preguntas[0].especialidad_nivel || 'General';
-                const totalPreguntas = preguntas.length;
-
-                let resenaHTML = `
-                    <div class="mb-3 p-2 bg-white rounded border-start border-primary border-3 shadow-sm">
-                        <h6 class="fw-bold text-primary mb-1">📌 Ficha Pedagógica: ${tituloGeneral}</h6>
-                        <p class="small text-dark mb-1">Este trabajo práctico consta de <strong>${totalPreguntas} consignas de evaluación</strong> orientadas al nivel <strong>${especialidad}</strong>.</p>
-                    </div>`;
-
-                containerPreview.innerHTML = resenaHTML;
-                containerPreview.dataset.cargado = 'true';
-                if (window.MathJax && window.MathJax.typesetPromise) { MathJax.typesetPromise(); }
-
-            } catch (err) {
-                containerPreview.innerHTML = `<div class="text-danger small">Error al cargar vista previa: ${err.message}</div>`;
+            const modalEl = document.getElementById('modalAsignarTP');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
             }
         });
     });
 }
 
-export function aplicarFiltrosBanco(supabase) {
-    const filtroTexto = (document.getElementById('filtroTextoTP')?.value || '').toLowerCase();
-    const filtroAnio = document.getElementById('filtroAnioTP')?.value || '';
-    const filtroBloom = document.getElementById('filtroBloomTP')?.value || '';
+export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
+    const codTp = document.getElementById('inputCodTPAsignar')?.value;
+    const periodo = document.getElementById('inputNuevoPeriodo')?.value.trim() || '1° Trimestre';
+    const unidad = document.getElementById('inputNuevaUnidad')?.value.trim() || 'Unidad 1';
+    const fechaVenc = document.getElementById('inputFechaVencimientoTP')?.value || null;
 
-    const resultado = bancoTPsMemoria.filter(tp => {
-        const coincideTexto = tp.titulo.toLowerCase().includes(filtroTexto) || tp.cod_tp.toLowerCase().includes(filtroTexto);
-        const coincideAnio = !filtroAnio || tp.anio.toString() === filtroAnio;
-        const coincideBloom = !filtroBloom || tp.bloom.toLowerCase() === filtroBloom.toLowerCase();
-        return coincideTexto && coincideAnio && coincideBloom;
-    });
+    // Lógica para detectar si la asignación es a Todo el Curso o Diferenciada
+    const radioAlcance = document.querySelector('input[name="radioAlcanceAsignacion"]:checked')?.value || 'TODOS';
+    let alumnosSeleccionados = null;
 
-    renderizarBancoTPs(resultado, supabase);
-}
+    if (radioAlcance === 'SELECCION') {
+        const checkboxes = document.querySelectorAll('.chk-alumno-diferenciado:checked');
+        alumnosSeleccionados = Array.from(checkboxes).map(c => c.value);
 
-export function ejecutarAsignacionTP(codTp) {
-    const elemCod = document.getElementById('inputCodTPAsignar');
-    const elemTexto = document.getElementById('inputCodTPAsignarTexto');
-    if (elemCod) elemCod.value = codTp;
-    if (elemTexto) elemTexto.value = codTp;
+        if (alumnosSeleccionados.length === 0) {
+            alert('Por favor seleccioná al menos un alumno para realizar la asignación diferenciada.');
+            return;
+        }
+    }
 
-    const modalEl = document.getElementById('modalAsignarTP');
-    if (modalEl) {
-        const modalInstance = bootstrap.Modal.getInstance(modalEl);
-        if (modalInstance) modalInstance.hide();
+    if (!cursoId || !codTp) {
+        alert('Por favor seleccioná un TP antes de agregar.');
+        return;
+    }
+
+    try {
+        const { error } = await supabase.from('curso_planificacion').insert([{
+            curso_id: cursoId,
+            cod_tp: codTp,
+            cod_tp_completo: codTp,
+            periodo_evaluativo: periodo,
+            unidad_tematica: unidad,
+            alias_tp: codTp,
+            fecha_vencimiento: fechaVenc,
+            alumnos_asignados: alumnosSeleccionados, // null si es para todos, array de IDs si es diferenciado
+            activo: true
+        }]);
+
+        if (error) throw error;
+
+        document.getElementById('inputCodTPAsignar').value = '';
+        if (callbackExito) callbackExito();
+
+    } catch (err) {
+        alert('Error al asignar TP: ' + err.message);
     }
 }
