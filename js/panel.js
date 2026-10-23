@@ -1892,6 +1892,55 @@ async function actualizarVistaPreviaInforme() {
 
         contenedorPrevia.innerHTML = htmlDocumento;
 
+        // Maquetación de la Pestaña 2: Vista Previa del Email
+        const contenedorEmail = document.getElementById('vistaPreviaEmailContainer');
+        if (contenedorEmail) {
+            const htmlEmail = `
+                <div style="font-family: Arial, sans-serif; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;">
+                    <div style="background: #212529; color: #ffffff; padding: 12px 16px; font-size: 0.82rem;">
+                        <div style="margin-bottom: 4px;"><strong>De:</strong> Equipo Docente &lt;notificaciones@aulavirtual.edu.ar&gt;</div>
+                        <div style="margin-bottom: 4px;"><strong>Para:</strong> ${alumnoInformeActual.emailTutor || 'Sin correo registrado'}</div>
+                        <div><strong>Asunto:</strong> 📊 Informe Pedagógico de Seguimiento: ${alumnoInformeActual.apellido}, ${alumnoInformeActual.nombre}</div>
+                    </div>
+
+                    <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 16px; font-size: 0.78rem; color: #475569; display: flex; align-items: center; gap: 8px;">
+                        <span>📎 <strong>Adjunto:</strong></span>
+                        <span style="background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-family: monospace;">Informe_Pedagogico_${alumnoInformeActual.apellido}_${alumnoInformeActual.nombre}.pdf</span>
+                    </div>
+
+                    <div style="padding: 20px; color: #1e293b; font-size: 0.85rem; line-height: 1.5;">
+                        <p>Estimado/a tutor/a de <strong>${alumnoInformeActual.nombre} ${alumnoInformeActual.apellido}</strong>,</p>
+
+                        <p>Le hacemos llegar el Informe Pedagógico de Seguimiento correspondiente a la materia <strong>${nombreCurso}</strong> (${nombreEscuela}).</p>
+
+                        <div style="background: #f1f5f9; border-left: 4px solid #0d6efd; padding: 10px 14px; margin: 15px 0; border-radius: 0 6px 6px 0;">
+                            <strong>📌 Resumen Ejecutivo de Evaluación:</strong>
+                            <ul style="margin: 6px 0 0 0; padding-left: 18px;">
+                                <li><strong>Promedio Académico:</strong> ${promedio} / 10</li>
+                                <li><strong>Evaluaciones Registradas:</strong> ${cantNotas} TPs</li>
+                                ${incluirFoco ? `<li><strong>Foco y Autonomía:</strong> ${textoAutonomia}</li>` : ''}
+                            </ul>
+                        </div>
+
+                        ${observacionDocente ? `
+                        <p><strong>Observación del Profesor:</strong><br>
+                        <em style="color: #475569;">"${observacionDocente}"</em></p>
+                        ` : ''}
+
+                        <p>En el documento PDF adjunto a este correo encontrará el desglose pormenorizado de los Trabajos Prácticos, calificaciones e ítems conceptuales a reforzar.</p>
+
+                        <p style="margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 12px; color: #64748b; font-size: 0.78rem;">
+                            Atentamente,<br>
+                            <strong>Equipo Docente de Matemática</strong><br>
+                            ${nombreEscuela}
+                        </p>
+                    </div>
+                </div>
+            `;
+
+            contenedorEmail.innerHTML = htmlEmail;
+        }
+
     } catch (err) {
         console.error('Error al generar la vista previa del informe:', err);
         contenedorPrevia.innerHTML = `<div class="alert alert-danger p-3 small">Error al generar la vista previa: ${err.message}</div>`;
