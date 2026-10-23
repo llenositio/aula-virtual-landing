@@ -29,7 +29,7 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
             ? plan.filter(p => p.periodo_evaluativo === periodoFiltro)
             : plan;
 
-        const { data: alumnos } = await supabase.from('alumnos').select('id').eq('curso_id', cursoId);
+        const { data: alumnos } = await supabase.from('alumnos').select('id, apellido, nombre').eq('curso_id', cursoId).order('apellido', { ascending: true });
         const idsAlumnos = alumnos ? alumnos.map(a => a.id) : [];
 
         const { data: resultados } = await supabase
@@ -53,6 +53,7 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
 
                 if (!mapaUltimaNotaAlumno[clave] || notaNum > mapaUltimaNotaAlumno[clave].nota) {
                     mapaUltimaNotaAlumno[clave] = {
+                        alumno_id: r.alumno_id,
                         nota: notaNum,
                         tp: cod,
                         respuestas: r.detalle_respuestas
@@ -67,163 +68,11 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
             });
         }
 
-        // 1. Rendimiento Global
-        const labelsTP = planFiltrado.map(p => {
-            const alias = p.alias_tp || p.cod_tp_completo || p.cod_tp;
-            return alias.length > 20 ? alias.substring(0, 18) + '...' : alias;
-        });
+        // Renderizar componentes gráficos existentes
+        renderizarGraficosBasicos(planFiltrado, notasPorTp, todasLasNotasValidas, mapaUltimaNotaAlumno);
 
-        const aprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp_completo || p.cod_tp] || []).filter(n => n >= 6).length);
-        const reprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp_completo || p.cod_tp] || []).filter(n => n < 6).length);
-
-        renderizarGrafico('chartRendimientoTp', 'bar', {
-            labels: labelsTP,
-            datasets: [
-                { label: 'Aprobados (≥6)', data: aprobadosData, backgroundColor: '#198754' },
-                { label: 'A Rehacer (<6)', data: reprobadosData, backgroundColor: '#dc3545' }
-            ]
-        }, {
-            scales: {
-                x: { stacked: true },
-                y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
-            }
-        });
-
-        // 2. Bloom Radar
-        const promGeneral = todasLasNotasValidas.length > 0
-            ? Math.round((todasLasNotasValidas.reduce((a, b) => a + b, 0) / todasLasNotasValidas.length) * 10)
-            : 0;
-
-        renderizarGrafico('chartBloomRadar', 'radar', {
-            labels: ['Recordar', 'Comprender', 'Aplicar', 'Analizar', 'Evaluar', 'Crear'],
-            datasets: [{
-                label: 'Dominio Real (%)',
-                data: [promGeneral, promGeneral, promGeneral, Math.max(0, promGeneral - 10), Math.max(0, promGeneral - 15), Math.max(0, promGeneral - 20)],
-                backgroundColor: 'rgba(13, 110, 253, 0.2)',
-                borderColor: '#0d6efd',
-                pointBackgroundColor: '#0d6efd'
-            }]
-        }, { scales: { r: { min: 0, max: 100 } } });
-
-        // 3. Distribucion
-        let sob = 0, apr = 0, riesg = 0;
-        todasLasNotasValidas.forEach(n => {
-            if (n >= 8) sob++;
-            else if (n >= 6) apr++;
-            else riesg++;
-        });
-
-        renderizarGrafico('chartNotasDistribucion', 'doughnut', {
-            labels: ['Sobresaliente (8-10)', 'Aprobado (6-7)', 'En Riesgo (<6)'],
-            datasets: [{
-                data: [sob, apr, riesg],
-                backgroundColor: ['#198754', '#0d6efd', '#dc3545']
-            }]
-        });
-
-        // 4. Diagnostico
-        const selectDiag = document.getElementById('selectTpDiagnostico');
-        if (selectDiag) {
-            selectDiag.innerHTML = '<option value="">Seleccionar TP para diagnosticar...</option>' +
-                planFiltrado.map(p => {
-                    const cod = p.cod_tp_completo || p.cod_tp;
-                    return `<option value="${cod}">${p.alias_tp || cod}</option>`;
-                }).join('');
-
-            if (planFiltrado.length > 0) {
-                selectDiag.value = planFiltrado[0].cod_tp_completo || planFiltrado[0].cod_tp;
-            }
-
-            const actualizarGraficoDiagnostico = (codSeleccionado) => {
-                if (!codSeleccionado) return;
-
-                const respsTp = Object.values(mapaUltimaNotaAlumno)
-                    .filter(item => item.tp === codSeleccionado && Array.isArray(item.respuestas))
-                    .map(item => item.respuestas);
-
-                if (respsTp.length === 0) {
-                    renderizarGrafico('chartDiagnosticoPreguntas', 'bar', {
-                        labels: ['Sin datos suficientes'],
-                        datasets: [{ label: '% Acierto', data: [0], backgroundColor: '#6c757d' }]
-                    });
-                    return;
-                }
-
-                let listaItemsEvaluados = [];
-
-                respsTp[0].forEach((preg, idxPreg) => {
-                    let respObj = preg.respuesta;
-                    if (typeof respObj === 'string' && respObj.trim().startsWith('{')) {
-                        try { respObj = JSON.parse(respObj); } catch(e){}
-                    }
-
-                    if (respObj && typeof respObj === 'object' && !Array.isArray(respObj)) {
-                        Object.keys(respObj).forEach((subKey) => {
-                            const numFila = parseInt(subKey) + 1;
-                            listaItemsEvaluados.push({
-                                label: `P${idxPreg + 1} - Ítem ${numFila}`,
-                                esSubItem: true,
-                                idxPreg: idxPreg,
-                                subKey: subKey
-                            });
-                        });
-                    } else {
-                        listaItemsEvaluados.push({
-                            label: `Pregunta ${idxPreg + 1}`,
-                            esSubItem: false,
-                            idxPreg: idxPreg
-                        });
-                    }
-                });
-
-                const porcentajesAcierto = listaItemsEvaluados.map(itemSpec => {
-                    const aciertos = respsTp.filter(r => {
-                        const preg = r[itemSpec.idxPreg];
-                        if (!preg) return false;
-
-                        if (itemSpec.esSubItem) {
-                            let respAlumno = preg.respuesta;
-                            if (typeof respAlumno === 'string' && respAlumno.trim().startsWith('{')) {
-                                try { respAlumno = JSON.parse(respAlumno); } catch(e){}
-                            }
-                            
-                            let respCorrecta = preg.correcta;
-                            if (typeof respCorrecta === 'string' && respCorrecta.trim().startsWith('{')) {
-                                try { respCorrecta = JSON.parse(respCorrecta); } catch(e){}
-                            }
-
-                            if (respAlumno && respCorrecta && respAlumno[itemSpec.subKey] !== undefined) {
-                                return String(respAlumno[itemSpec.subKey]).trim().toUpperCase() === 
-                                       String(respCorrecta[itemSpec.subKey]).trim().toUpperCase();
-                            }
-                            return false;
-                        } else {
-                            if (preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true) return true;
-                            if (preg.opcionSeleccionada !== undefined && preg.opcionCorrecta !== undefined) {
-                                return preg.opcionSeleccionada === preg.opcionCorrecta;
-                            }
-                            return false;
-                        }
-                    }).length;
-
-                    return Math.round((aciertos / respsTp.length) * 100);
-                });
-
-                renderizarGrafico('chartDiagnosticoPreguntas', 'bar', {
-                    labels: listaItemsEvaluados.map(i => i.label),
-                    datasets: [{
-                        label: '% Acierto por Ítem / Afirmación',
-                        data: porcentajesAcierto,
-                        backgroundColor: porcentajesAcierto.map(val => val < 60 ? '#dc3545' : '#0d6efd')
-                    }]
-                }, { 
-                    scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } } 
-                });
-            };
-
-            selectDiag.onchange = (e) => actualizarGraficoDiagnostico(e.target.value);
-            if (selectDiag.value) actualizarGraficoDiagnostico(selectDiag.value);
-        }
+        // Renderizar el nuevo MAPA DE CALOR DE SABERES
+        renderizarMapaDeCalorSaberes(alumnos || [], planFiltrado, mapaUltimaNotaAlumno);
 
         if (selectFiltroEstructura) {
             selectFiltroEstructura.onchange = () => cargarAnaliticaCurso(cursoId, supabase);
@@ -232,6 +81,187 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
     } catch (err) {
         console.error('Error al cargar analítica:', err);
     }
+}
+
+// =========================================================================
+// NUEVA FUNCIONALIDAD: MAPA DE CALOR DE SABERES Y ERRORES COMUNES
+// =========================================================================
+function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumno) {
+    let contenedor = document.getElementById('contenedorMapaCalorSaberes');
+    
+    // Si no existe el contenedor en el HTML, lo insertamos dinámicamente arriba de las gráficas
+    if (!contenedor) {
+        const areaAnalitica = document.getElementById('seccionAnaliticaContenido') || document.querySelector('#seccionDetalleCurso .row');
+        if (!areaAnalitica) return;
+
+        const divMapa = document.createElement('div');
+        divMapa.className = 'col-12 mb-4';
+        divMapa.innerHTML = `
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0 fw-bold">🔥 Mapa de Calor de Saberes Requeridos (Matriz de Error Común)</h5>
+                    <span class="badge bg-warning text-dark">Diagnóstico Fino</span>
+                </div>
+                <div class="card-body p-3">
+                    <p class="small text-muted mb-3">
+                        Esta matriz desglosa el nivel de logro por cada <strong>Micro-saber / Habilidad evaluada</strong> en las consignas. 
+                        Permite identificar de un vistazo vacíos conceptuales generales del grupo (columnas rojas) o dificultades individuales (filas rojas).
+                    </p>
+                    <div id="contenedorMapaCalorSaberes" class="table-responsive"></div>
+                </div>
+            </div>`;
+        
+        areaAnalitica.prepend(divMapa);
+        contenedor = document.getElementById('contenedorMapaCalorSaberes');
+    }
+
+    if (alumnos.length === 0 || planFiltrado.length === 0) {
+        contenedor.innerHTML = `<div class="alert alert-light text-center py-3 text-muted">Sin datos suficientes para generar la matriz térmica de saberes.</div>`;
+        return;
+    }
+
+    // Extraer micro-saberes / ítems evaluados
+    const mapaSaberes = []; 
+    planFiltrado.forEach(p => {
+        const cod = p.cod_tp_completo || p.cod_tp;
+        const alias = p.alias_tp || cod;
+        
+        // Buscar un set de respuestas modelo para extraer consignas o temas
+        const muestra = Object.values(mapaUltimaNotaAlumno).find(item => item.tp === cod && Array.isArray(item.respuestas));
+        if (muestra && muestra.respuestas) {
+            muestra.respuestas.forEach((preg, idx) => {
+                const nombreSaber = preg.saber_evaluado || preg.eje_tematico || `Saber P${idx + 1}: ${preg.consigna ? preg.consigna.substring(0, 25) + '...' : alias}`;
+                mapaSaberes.push({
+                    key: `${cod}_p${idx}`,
+                    tpCod: cod,
+                    idxPreg: idx,
+                    label: nombreSaber
+                });
+            });
+        }
+    });
+
+    if (mapaSaberes.length === 0) {
+        contenedor.innerHTML = `<div class="alert alert-info text-center py-3">Esperando las primeras entregas para mapear la matriz de errores conceptuales.</div>`;
+        return;
+    }
+
+    // Construir la tabla térmica
+    let html = `
+        <table class="table table-bordered align-middle text-center mb-0" style="font-size: 0.8rem;">
+            <thead class="table-light">
+                <tr>
+                    <th class="text-start sticky-col bg-light" style="min-width: 180px;">Estudiante / Micro-Saber</th>`;
+    
+    mapaSaberes.forEach(s => {
+        html += `<th title="${s.label}" style="max-width: 110px; font-size: 0.72rem; vertical-align: bottom;" class="px-2 py-1">${s.label}</th>`;
+    });
+
+    html += `   <th class="bg-light" style="min-width: 90px;">% Dominio</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    alumnos.forEach(alumno => {
+        let aciertosAlumno = 0;
+        let evaluadosAlumno = 0;
+
+        html += `<tr>`;
+        html += `<td class="text-start fw-semibold sticky-col bg-white">${alumno.apellido}, ${alumno.nombre}</td>`;
+
+        mapaSaberes.forEach(saber => {
+            const clave = `${alumno.id}_${saber.tpCod}`;
+            const entrega = mapaUltimaNotaAlumno[clave];
+
+            if (entrega && Array.isArray(entrega.respuestas) && entrega.respuestas[saber.idxPreg]) {
+                const preg = entrega.respuestas[saber.idxPreg];
+                const esOk = preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true || 
+                             (preg.opcionSeleccionada !== undefined && preg.opcionSeleccionada === preg.opcionCorrecta);
+                
+                evaluadosAlumno++;
+                if (esOk) aciertosAlumno++;
+
+                const bgClass = esOk ? 'bg-success text-white' : 'bg-danger text-white';
+                const simbolo = esOk ? '✓' : '✗';
+                const estadoTexto = esOk ? 'Logrado' : 'Error Común / Re-enseñar';
+
+                html += `
+                    <td class="${bgClass} fw-bold" style="cursor: pointer;" title="${alumno.apellido}: ${saber.label} -> ${estadoTexto}">
+                        ${simbolo}
+                    </td>`;
+            } else {
+                html += `<td class="bg-light text-muted" title="Sin realizar">-</td>`;
+            }
+        });
+
+        const pctIndividual = evaluadosAlumno > 0 ? Math.round((aciertosAlumno / evaluadosAlumno) * 100) : null;
+        let badgeInd = '<span class="text-muted">-</span>';
+        if (pctIndividual !== null) {
+            const colorInd = pctIndividual >= 70 ? 'bg-success' : pctIndividual >= 50 ? 'bg-warning text-dark' : 'bg-danger';
+            badgeInd = `<span class="badge ${colorInd}">${pctIndividual}%</span>`;
+        }
+
+        html += `<td class="fw-bold bg-light">${badgeInd}</td></tr>`;
+    });
+
+    html += `</tbody></table>`;
+    contenedor.innerHTML = html;
+}
+
+// =========================================================================
+// RENDERIZADO DE GRÁFICOS SECUNDARIOS
+// =========================================================================
+function renderizarGraficosBasicos(planFiltrado, notasPorTp, todasLasNotasValidas, mapaUltimaNotaAlumno) {
+    const labelsTP = planFiltrado.map(p => {
+        const alias = p.alias_tp || p.cod_tp_completo || p.cod_tp;
+        return alias.length > 20 ? alias.substring(0, 18) + '...' : alias;
+    });
+
+    const aprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp_completo || p.cod_tp] || []).filter(n => n >= 6).length);
+    const reprobadosData = planFiltrado.map(p => (notasPorTp[p.cod_tp_completo || p.cod_tp] || []).filter(n => n < 6).length);
+
+    renderizarGrafico('chartRendimientoTp', 'bar', {
+        labels: labelsTP,
+        datasets: [
+            { label: 'Aprobados (≥6)', data: aprobadosData, backgroundColor: '#198754' },
+            { label: 'A Rehacer (<6)', data: reprobadosData, backgroundColor: '#dc3545' }
+        ]
+    }, {
+        scales: {
+            x: { stacked: true },
+            y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+        }
+    });
+
+    const promGeneral = todasLasNotasValidas.length > 0
+        ? Math.round((todasLasNotasValidas.reduce((a, b) => a + b, 0) / todasLasNotasValidas.length) * 10)
+        : 0;
+
+    renderizarGrafico('chartBloomRadar', 'radar', {
+        labels: ['Recordar', 'Comprender', 'Aplicar', 'Analizar', 'Evaluar', 'Crear'],
+        datasets: [{
+            label: 'Dominio Real (%)',
+            data: [promGeneral, promGeneral, promGeneral, Math.max(0, promGeneral - 10), Math.max(0, promGeneral - 15), Math.max(0, promGeneral - 20)],
+            backgroundColor: 'rgba(13, 110, 253, 0.2)',
+            borderColor: '#0d6efd',
+            pointBackgroundColor: '#0d6efd'
+        }]
+    }, { scales: { r: { min: 0, max: 100 } } });
+
+    let sob = 0, apr = 0, riesg = 0;
+    todasLasNotasValidas.forEach(n => {
+        if (n >= 8) sob++;
+        else if (n >= 6) apr++;
+        else riesg++;
+    });
+
+    renderizarGrafico('chartNotasDistribucion', 'doughnut', {
+        labels: ['Sobresaliente (8-10)', 'Aprobado (6-7)', 'En Riesgo (<6)'],
+        datasets: [{
+            data: [sob, apr, riesg],
+            backgroundColor: ['#198754', '#0d6efd', '#dc3545']
+        }]
+    });
 }
 
 export function renderizarGrafico(canvasId, tipo, datos, opciones = {}) {
