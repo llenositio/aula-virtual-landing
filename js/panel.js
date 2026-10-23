@@ -465,14 +465,186 @@ async function verDetalleCurso(cursoId, nombre, escuela) {
     await cargarAnaliticaCurso(cursoId);
 }
 
-async function cargarAlumnosCurso(cursoId) {
-    const tablaMatrizBody = document.getElementById('tablaMatrizBody');
-    const tablaAlumnosBody = document.getElementById('tablaAlumnosBody');
+// =========================================================================
+// RENDERIZADO DE LA MATRIZ DE SEGUIMIENTO (PROCESAMIENTO DE GRID & CELDAS)
+// =========================================================================
+async function renderizarMatrizSeguimiento(cursoId) {
+    const headerRow = document.getElementById('tablaMatrizHeader');
+    const bodyContainer = document.getElementById('tablaMatrizBody');
 
-    if (tablaMatrizBody) tablaMatrizBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Cargando nómina...</td></tr>`;
+    if (!headerRow || !bodyContainer) return;
+
+    try {
+        // 1. Obtener los alumnos del curso
+        const { data: alumnos, error: errAlumnos } = await supabase
+            .from('alumnos')
+            .select('id, apellido, nombre, email_tutor')
+            .eq('curso_id', cursoId)
+            .order('apellido', { ascending: true });
+
+        if (errAlumnos) throw errAlumnos;
+
+        // 2. Obtener la planificación de TPs asignados al curso
+        const { data: tps, error: errTPs } = await supabase
+            .from('curso_planificacion')
+            .select('id, cod_tp, cod_tp_completo, alias_tp, fecha_vencimiento, activo')
+            .eq('curso_id', cursoId)
+            .eq('activo', true)
+            .order('created_at', { ascending: true });
+
+        if (errTPs) throw errTPs;
+
+        // 3. Obtener los resultados/intentos
+        const { data: resultados, error: errRes } = await supabase
+            .from('evaluaciones_resultados')
+            .select('alumno_id, tp_codigo, cod_tp, nota, tiempo_segundos, foco_perdido, created_at')
+            .eq('curso_id', cursoId);
+
+        if (errRes) throw errRes;
+
+        if (!tps || tps.length === 0) {
+            headerRow.innerHTML = `<th class="text-start sticky-col">Alumno</th><th class="text-center text-muted">Sin TPs asignados</th>`;
+            bodyContainer.innerHTML = `<tr><td colspan="2" class="text-center py-4 text-muted">Aún no hay Trabajos Prácticos cargados en la planificación.</td></tr>`;
+            return;
+        }
+
+        // Encabezado de la Matriz (Nombres de Fantasía / Alias)
+        let htmlHeader = `<th class="text-start sticky-col">Alumno</th>`;
+        tps.forEach(tp => {
+            const tituloFantasia = tp.alias_tp || tp.cod_tp_completo || tp.cod_tp;
+            const codTecnico = tp.cod_tp_completo || tp.cod_tp;
+            htmlHeader += `
+                <th class="text-center" style="min-width: 125px;">
+                    <div class="fw-bold text-truncate" style="max-width: 130px;" title="${tituloFantasia}">${tituloFantasia}</div>
+                    <div class="text-muted fw-normal" style="font-size: 0.68rem;">${codTecnico}</div>
+                </th>`;
+        });
+        headerRow.innerHTML = htmlHeader;
+
+        if (!alumnos || alumnos.length === 0) {
+            bodyContainer.innerHTML = `<tr><td colspan="${tps.length + 1}" class="text-center py-4 text-muted">No hay alumnos registrados en esta comisión.</td></tr>`;
+            return;
+        }
+
+        let htmlBody = '';
+        const ahora = new Date();
+
+        alumnos.forEach(alumno => {
+            htmlBody += `<tr>`;
+            htmlBody += `<td class="sticky-col fw-semibold">${alumno.apellido || 'SIN APELLIDO'}, ${alumno.nombre || 'SIN NOMBRE'}</td>`;
+
+            tps.forEach(tp => {
+                const codBuscar = tp.cod_tp_completo || tp.cod_tp;
+                
+                // Buscar entrega coincidente
+                const entrega = (resultados || []).find(r => 
+                    r.alumno_id === alumno.id && 
+                    ((r.tp_codigo && r.tp_codigo === codBuscar) || (r.cod_tp && r.cod_tp === codBuscar))
+                );
+
+                const fechaVenc = tp.fecha_vencimiento ? new Date(tp.fecha_vencimiento) : null;
+                const estaVencido = fechaVenc && ahora > fechaVenc;
+
+                // CASO 1: Entregado / Resuelto
+                if (entrega) {
+                    const nota = parseFloat(entrega.nota || 0);
+                    const fugas = entrega.foco_perdido || 0;
+                    const mins = Math.floor((entrega.tiempo_segundos || 0) / 60);
+                    const segs = (entrega.tiempo_segundos || 0) % 60;
+                    const tiempoTexto = `${mins}m ${segs}s`;
+
+                    let tagAtraso = '';
+                    let esTardio = false;
+                    if (fechaVenc && new Date(entrega.created_at) > fechaVenc) {
+                        const diffDias = Math.ceil((new Date(entrega.created_at) - fechaVenc) / (1000 * 60 * 60 * 24));
+                        tagAtraso = ` | <span class="text-danger fw-bold">+${diffDias}d</span>`;
+                        esTardio = true;
+                    }
+
+                    // Matriz de 4 Cuadrantes
+                    let claseDiag = '';
+                    let iconoDiag = '';
+                    let descDiag = '';
+
+                    if (nota >= 6 && fugas <= 1) {
+                        claseDiag = 'diag-fluido'; iconoDiag = '🟢';
+                        descDiag = 'Aprobado con alta autonomía y foco continuo.';
+                    } else if (nota >= 6 && fugas > 1) {
+                        claseDiag = 'diag-busqueda'; iconoDiag = '🟡';
+                        descDiag = 'Aprobado con fugas de pantalla (foco inconstante / consulta de material).';
+                    } else if (nota < 6 && fugas <= 1) {
+                        claseDiag = 'diag-dificultad'; iconoDiag = '🟠';
+                        descDiag = 'Reprobado a pesar de mantener la concentración. Dificultad conceptual real.';
+                    } else {
+                        claseDiag = 'diag-frustrado'; iconoDiag = '🔴';
+                        descDiag = 'Reprobado con múltiples fugas de pantalla. Señal de frustración o abandono temporal.';
+                    }
+
+                    htmlBody += `
+                        <td class="celda-tp">
+                            <div class="fila-nota ${claseDiag}">${nota} ${iconoDiag}</div>
+                            <div class="fila-meta"><span>${fugas} fugas</span>${tagAtraso}</div>
+                            <div class="tooltip-info">
+                                <strong>${alumno.apellido}, ${alumno.nombre}</strong><br>
+                                📌 <em>${tp.alias_tp || codBuscar}</em><br>
+                                • Calificación: <strong>${nota}/10</strong><br>
+                                • Interrupciones: <strong>${fugas} fugas</strong><br>
+                                • Tiempo dedicado: <strong>${tiempoTexto}</strong><br>
+                                ${esTardio ? '• Estado: <span style="color:#f87171;">Entregado fuera de término</span><br>' : '• Estado: Entregado a tiempo<br>'}
+                                💡 <em>${descDiag}</em>
+                            </div>
+                        </td>`;
+                } 
+                // CASO 2: Vencido sin hacer
+                else if (estaVencido) {
+                    htmlBody += `
+                        <td class="celda-tp">
+                            <div class="fila-nota estado-sin-hacer">Sin Hacer</div>
+                            <div class="fila-meta"><span class="text-danger fw-semibold">Vencido</span></div>
+                            <div class="tooltip-info">
+                                <strong>${alumno.apellido}, ${alumno.nombre}</strong><br>
+                                📌 <em>${tp.alias_tp || codBuscar}</em><br>
+                                • Estado: <strong>Vencido sin entregar</strong><br>
+                                • Fecha Límite: ${fechaVenc.toLocaleDateString()}
+                            </div>
+                        </td>`;
+                } 
+                // CASO 3: Pendiente a tiempo
+                else {
+                    htmlBody += `
+                        <td class="celda-tp">
+                            <div class="fila-nota estado-no-asignado">Pendiente</div>
+                            <div class="fila-meta"><span class="text-muted">A tiempo</span></div>
+                            <div class="tooltip-info">
+                                <strong>${alumno.apellido}, ${alumno.nombre}</strong><br>
+                                📌 <em>${tp.alias_tp || codBuscar}</em><br>
+                                • Estado: <strong>En curso (Aún no entregado)</strong><br>
+                                ${fechaVenc ? '• Vence el: ' + fechaVenc.toLocaleDateString() : '• Sin fecha límite definida'}
+                            </div>
+                        </td>`;
+                }
+            });
+
+            htmlBody += `</tr>`;
+        });
+
+        bodyContainer.innerHTML = htmlBody;
+
+    } catch (err) {
+        console.error("Error al renderizar la matriz de seguimiento:", err);
+        bodyContainer.innerHTML = `<tr><td colspan="100%" class="text-center py-4 text-danger">Error al cargar la matriz de seguimiento: ${err.message}</td></tr>`;
+    }
+}
+
+async function cargarAlumnosCurso(cursoId) {
+    const tablaAlumnosBody = document.getElementById('tablaAlumnosBody');
     if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">Cargando datos...</td></tr>`;
 
     try {
+        // 1. Renderizar la Matriz Principal de Seguimiento
+        await renderizarMatrizSeguimiento(cursoId);
+
+        // 2. Renderizar la Tabla Secundaría de Accesos (PINs y Emails)
         const { data: alumnos, error } = await supabase
             .from('alumnos')
             .select('*')
@@ -482,61 +654,8 @@ async function cargarAlumnosCurso(cursoId) {
         if (error) throw error;
 
         if (!alumnos || alumnos.length === 0) {
-            const msjVacio = `<tr><td colspan="7" class="text-center text-muted py-3">No hay alumnos inscriptos en este curso.</td></tr>`;
-            if (tablaMatrizBody) tablaMatrizBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No hay alumnos inscriptos.</td></tr>`;
-            if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = msjVacio;
+            if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">No hay alumnos inscriptos en este curso.</td></tr>`;
             return;
-        }
-
-        const idsAlumnos = alumnos.map(a => a.id);
-        const { data: notasData } = await supabase
-            .from('evaluaciones_resultados')
-            .select('alumno_id, nota')
-            .in('alumno_id', idsAlumnos);
-
-        const notasPorAlumno = {};
-        if (notasData) {
-            notasData.forEach(n => {
-                const id = n.alumno_id;
-                const val = Number(n.nota) || 0;
-                if (!notasPorAlumno[id]) notasPorAlumno[id] = [];
-                notasPorAlumno[id].push(val);
-            });
-        }
-
-        if (tablaMatrizBody) {
-            tablaMatrizBody.innerHTML = alumnos.map((al, index) => {
-                const misNotas = notasPorAlumno[al.id] || [];
-                let promedioTexto = '- / 10';
-                let badgeEstado = '<span class="badge bg-secondary">Sin entregas</span>';
-
-                if (misNotas.length > 0) {
-                    const maxNota = Math.max(...misNotas);
-                    promedioTexto = `${maxNota.toFixed(1)} / 10`;
-
-                    if (maxNota >= 6) {
-                        badgeEstado = '<span class="badge bg-success">Aprobado</span>';
-                    } else {
-                        badgeEstado = '<span class="badge bg-danger">A rehacer</span>';
-                    }
-                }
-
-                return `
-                    <tr>
-                        <td class="fw-bold">${index + 1}</td>
-                        <td class="fw-bold">${al.apellido || ''}, ${al.nombre || ''}</td>
-                        <td>${badgeEstado}</td>
-                        <td class="fw-bold text-primary">${promedioTexto}</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary btn-ver-detalle-alumno" 
-                                    data-id="${al.id}" 
-                                    data-nombre="${al.apellido || ''}, ${al.nombre || ''}">
-                                👁️ Ver Detalle
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
         }
 
         if (tablaAlumnosBody) {
@@ -580,8 +699,7 @@ async function cargarAlumnosCurso(cursoId) {
         }
 
     } catch (err) {
-        console.error('Error al cargar alumnos:', err);
-        if (tablaMatrizBody) tablaMatrizBody.innerHTML = `<tr><td colspan="5" class="text-danger py-3">Error: ${err.message}</td></tr>`;
+        console.error('Error al cargar la nómina de alumnos:', err);
         if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-danger py-3">Error: ${err.message}</td></tr>`;
     }
 }
@@ -785,7 +903,10 @@ function vincularEventosPlanificacion(cursoId) {
             const nuevoAlias = document.getElementById(`alias-input-${id}`).value;
             const { error } = await supabase.from('curso_planificacion').update({ alias_tp: nuevoAlias }).eq('id', id);
             if (error) alert('Error: ' + error.message);
-            else alert('✅ Alias guardado correctamente.');
+            else {
+                alert('✅ Alias guardado correctamente.');
+                renderizerMatrizSeguimiento(cursoId);
+            }
         });
     });
 
@@ -795,7 +916,10 @@ function vincularEventosPlanificacion(cursoId) {
             const activo = e.currentTarget.checked;
             const { error } = await supabase.from('curso_planificacion').update({ activo }).eq('id', id);
             if (error) { alert('Error: ' + error.message); e.currentTarget.checked = !activo; }
-            else cargarPlanificacionCurso(cursoId);
+            else {
+                cargarPlanificacionCurso(cursoId);
+                renderizarMatrizSeguimiento(cursoId);
+            }
         });
     });
 
@@ -805,7 +929,10 @@ function vincularEventosPlanificacion(cursoId) {
             const id = e.currentTarget.dataset.id;
             const { error } = await supabase.from('curso_planificacion').delete().eq('id', id);
             if (error) alert('Error: ' + error.message);
-            else cargarPlanificacionCurso(cursoId);
+            else {
+                cargarPlanificacionCurso(cursoId);
+                renderizarMatrizSeguimiento(cursoId);
+            }
         });
     });
 }
@@ -850,6 +977,7 @@ document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () 
         document.getElementById('inputCodTPAsignar').value = '';
         document.getElementById('inputCodTPAsignarTexto').value = '';
         cargarPlanificacionCurso(cursoActualId);
+        renderizarMatrizSeguimiento(cursoActualId);
 
     } catch (err) {
         alert('Error al agregar TP al plan: ' + err.message);
@@ -991,7 +1119,7 @@ async function cargarAnaliticaCurso(cursoId) {
                 selectDiag.value = planFiltrado[0].cod_tp_completo || planFiltrado[0].cod_tp;
             }
 
-         const actualizarGraficoDiagnostico = (codSeleccionado) => {
+            const actualizarGraficoDiagnostico = (codSeleccionado) => {
                 if (!codSeleccionado) return;
 
                 const respsTp = Object.values(mapaUltimaNotaAlumno)
@@ -1006,19 +1134,15 @@ async function cargarAnaliticaCurso(cursoId) {
                     return;
                 }
 
-                // Desglosa ítems normales y sub-preguntas de Matrices V/F
                 let listaItemsEvaluados = [];
 
-                // Estudiamos la estructura del primer envío
                 respsTp[0].forEach((preg, idxPreg) => {
                     let respObj = preg.respuesta;
                     
-                    // Si viene como string JSON, intentamos parsearlo
                     if (typeof respObj === 'string' && respObj.trim().startsWith('{')) {
                         try { respObj = JSON.parse(respObj); } catch(e){}
                     }
 
-                    // Caso A: Es una matriz/objeto V/F con múltiples ítems internos (ej: {"0":"V", "1":"F"})
                     if (respObj && typeof respObj === 'object' && !Array.isArray(respObj)) {
                         Object.keys(respObj).forEach((subKey) => {
                             const numFila = parseInt(subKey) + 1;
@@ -1030,7 +1154,6 @@ async function cargarAnaliticaCurso(cursoId) {
                             });
                         });
                     } 
-                    // Caso B: Es una pregunta estándar (Opción Múltiple o V/F individual)
                     else {
                         listaItemsEvaluados.push({
                             label: `Pregunta ${idxPreg + 1}`,
@@ -1040,14 +1163,12 @@ async function cargarAnaliticaCurso(cursoId) {
                     }
                 });
 
-                // Calculamos el % de aciertos exacto por cada barra desglosada
                 const porcentajesAcierto = listaItemsEvaluados.map(itemSpec => {
                     const aciertos = respsTp.filter(r => {
                         const preg = r[itemSpec.idxPreg];
                         if (!preg) return false;
 
                         if (itemSpec.esSubItem) {
-                            // Evaluación para sub-ítems de V/F
                             let respAlumno = preg.respuesta;
                             if (typeof respAlumno === 'string' && respAlumno.trim().startsWith('{')) {
                                 try { respAlumno = JSON.parse(respAlumno); } catch(e){}
@@ -1064,7 +1185,6 @@ async function cargarAnaliticaCurso(cursoId) {
                             }
                             return false;
                         } else {
-                            // Evaluación para pregunta estándar
                             if (preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true) return true;
                             if (preg.opcionSeleccionada !== undefined && preg.opcionCorrecta !== undefined) {
                                 return preg.opcionSeleccionada === preg.opcionCorrecta;
@@ -1089,7 +1209,6 @@ async function cargarAnaliticaCurso(cursoId) {
                     scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } } 
                 });
             };
-          
 
             selectDiag.onchange = (e) => actualizarGraficoDiagnostico(e.target.value);
             if (selectDiag.value) actualizarGraficoDiagnostico(selectDiag.value);
@@ -1469,7 +1588,7 @@ if (formEditarCurso) {
 }
 
 // =========================================================================
-// INFORME DETALLADO ALUMNO POR ALUMNO (PASO 2)
+// INFORME DETALLADO ALUMNO POR ALUMNO
 // =========================================================================
 function vincularEventosDetalleAlumno(cursoId) {
     document.querySelectorAll('.btn-ver-detalle-alumno').forEach(btn => {
