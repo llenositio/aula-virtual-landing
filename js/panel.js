@@ -1731,8 +1731,15 @@ async function abrirModalInformeTutor() {
     const modalEl = document.getElementById('modalInformeTutor');
     if (!modalEl) return;
 
-    document.getElementById('textoEmailTutorDestino').textContent = alumnoInformeActual.emailTutor || 'Sin email registrado';
-    document.getElementById('reporteAlumnoId').value = alumnoInformeActual.id;
+    const elemEmailDestino = document.getElementById('textoEmailTutorDestino');
+    if (elemEmailDestino) {
+        elemEmailDestino.textContent = alumnoInformeActual.emailTutor || 'Sin email registrado';
+    }
+
+    const elemReporteId = document.getElementById('reporteAlumnoId');
+    if (elemReporteId) {
+        elemReporteId.value = alumnoInformeActual.id;
+    }
 
     const { data: tps } = await supabase
         .from('curso_planificacion')
@@ -1772,22 +1779,18 @@ async function actualizarVistaPreviaInforme() {
     if (!alumnoInformeActual || !cursoActualId) return;
 
     const contenedorPrevia = document.getElementById('hojaPrevisualizacionPDF');
-    if (!contenedorPrevia) return;
+    const contenedorEmail = document.getElementById('vistaPreviaEmailContainer');
 
-    contenedorPrevia.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Generando vista previa A4...</div>';
+    if (contenedorPrevia) {
+        contenedorPrevia.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Generando vista previa...</div>';
+    }
 
     try {
         const incluirFoco = document.getElementById('checkIncluirFoco')?.checked ?? true;
         const incluirSaberes = document.getElementById('checkIncluirSaberes')?.checked ?? true;
         const observacionDocente = document.getElementById('observacionDocenteInforme')?.value.trim() || '';
 
-        const { data: resultados } = await supabase
-            .from('evaluaciones_resultados')
-            .select('*')
-            .eq('curso_id', cursoActualId)
-            .eq('alumno_id', alumnoInformeActual.id)
-            .order('created_at', { ascending: true });
-
+        // 1. Obtener los nombres y alias de la planificación del curso
         const { data: plan } = await supabase
             .from('curso_planificacion')
             .select('cod_tp, cod_tp_completo, alias_tp')
@@ -1800,13 +1803,34 @@ async function actualizarVistaPreviaInforme() {
             });
         }
 
+        // 2. Traer los resultados ordenados del más reciente al más antiguo
+        const { data: resultados } = await supabase
+            .from('evaluaciones_resultados')
+            .select('*')
+            .eq('curso_id', cursoActualId)
+            .eq('alumno_id', alumnoInformeActual.id)
+            .order('created_at', { ascending: false });
+
+        // 3. DEDUPLICAR: Guardar solo la última entrega de cada TP
+        const ultimasEntregas = {};
+        if (resultados) {
+            resultados.forEach(r => {
+                const cod = r.tp_codigo || r.cod_tp;
+                if (!ultimasEntregas[cod]) {
+                    ultimasEntregas[cod] = r;
+                }
+            });
+        }
+
         let listaTpsHtml = '';
         let sumaNotas = 0;
         let cantNotas = 0;
         let totalFugas = 0;
 
-        if (resultados && resultados.length > 0) {
-            resultados.forEach(r => {
+        const entregasUnicas = Object.values(ultimasEntregas);
+
+        if (entregasUnicas.length > 0) {
+            entregasUnicas.forEach(r => {
                 const cod = r.tp_codigo || r.cod_tp;
                 const nombreFantasia = mapaAlias[cod] || cod;
                 const nota = parseFloat(r.nota || 0);
@@ -1818,12 +1842,12 @@ async function actualizarVistaPreviaInforme() {
 
                 listaTpsHtml += `
                     <li style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding: 6px 0;">
-                        <span>• <strong>${nombreFantasia}</strong> <small class="text-muted">(${fechaFormateada})</small></span>
+                        <span>• <strong>${nombreFantasia}</strong> <small style="color: #64748b;">(${fechaFormateada})</small></span>
                         <span><strong>Nota: ${nota}/10</strong></span>
                     </li>`;
             });
         } else {
-            listaTpsHtml = `<li class="text-muted py-2 small">Aún no se registran calificaciones en el período seleccionado.</li>`;
+            listaTpsHtml = `<li style="color: #64748b; padding: 8px 0; font-size: 0.8rem;">Aún no se registran calificaciones en el período seleccionado.</li>`;
         }
 
         const promedio = cantNotas > 0 ? (sumaNotas / cantNotas).toFixed(1) : 'S/D';
@@ -1839,6 +1863,7 @@ async function actualizarVistaPreviaInforme() {
         const nombreEscuela = cursoActualInfo?.escuela || 'INSTITUCIÓN EDUCATIVA';
         const nombreCurso = cursoActualInfo?.nombre || 'Curso de Educación Secundaria';
 
+        // 4. Renderizar el PDF A4 (Pestaña 1)
         const htmlDocumento = `
             <div style="font-family: Arial, sans-serif; color: #1e293b; line-height: 1.4;">
                 <div style="border-bottom: 2px solid #0d6efd; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-start;">
@@ -1858,7 +1883,7 @@ async function actualizarVistaPreviaInforme() {
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <div style="font-weight: bold; font-size: 0.85rem; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; mb-2;">
+                    <div style="font-weight: bold; font-size: 0.85rem; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px;">
                         📋 RESUMEN DE ACTIVIDADES Y EVALUACIONES
                     </div>
                     <ul style="list-style: none; padding-left: 0; margin-top: 6px; font-size: 0.8rem;">
@@ -1890,10 +1915,9 @@ async function actualizarVistaPreviaInforme() {
             </div>
         `;
 
-        contenedorPrevia.innerHTML = htmlDocumento;
+        if (contenedorPrevia) contenedorPrevia.innerHTML = htmlDocumento;
 
-        // Maquetación de la Pestaña 2: Vista Previa del Email
-        const contenedorEmail = document.getElementById('vistaPreviaEmailContainer');
+        // 5. Renderizar el Email (Pestaña 2)
         if (contenedorEmail) {
             const htmlEmail = `
                 <div style="font-family: Arial, sans-serif; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;">
@@ -1943,7 +1967,9 @@ async function actualizarVistaPreviaInforme() {
 
     } catch (err) {
         console.error('Error al generar la vista previa del informe:', err);
-        contenedorPrevia.innerHTML = `<div class="alert alert-danger p-3 small">Error al generar la vista previa: ${err.message}</div>`;
+        if (contenedorPrevia) {
+            contenedorPrevia.innerHTML = `<div class="alert alert-danger p-3 small">Error al generar la vista previa: ${err.message}</div>`;
+        }
     }
 }
 
