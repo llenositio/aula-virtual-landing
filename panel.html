@@ -32,7 +32,7 @@
         .estado-sin-hacer{ background-color: #e9ecef; color: #6c757d; }
         .estado-no-asignado { background-color: #f8f9fa; color: #adb5bd; }
 
-        /* 1. PERMITIR MÁS LÍNEAS EN LOS ENCABEZADOS DE LA MATRIZ */
+        /* PERMITIR MÁS LÍNEAS EN LOS ENCABEZADOS DE LA MATRIZ */
         #tablaMatrizHeader th {
             white-space: normal !important;
             vertical-align: bottom;
@@ -48,7 +48,7 @@
             display: block;
         }
 
-        /* 2. CORREGIR POSICIONAMIENTO Y CAPA Z DEL TOOLTIP (FLOTANTE) */
+        /* CORREGIR POSICIONAMIENTO Y CAPA Z DEL TOOLTIP (FLOTANTE) */
         .celda-tp .tooltip-info { 
             display: none; 
             position: absolute; 
@@ -71,6 +71,27 @@
         
         .celda-tp:hover .tooltip-info { 
             display: block !important; 
+        }
+
+        /* REGLAS DE IMPRESIÓN EXCLUSIVA PARA LA HOJA PEDAGÓGICA A4 */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #hojaPrevisualizacionPDF, #hojaPrevisualizacionPDF * {
+                visibility: visible !important;
+            }
+            #hojaPrevisualizacionPDF {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                max-height: none !important;
+                overflow: visible !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+            }
         }
     </style>
 </head>
@@ -541,7 +562,7 @@
     <!-- MODAL REGISTRO DE PERFIL DOCENTE -->
     <div class="modal fade" id="modalCompletarPerfil" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow">
+            <div class="modal-content border-0 shadow card-custom">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title fw-bold">Completar Perfil Docente</h5>
                 </div>
@@ -612,11 +633,11 @@
                                 <label class="form-label fw-bold small text-muted">Contenido a Incluir</label>
                                 <div class="form-check small">
                                     <input class="form-check-input" type="checkbox" id="checkIncluirFoco" checked>
-                                    <label class="form-label mb-0" for="checkIncluirFoco">Diagnóstico de Autonomía y Foco</label>
+                                    <label class="form-check-label mb-0" for="checkIncluirFoco">Diagnóstico de Autonomía y Foco</label>
                                 </div>
                                 <div class="form-check small">
                                     <input class="form-check-input" type="checkbox" id="checkIncluirSaberes" checked>
-                                    <label class="form-label mb-0" for="checkIncluirSaberes">Fortalezas y Saberes a Reforzar</label>
+                                    <label class="form-check-label mb-0" for="checkIncluirSaberes">Fortalezas y Saberes a Reforzar</label>
                                 </div>
                             </div>
 
@@ -631,12 +652,40 @@
                             </button>
                         </div>
 
-                        <!-- PREVISUALIZACIÓN DE LA HOJA A4 (DERECHA) -->
-                        <div class="col-md-8 bg-light p-3 rounded d-flex flex-column align-items-center">
-                            <span class="badge bg-secondary mb-2">Vista Previa del Documento</span>
-                            
-                            <div id="hojaPrevisualizacionPDF" class="bg-white shadow p-4 text-dark rounded" style="width: 100%; max-width: 650px; min-height: 750px; font-size: 0.85rem; font-family: Arial, sans-serif;">
-                                <!-- Se renderiza dinámicamente el borrador del informe -->
+                        <!-- PANEL DERECHO CON PESTAÑAS (HOJA A4 Y EMAIL) -->
+                        <div class="col-md-8 ps-md-4">
+                            <!-- Pestañas de Navegación del Informe -->
+                            <ul class="nav nav-tabs mb-3" id="pestañasInformeTab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active fw-bold" id="tab-pdf-tab" data-bs-toggle="tab" data-bs-target="#tab-pdf-content" type="button" role="tab">
+                                        📄 Hoja A4 (PDF Adjunto)
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link fw-bold text-primary" id="tab-email-tab" data-bs-toggle="tab" data-bs-target="#tab-email-content" type="button" role="tab">
+                                        ✉️ Cuerpo del Email
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <!-- Contenido de las Pestañas -->
+                            <div class="tab-content" id="pestañasInformeTabContent">
+                                <!-- Pestaña 1: PDF A4 -->
+                                <div class="tab-pane fade show active" id="tab-pdf-content" role="tabpanel">
+                                    <div class="bg-light p-3 rounded d-flex flex-column align-items-center">
+                                        <span class="badge bg-secondary mb-2">Vista Previa del Documento A4</span>
+                                        <div id="hojaPrevisualizacionPDF" class="bg-white shadow p-4 text-dark rounded" style="width: 100%; max-width: 650px; min-height: 600px; font-size: 0.85rem; font-family: Arial, sans-serif;">
+                                            <!-- Se renderiza dinámicamente el borrador del informe -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Pestaña 2: Email -->
+                                <div class="tab-pane fade" id="tab-email-content" role="tabpanel">
+                                    <div id="vistaPreviaEmailContainer" class="p-3 bg-light border rounded shadow-sm" style="min-height: 600px; overflow-y: auto;">
+                                        <!-- Se renderiza el cuerpo del mail dinámicamente -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -647,7 +696,7 @@
                         📧 Destinatario Tutor: <strong id="textoEmailTutorDestino">Cargando...</strong>
                     </div>
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" id="btnDescargarPDF" class="btn btn-outline-dark btn-sm fw-bold">📥 Descargar PDF</button>
+                    <button type="button" id="btnDescargarPDF" class="btn btn-outline-dark btn-sm fw-bold">🖨️ Descargar PDF</button>
                     <button type="button" id="btnEnviarEmailTutor" class="btn btn-primary btn-sm fw-bold">✉️ Enviar a Tutor</button>
                 </div>
             </div>
