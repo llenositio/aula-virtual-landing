@@ -176,7 +176,7 @@
 <script src="js/especialista_rm.js"></script>
 <script src="js/especialista_balanza.js"></script>
 <script src="js/especialista_fr1.js"></script>
-<script src="js/especialista_pc1.js"></script> <!-- 👈 NUEVO: Especialista PC1 (Plano Cartesiano) -->
+<script src="js/especialista_pc1.js"></script>
 
 <!-- Script Director de la Evaluación -->
 <script>
@@ -309,7 +309,7 @@
             } else if (tipoPreg === 'FR1') {
                 this.especialistaActual = window.EspecialistaFR1;
             } else if (tipoPreg === 'PC1') {
-                this.especialistaActual = window.EspecialistaPC1; // 👈 NUEVO: Enruta a PC1
+                this.especialistaActual = window.EspecialistaPC1;
             } else {
                 this.especialistaActual = window.EspecialistaOM;
             }
@@ -364,7 +364,7 @@
             } else if (tipoPreg === 'FR1') {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.resultadoCorrecto);
             } else if (tipoPreg === 'PC1') {
-                puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.coordenadaCorrecta); // 👈 NUEVO: Evaluación PC1
+                puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.coordenadaCorrecta);
             } else {
                 puntaje = this.especialistaActual.calcularPuntaje(respuestaAlumno, pNormalizada.correcta);
             }
@@ -391,7 +391,7 @@
                     const esRM = tipoPreg === 'RM';
                     const esBalanza = tipoPreg === 'BALANZA';
                     const esFR1 = tipoPreg === 'FR1';
-                    const esPC1 = tipoPreg === 'PC1'; // 👈 NUEVO
+                    const esPC1 = tipoPreg === 'PC1';
 
                     let pNorm;
                     if (esVF) {
@@ -405,7 +405,7 @@
                     } else if (esFR1) {
                         pNorm = window.EspecialistaFR1.normalizar(pRaw);
                     } else if (esPC1) {
-                        pNorm = window.EspecialistaPC1.normalizar(pRaw); // 👈 NUEVO
+                        pNorm = window.EspecialistaPC1.normalizar(pRaw);
                     } else {
                         pNorm = window.EspecialistaOM.normalizar(pRaw);
                     }
@@ -418,7 +418,7 @@
                     if (esCV) respuestaCorrectaEsperada = pNorm.correctas;
                     if (esVF) respuestaCorrectaEsperada = pNorm.subPreguntas;
                     if (esBalanza || esFR1) respuestaCorrectaEsperada = pNorm.resultadoCorrecto;
-                    if (esPC1) respuestaCorrectaEsperada = pNorm.coordenadaCorrecta; // 👈 NUEVO
+                    if (esPC1) respuestaCorrectaEsperada = pNorm.coordenadaCorrecta;
 
                     return {
                         pregunta_id: pNorm.id,
