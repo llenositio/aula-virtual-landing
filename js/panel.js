@@ -362,8 +362,10 @@ async function verDetalleCurso(cursoId, nombre, escuela) {
         }
     });
 
+    window.refrescarMatrizActual = () => renderizarMatrizSeguimiento(cursoId);
+
     await cargarAlumnosCurso(cursoId);
-    await cargarPlanificacionCurso(cursoId, supabase, renderizarMatrizSeguimiento);
+    await cargarPlanificacionCurso(cursoId, supabase);
     await cargarAnaliticaCurso(cursoId, supabase);
 }
 
