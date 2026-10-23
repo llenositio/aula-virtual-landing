@@ -68,10 +68,10 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
             });
         }
 
-        // Renderizar componentes gráficos existentes
+        // Renderizar gráficos estándar
         renderizarGraficosBasicos(planFiltrado, notasPorTp, todasLasNotasValidas, mapaUltimaNotaAlumno);
 
-        // Renderizar el MAPA DE CALOR DE SABERES únicamente en la pestaña de Analítica
+        // Renderizar el MAPA DE CALOR DE SABERES
         renderizarMapaDeCalorSaberes(alumnos || [], planFiltrado, mapaUltimaNotaAlumno);
 
         if (selectFiltroEstructura) {
@@ -83,24 +83,27 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
     }
 }
 
-// =========================================================================
-// MAPA DE CALOR DE SABERES Y ERRORES COMUNES (EXCLUSIVO PESTAÑA ANALÍTICA)
-// =========================================================================
 function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumno) {
     let contenedor = document.getElementById('contenedorMapaCalorSaberes');
-    
-    // Buscar específicamente el contenedor de la pestaña de Analítica
+
     if (!contenedor) {
-        const areaAnalitica = document.getElementById('seccionAnaliticaContenido') || document.getElementById('pestanaAnalitica') || document.querySelector('.tab-pane#analitica');
-        
-        if (!areaAnalitica) {
-            // Si la pestaña de analítica aún no está abierta o montada en el DOM, no inyectamos en el Plan de Trabajo
-            return;
+        // Buscamos la tarjeta donde está el selector de período
+        const selectFiltro = document.getElementById('filtroAnaliticaEstructura');
+        let cardPadre = selectFiltro ? selectFiltro.closest('.card, .row, .mb-4') : null;
+
+        if (!cardPadre) {
+            const chartCanvas = document.getElementById('chartRendimientoTp');
+            if (chartCanvas) {
+                cardPadre = chartCanvas.closest('.row');
+            }
         }
 
-        const divMapa = document.createElement('div');
-        divMapa.className = 'col-12 mb-4';
-        divMapa.innerHTML = `
+        if (!cardPadre) return;
+
+        const divWrapper = document.createElement('div');
+        divWrapper.className = 'col-12 mb-4';
+        divWrapper.id = 'wrapperMapaCalorCard';
+        divWrapper.innerHTML = `
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
                     <h5 class="mb-0 fw-bold">🔥 Mapa de Calor de Saberes Requeridos (Matriz de Error Común)</h5>
@@ -114,8 +117,9 @@ function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumn
                     <div id="contenedorMapaCalorSaberes" class="table-responsive"></div>
                 </div>
             </div>`;
-        
-        areaAnalitica.prepend(divMapa);
+
+        // Insertar justo debajo de la tarjeta de Filtro de Períodos
+        cardPadre.parentNode.insertBefore(divWrapper, cardPadre.nextSibling);
         contenedor = document.getElementById('contenedorMapaCalorSaberes');
     }
 
@@ -213,9 +217,6 @@ function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumn
     contenedor.innerHTML = html;
 }
 
-// =========================================================================
-// RENDERIZADO DE GRÁFICOS SECUNDARIOS
-// =========================================================================
 function renderizarGraficosBasicos(planFiltrado, notasPorTp, todasLasNotasValidas, mapaUltimaNotaAlumno) {
     const labelsTP = planFiltrado.map(p => {
         const alias = p.alias_tp || p.cod_tp_completo || p.cod_tp;
