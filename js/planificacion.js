@@ -2,7 +2,7 @@
 
 let bancoGlobalTPs = [];
 
-export async function cargarPlanificacionCurso(cursoId, supabase, callbackRenderMatriz) {
+export async function cargarPlanificacionCurso(cursoId, supabase) {
     const contenedor = document.getElementById('contenedorPlanificacion');
     if (!contenedor) return;
 
@@ -61,7 +61,6 @@ export async function cargarPlanificacionCurso(cursoId, supabase, callbackRender
                 const cod = tp.cod_tp_completo || tp.cod_tp;
                 const alias = tp.alias_tp || cod;
                 
-                // Lectura segura del campo de alumnos asignados
                 const asignadosArr = (tp.alumnos_asignados && Array.isArray(tp.alumnos_asignados)) ? tp.alumnos_asignados : [];
                 const esDiferenciado = asignadosArr.length > 0;
 
@@ -104,8 +103,11 @@ export async function cargarPlanificacionCurso(cursoId, supabase, callbackRender
                     try {
                         const { error: errDel } = await supabase.from('curso_planificacion').delete().eq('id', idTp);
                         if (errDel) throw errDel;
-                        cargarPlanificacionCurso(cursoId, supabase, callbackRenderMatriz);
-                        if (callbackRenderMatriz) callbackRenderMatriz(cursoId);
+                        
+                        await cargarPlanificacionCurso(cursoId, supabase);
+                        if (typeof window.refrescarMatrizActual === 'function') {
+                            window.refrescarMatrizActual();
+                        }
                     } catch (err) {
                         alert('Error al quitar TP: ' + err.message);
                     }
@@ -114,7 +116,8 @@ export async function cargarPlanificacionCurso(cursoId, supabase, callbackRender
         });
 
     } catch (err) {
-        contenedor.innerHTML = `<div class="alert alert-danger my-3">Error al cargar la planificación de la base de datos: ${err.message}</div>`;
+        console.error('Error al cargar la planificación:', err);
+        contenedor.innerHTML = `<div class="alert alert-danger my-3">Error al cargar la planificación: ${err.message}</div>`;
     }
 }
 
@@ -221,7 +224,6 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
             activo: true
         };
 
-        // Enviar alumnos_asignados solo si el usuario seleccionó diferenciado
         if (alumnosSeleccionados !== null) {
             datosInsert.alumnos_asignados = alumnosSeleccionados;
         }
