@@ -82,6 +82,58 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
     }
 }
 
+// FUNCION AUXILIAR PARA NORMALIZAR Y COMPARAR CUALQUIER FORMATO DE RESPUESTA
+function evaluarRespuestaCorrecta(preg, subKey = null) {
+    if (!preg) return false;
+
+    // Si la pregunta trae un flag explícito global de corrección
+    if (subKey === null) {
+        if (preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true) return true;
+        if (preg.opcionSeleccionada !== undefined && preg.opcionCorrecta !== undefined) {
+            return String(preg.opcionSeleccionada).trim().toUpperCase() === String(preg.opcionCorrecta).trim().toUpperCase();
+        }
+    }
+
+    // Extraer y deserializar respuesta del alumno y respuesta correcta
+    let respAlumno = preg.respuesta;
+    let respCorrecta = preg.correcta !== undefined ? preg.correcta : preg.respuesta_correcta;
+
+    if (typeof respAlumno === 'string' && respAlumno.trim().startsWith('{')) {
+        try { respAlumno = JSON.parse(respAlumno); } catch(e){}
+    }
+    if (typeof respCorrecta === 'string' && respCorrecta.trim().startsWith('{')) {
+        try { respCorrecta = JSON.parse(respCorrecta); } catch(e){}
+    }
+
+    if (subKey !== null && respAlumno && typeof respAlumno === 'object') {
+        const valAlumno = respAlumno[subKey] !== undefined ? respAlumno[subKey] : respAlumno[parseInt(subKey)];
+        let valCorrecta = null;
+
+        if (respCorrecta && typeof respCorrecta === 'object') {
+            valCorrecta = respCorrecta[subKey] !== undefined ? respCorrecta[subKey] : respCorrecta[parseInt(subKey)];
+        } else if (preg.solucion && typeof preg.solucion === 'object') {
+            valCorrecta = preg.solucion[subKey] !== undefined ? preg.solucion[subKey] : preg.solucion[parseInt(subKey)];
+        }
+
+        if (valAlumno !== undefined && valCorrecta !== undefined && valCorrecta !== null) {
+            return normalizarValor(valAlumno) === normalizarValor(valCorrecta);
+        }
+
+        // Si la pregunta viene marcada como justa/correcta globalmente en la entrega
+        if (preg.esCorrecta === true || preg.correcta === true) return true;
+    }
+
+    return false;
+}
+
+function normalizarValor(v) {
+    if (v === null || v === undefined) return '';
+    const str = String(v).trim().toUpperCase();
+    if (str === 'V' || str === 'VERDADERO' || str === 'TRUE' || str === '1') return 'VERDADERO';
+    if (str === 'F' || str === 'FALSO' || str === 'FALSE' || str === '0') return 'FALSO';
+    return str;
+}
+
 function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumno) {
     let contenedorCard = document.getElementById('wrapperMapaCalorCard');
 
@@ -188,11 +240,9 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
                     try { respObj = JSON.parse(respObj); } catch(e){}
                 }
 
-                // SI ES UN VERDADERO / FALSO O TABLA DE MATRIZ (Objeto con sub-claves)
                 if (respObj && typeof respObj === 'object' && !Array.isArray(respObj)) {
                     Object.keys(respObj).forEach((subKey) => {
                         const numItem = parseInt(subKey) + 1;
-                        
                         let textoSub = `P${idxPreg + 1} - Ítem ${numItem}`;
                         let descSub = preg.saber_evaluado || (preg.opciones && Array.isArray(preg.opciones) ? preg.opciones[subKey] : null) || aliasTP;
 
@@ -206,9 +256,7 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
                             subLabel: descSub
                         });
                     });
-                } 
-                // SI ES UNA PREGUNTA ESTÁNDAR (Opción Múltiple / Única)
-                else {
+                } else {
                     columnasEvaluadas.push({
                         key: `${cod}_p${idxPreg}`,
                         tpCod: cod,
@@ -227,7 +275,6 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
         return;
     }
 
-    // Renderizar HTML de la Tabla
     let html = `
         <table class="table table-bordered align-middle text-center mb-0" style="font-size: 0.8rem;">
             <thead class="table-light">
@@ -260,26 +307,7 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
 
             if (entrega && Array.isArray(entrega.respuestas) && entrega.respuestas[col.idxPreg]) {
                 const preg = entrega.respuestas[col.idxPreg];
-                let esOk = false;
-
-                if (col.esSubItem) {
-                    let respAlumno = preg.respuesta;
-                    if (typeof respAlumno === 'string' && respAlumno.trim().startsWith('{')) {
-                        try { respAlumno = JSON.parse(respAlumno); } catch(e){}
-                    }
-
-                    let respCorrecta = preg.correcta;
-                    if (typeof respCorrecta === 'string' && respCorrecta.trim().startsWith('{')) {
-                        try { respCorrecta = JSON.parse(respCorrecta); } catch(e){}
-                    }
-
-                    if (respAlumno && respCorrecta && respAlumno[col.subKey] !== undefined) {
-                        esOk = String(respAlumno[col.subKey]).trim().toUpperCase() === String(respCorrecta[col.subKey]).trim().toUpperCase();
-                    }
-                } else {
-                    esOk = preg.esCorrecta === true || preg.correcta === true || preg.es_correcta === true || 
-                           (preg.opcionSeleccionada !== undefined && preg.opcionSeleccionada === preg.opcionCorrecta);
-                }
+                const esOk = evaluarRespuestaCorrecta(preg, col.esSubItem ? col.subKey : null);
 
                 evaluadosAlumno++;
                 if (esOk) aciertosAlumno++;
