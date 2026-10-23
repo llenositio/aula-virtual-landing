@@ -71,7 +71,7 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
         // Renderizar componentes gráficos existentes
         renderizarGraficosBasicos(planFiltrado, notasPorTp, todasLasNotasValidas, mapaUltimaNotaAlumno);
 
-        // Renderizar el nuevo MAPA DE CALOR DE SABERES
+        // Renderizar el MAPA DE CALOR DE SABERES únicamente en la pestaña de Analítica
         renderizarMapaDeCalorSaberes(alumnos || [], planFiltrado, mapaUltimaNotaAlumno);
 
         if (selectFiltroEstructura) {
@@ -84,15 +84,19 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
 }
 
 // =========================================================================
-// NUEVA FUNCIONALIDAD: MAPA DE CALOR DE SABERES Y ERRORES COMUNES
+// MAPA DE CALOR DE SABERES Y ERRORES COMUNES (EXCLUSIVO PESTAÑA ANALÍTICA)
 // =========================================================================
 function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumno) {
     let contenedor = document.getElementById('contenedorMapaCalorSaberes');
     
-    // Si no existe el contenedor en el HTML, lo insertamos dinámicamente arriba de las gráficas
+    // Buscar específicamente el contenedor de la pestaña de Analítica
     if (!contenedor) {
-        const areaAnalitica = document.getElementById('seccionAnaliticaContenido') || document.querySelector('#seccionDetalleCurso .row');
-        if (!areaAnalitica) return;
+        const areaAnalitica = document.getElementById('seccionAnaliticaContenido') || document.getElementById('pestanaAnalitica') || document.querySelector('.tab-pane#analitica');
+        
+        if (!areaAnalitica) {
+            // Si la pestaña de analítica aún no está abierta o montada en el DOM, no inyectamos en el Plan de Trabajo
+            return;
+        }
 
         const divMapa = document.createElement('div');
         divMapa.className = 'col-12 mb-4';
@@ -115,6 +119,8 @@ function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumn
         contenedor = document.getElementById('contenedorMapaCalorSaberes');
     }
 
+    if (!contenedor) return;
+
     if (alumnos.length === 0 || planFiltrado.length === 0) {
         contenedor.innerHTML = `<div class="alert alert-light text-center py-3 text-muted">Sin datos suficientes para generar la matriz térmica de saberes.</div>`;
         return;
@@ -126,11 +132,10 @@ function renderizarMapaDeCalorSaberes(alumnos, planFiltrado, mapaUltimaNotaAlumn
         const cod = p.cod_tp_completo || p.cod_tp;
         const alias = p.alias_tp || cod;
         
-        // Buscar un set de respuestas modelo para extraer consignas o temas
         const muestra = Object.values(mapaUltimaNotaAlumno).find(item => item.tp === cod && Array.isArray(item.respuestas));
         if (muestra && muestra.respuestas) {
             muestra.respuestas.forEach((preg, idx) => {
-                const nombreSaber = preg.saber_evaluado || preg.eje_tematico || `Saber P${idx + 1}: ${preg.consigna ? preg.consigna.substring(0, 25) + '...' : alias}`;
+                const nombreSaber = preg.saber_evaluado || preg.eje_tematico || `P${idx + 1}: ${preg.consigna ? preg.consigna.substring(0, 22) + '...' : alias}`;
                 mapaSaberes.push({
                     key: `${cod}_p${idx}`,
                     tpCod: cod,
