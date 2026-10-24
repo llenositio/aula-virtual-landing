@@ -614,6 +614,9 @@ async function renderizarMatrizSeguimiento(cursoId) {
     }
 }
 
+// =========================================================================
+// NÓMINA DE ALUMNOS Y DETALLES
+// =========================================================================
 async function cargarAlumnosCurso(cursoId) {
     const tablaAlumnosBody = document.getElementById('tablaAlumnosBody');
     if (tablaAlumnosBody) tablaAlumnosBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">Cargando datos...</td></tr>`;
@@ -901,11 +904,11 @@ if (formEditarAlumno) {
     });
 }
 
-// ASIGNACIÓN DE TP A PLANIFICACIÓN CON SOPORTE DIFERENCIADO
+// BÚSQUEDA DEL BANCO Y ASIGNACIONES
 document.getElementById('btnAgregarAlPlan')?.addEventListener('click', async () => {
-    ejecutarAsignacionTP(cursoActualId, supabase, () => {
-        cargarPlanificacionCurso(cursoActualId, supabase, renderizarMatrizSeguimiento);
-        renderizarMatrizSeguimiento(cursoActualId);
+    ejecutarAsignacionTP(cursoActualId, supabase, async () => {
+        await cargarPlanificacionCurso(cursoActualId, supabase);
+        await renderizarMatrizSeguimiento(cursoActualId);
     });
 });
 
