@@ -252,7 +252,6 @@ export async function cargarBancoGlobal(supabase) {
         const mapaTPs = new Map();
 
         (preguntas || []).forEach(p => {
-            // Clave única basada en cod_tp_completo para evitar colisiones entre TPs que compartan cod_tp
             const claveUnica = p.cod_tp_completo || `${p.cod_tp}_${p.materia || 'MAT'}_${p.anio || 1}`;
             if (!claveUnica) return;
 
@@ -293,18 +292,26 @@ export async function cargarBancoGlobal(supabase) {
     }
 }
 
-// Búsqueda en tiempo real e inteligente
+// Búsqueda en tiempo real, predictiva e inteligente (Omnicanal)
 export function aplicarFiltrosBanco(supabase) {
-    const rawTexto = document.getElementById('filtroTextoTP')?.value || '';
+    // Busca en ambos inputs si existieran para mantener compatibilidad
+    const valInputTema = document.getElementById('filtroTextoTP')?.value || '';
+    const valInputPrograma = document.getElementById('inputProgramaDocente')?.value || '';
+    
+    // Combina ambos campos de texto
+    const rawTexto = `${valInputTema} ${valInputPrograma}`.trim();
+    
     const bloom = document.getElementById('filtroBloomTP')?.value || 'TODOS';
     const anio = document.getElementById('filtroAnioTP')?.value || 'TODOS';
 
     const textoLimpio = normalizarTexto(rawTexto);
     
+    // Filtra tokens individuales sin restricción de longitud mínima
     const terminosIngresados = textoLimpio
         .split(/[\s,.;:-]+/)
-        .filter(t => t.length > 1);
+        .filter(t => t.length > 0);
 
+    // Expandir términos con diccionario de sinónimos
     let terminosExpandidos = [...terminosIngresados];
     terminosIngresados.forEach(term => {
         Object.keys(DICCIONARIO_FACETAS).forEach(clave => {
@@ -328,7 +335,11 @@ export function aplicarFiltrosBanco(supabase) {
 
         const todoElContenido = `${codShort} ${codFull} ${titulo} ${materia} ${especialidad} ${textoConsignas}`;
 
-        const coincideTxt = terminosIngresados.length === 0 || terminosExpandidos.some(t => todoElContenido.includes(t));
+        // Verifica si todos los tokens ingresados coinciden parcialmente en el contenido del TP
+        const coincideTxt = terminosIngresados.length === 0 || terminosIngresados.every(token => {
+            return terminosExpandidos.some(exp => todoElContenido.includes(exp) || todoElContenido.includes(token));
+        });
+
         const coincideBloom = bloom === 'TODOS' || normalizarTexto(tp.nivel_bloom) === normalizarTexto(bloom);
         const coincideAnio = anio === 'TODOS' || String(tp.anio) === String(anio);
 
@@ -338,33 +349,42 @@ export function aplicarFiltrosBanco(supabase) {
     renderizarBancoGlobal(filtrados, supabase);
 }
 
-// Búsqueda instantánea mientras se escribe
+// Búsqueda instantánea en tiempo real escuchando múltiples eventos
 let timerDebounce = null;
 function conectarEventosBusquedaInstantanea(supabase) {
     const inputTexto = document.getElementById('filtroTextoTP');
+    const inputPrograma = document.getElementById('inputProgramaDocente');
     const selectBloom = document.getElementById('filtroBloomTP');
     const selectAnio = document.getElementById('filtroAnioTP');
+    const btnAnalizar = document.getElementById('btnAnalizarPrograma');
 
     const ejecutarFiltrado = () => {
         clearTimeout(timerDebounce);
         timerDebounce = setTimeout(() => {
             aplicarFiltrosBanco(supabase);
-        }, 120);
+        }, 100);
     };
 
-    if (inputTexto && !inputTexto.dataset.listenerConectado) {
-        inputTexto.dataset.listenerConectado = 'true';
+    if (inputTexto) {
         inputTexto.addEventListener('input', ejecutarFiltrado);
+        inputTexto.addEventListener('keyup', ejecutarFiltrado);
     }
 
-    if (selectBloom && !selectBloom.dataset.listenerConectado) {
-        selectBloom.dataset.listenerConectado = 'true';
-        selectBloom.addEventListener('change', () => aplicarFiltrosBanco(supabase));
+    if (inputPrograma) {
+        inputPrograma.addEventListener('input', ejecutarFiltrado);
+        inputPrograma.addEventListener('keyup', ejecutarFiltrado);
     }
 
-    if (selectAnio && !selectAnio.dataset.listenerConectado) {
-        selectAnio.dataset.listenerConectado = 'true';
-        selectAnio.addEventListener('change', () => aplicarFiltrosBanco(supabase));
+    if (selectBloom) {
+        selectBloom.addEventListener('change', ejecutarFiltrado);
+    }
+
+    if (selectAnio) {
+        selectAnio.addEventListener('change', ejecutarFiltrado);
+    }
+
+    if (btnAnalizar) {
+        btnAnalizar.addEventListener('click', ejecutarFiltrado);
     }
 }
 
