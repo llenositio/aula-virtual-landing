@@ -1,5 +1,12 @@
 // js/informes_tutor.js
 
+// Función auxiliar para extraer el número del código del TP y ordenar de forma secuencial
+function extraerNumeroCodigo(cod) {
+    if (!cod) return 0;
+    const match = String(cod).match(/\d+/);
+    return match ? parseInt(match[0], 10) : 0;
+}
+
 export function inicializarEventosInformeTutor(actualizarVistaPreviaFn) {
     const btnActualizar = document.getElementById('btnActualizarVistaPrevia');
     if (btnActualizar) {
@@ -43,13 +50,19 @@ export async function abrirModalInformeTutor(alumnoInformeActual, cursoActualId,
         .from('curso_planificacion')
         .select('id, cod_tp, cod_tp_completo, alias_tp')
         .eq('curso_id', cursoActualId)
-        .eq('activo', true)
-        .order('created_at', { ascending: true });
+        .eq('activo', true);
 
     const selectDesde = document.getElementById('informeTpDesde');
     const selectHasta = document.getElementById('informeTpHasta');
 
     if (tps && tps.length > 0) {
+        // Ordenar numéricamente por código de TP (001, 002, 003...)
+        tps.sort((a, b) => {
+            const codA = a.cod_tp_completo || a.cod_tp || '';
+            const codB = b.cod_tp_completo || b.cod_tp || '';
+            return extraerNumeroCodigo(codA) - extraerNumeroCodigo(codB);
+        });
+
         const opciones = tps.map(tp => {
             const alias = tp.alias_tp || tp.cod_tp_completo || tp.cod_tp;
             const cod = tp.cod_tp_completo || tp.cod_tp;
@@ -125,6 +138,13 @@ export async function actualizarVistaPreviaInforme(alumnoInformeActual, cursoAct
         const entregasUnicas = Object.values(ultimasEntregas);
 
         if (entregasUnicas.length > 0) {
+            // Ordenar secuencialmente por número de TP
+            entregasUnicas.sort((a, b) => {
+                const codA = a.tp_codigo || a.cod_tp || '';
+                const codB = b.tp_codigo || b.cod_tp || '';
+                return extraerNumeroCodigo(codA) - extraerNumeroCodigo(codB);
+            });
+
             entregasUnicas.forEach(r => {
                 const cod = r.tp_codigo || r.cod_tp;
                 const nombreFantasia = mapaAlias[cod] || cod;
