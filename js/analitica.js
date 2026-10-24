@@ -2,6 +2,13 @@
 
 const instanciasGraficos = {};
 
+// Función auxiliar para extraer el número del código del TP y ordenar secuencialmente
+function extraerNumeroCodigo(cod) {
+    if (!cod) return 0;
+    const match = String(cod).match(/\d+/);
+    return match ? parseInt(match[0], 10) : 0;
+}
+
 export async function cargarAnaliticaCurso(cursoId, supabase) {
     try {
         const { data: plan } = await supabase
@@ -25,9 +32,16 @@ export async function cargarAnaliticaCurso(cursoId, supabase) {
 
         const periodoFiltro = selectFiltroEstructura ? selectFiltroEstructura.value : 'TODOS';
 
-        const planFiltrado = (periodoFiltro && periodoFiltro !== 'TODOS')
+        let planFiltrado = (periodoFiltro && periodoFiltro !== 'TODOS')
             ? plan.filter(p => p.periodo_evaluativo === periodoFiltro)
             : plan;
+
+        // Ordenar secuencialmente por código de TP (001, 002, 005...)
+        planFiltrado.sort((a, b) => {
+            const codA = a.cod_tp_completo || a.cod_tp || '';
+            const codB = b.cod_tp_completo || b.cod_tp || '';
+            return extraerNumeroCodigo(codA) - extraerNumeroCodigo(codB);
+        });
 
         const { data: alumnos } = await supabase.from('alumnos').select('id, apellido, nombre').eq('curso_id', cursoId).order('apellido', { ascending: true });
         const idsAlumnos = alumnos ? alumnos.map(a => a.id) : [];
@@ -270,7 +284,7 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
                         esSubItem: false,
                         totalSubItems: 1,
                         label: `Pregunta ${idxPreg + 1}`,
-                        subLabel: preg.saber_evaluado || preg.consigna ? preg.consigna.substring(0, 30) + '...' : aliasTP
+                        subLabel: preg.saber_evaluado || (preg.consigna ? preg.consigna.substring(0, 30) + '...' : aliasTP)
                     });
                 }
             });
@@ -345,7 +359,7 @@ function dibujarTablaTermica(alumnos, planFiltrado, mapaUltimaNotaAlumno, modo, 
         html += `<td class="fw-bold bg-light">${badgeInd}</td></tr>`;
     });
 
-    html += `</tbody>mtable>
+    html += `</tbody></table>
         </div>`;
     contenedor.innerHTML = html;
 }
