@@ -294,7 +294,6 @@ export async function cargarBancoGlobal(supabase) {
 
 // Búsqueda en tiempo real universal
 export function aplicarFiltrosBanco(supabase) {
-    // Tomar texto del campo activo (input o textarea)
     const inputTexto = document.getElementById('filtroTextoTP')?.value || '';
     const textareaPrograma = document.querySelector('#modalAsignarTP textarea')?.value || document.getElementById('inputProgramaDocente')?.value || '';
 
@@ -308,7 +307,6 @@ export function aplicarFiltrosBanco(supabase) {
         .split(/[\s,.;:-]+/)
         .filter(t => t.length > 0);
 
-    // Expandir términos clave
     let terminosExpandidos = [...terminosIngresados];
     terminosIngresados.forEach(term => {
         Object.keys(DICCIONARIO_FACETAS).forEach(clave => {
@@ -332,7 +330,6 @@ export function aplicarFiltrosBanco(supabase) {
 
         const todoElContenido = `${codShort} ${codFull} ${titulo} ${materia} ${especialidad} ${textoConsignas}`;
 
-        // Flexibilidad: Coincidencia si al menos algún término o sinónimo aparece
         const coincideTxt = terminosIngresados.length === 0 || terminosIngresados.some(token => {
             return terminosExpandidos.some(exp => todoElContenido.includes(exp) || todoElContenido.includes(token));
         });
@@ -346,7 +343,7 @@ export function aplicarFiltrosBanco(supabase) {
     renderizarBancoGlobal(filtrados, supabase);
 }
 
-// Delegación Global de Eventos (Independiente del ciclo de vida de Bootstrap/DOM)
+// Delegación Global de Eventos
 let timerDebounce = null;
 function iniciarEscuchadorGlobalEventos(supabase) {
     if (window.escuchadorGlobalFiltrosActivo) return;
@@ -359,7 +356,6 @@ function iniciarEscuchadorGlobalEventos(supabase) {
         }, 100);
     };
 
-    // Escuchar cualquier escritura en las cajas del modal
     document.addEventListener('input', (e) => {
         if (e.target.matches('#filtroTextoTP, #inputProgramaDocente, #modalAsignarTP textarea')) {
             ejecutarFiltrado();
@@ -450,6 +446,7 @@ function renderizarBancoGlobal(lista, supabase) {
     });
 }
 
+// Seleccionar TP y cerrar modal/drawer limpiando la pantalla
 function seleccionarTPParaPlan(cod, titulo) {
     const inputHidden = document.getElementById('inputCodTPAsignar');
     const inputTexto = document.getElementById('inputCodTPAsignarTexto');
@@ -468,11 +465,24 @@ function seleccionarTPParaPlan(cod, titulo) {
         const drawer = bootstrap.Offcanvas.getInstance(drawerEl);
         if (drawer) drawer.hide();
     }
+
+    document.querySelectorAll('.modal-backdrop, .offcanvas-backdrop').forEach(el => el.remove());
+    document.body.classList.remove('modal-open', 'overflow-hidden');
 }
 
+// Abrir el explorador en el Drawer sin colisión de z-index ni superposición
 async function abrirExploradorDrawer(tp, supabase) {
     const drawerEl = document.getElementById('drawerExploradorTP');
     if (!drawerEl) return;
+
+    // Ocultar modal si estaba abierto para que no entorpezca la vista
+    const modalEl = document.getElementById('modalAsignarTP');
+    if (modalEl) {
+        const modalInst = bootstrap.Modal.getInstance(modalEl);
+        if (modalInst) modalInst.hide();
+    }
+
+    drawerEl.style.zIndex = '1085';
 
     const tituloMostrar = tp.titulo_humano || tp.cod_tp_completo || tp.cod_tp;
 
@@ -497,6 +507,11 @@ async function abrirExploradorDrawer(tp, supabase) {
 
     const bsOffcanvas = new bootstrap.Offcanvas(drawerEl);
     bsOffcanvas.show();
+
+    setTimeout(() => {
+        const backdrops = document.querySelectorAll('.offcanvas-backdrop');
+        backdrops.forEach(b => b.style.zIndex = '1080');
+    }, 50);
 
     try {
         let query = supabase.from('banco_preguntas').select('N_de_orden_pregunta, consigna, opciones, respuesta_correcta');
