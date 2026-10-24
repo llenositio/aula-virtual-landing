@@ -578,7 +578,8 @@ async function abrirExploradorDrawer(tp, supabase) {
     }, 50);
 
     try {
-        let query = supabase.from('banco_preguntas').select('N_de_orden_pregunta, consigna, opciones, respuesta_correcta, tipo_pregunta');
+        // Consultamos la columna exacta 'tipo' de la tabla banco_preguntas
+        let query = supabase.from('banco_preguntas').select('N_de_orden_pregunta, consigna, opciones, respuesta_correcta, tipo');
 
         if (tp.cod_tp_completo) {
             query = query.eq('cod_tp_completo', tp.cod_tp_completo);
@@ -601,14 +602,13 @@ async function abrirExploradorDrawer(tp, supabase) {
             let opcionesHtml = '';
             
             if (p.opciones) {
-                // Parseo inteligente con soporte para el separador estricto ',,,' y parejas '|= >|'
+                // Parseo con soporte para ',,,' y parejas '|=>|'
                 const rawOps = typeof p.opciones === 'string' ? p.opciones.split(',,,') : p.opciones;
                 const listaOps = Array.isArray(rawOps) ? rawOps.map(o => String(o).trim()).filter(o => o.length > 0) : [];
                 
                 if (listaOps.length > 0) {
                     opcionesHtml = '<ul class="list-group list-group-flush small mt-2 border rounded">' +
                         listaOps.map(o => {
-                            // Soporte para Emparejamiento EM (Formato: A |=>| ResA)
                             if (o.includes('|=>|')) {
                                 const partesEmp = o.split('|=>|');
                                 return `<li class="list-group-item px-3 py-1 bg-light d-flex justify-content-between align-items-center">
@@ -623,7 +623,7 @@ async function abrirExploradorDrawer(tp, supabase) {
             }
 
             const htmlConsigna = procesarConsignaConImagenes(p.consigna);
-            const badgeTipo = p.tipo_pregunta ? `<span class="badge bg-outline-dark border text-dark ms-2">${p.tipo_pregunta}</span>` : '';
+            const badgeTipo = p.tipo ? `<span class="badge bg-outline-dark border text-dark ms-2">${p.tipo}</span>` : '';
 
             return '<div class="card border-0 shadow-sm p-3 bg-white mb-3">' +
                 '<div class="fw-bold text-dark mb-2">Pregunta ' + (p.N_de_orden_pregunta || (idx + 1)) + badgeTipo + '</div>' +
@@ -635,7 +635,6 @@ async function abrirExploradorDrawer(tp, supabase) {
         contRespuestas.innerHTML = preguntas.map((p, idx) => {
             let respTexto = p.respuesta_correcta || 'Verificación automática';
             
-            // Si tiene delimitador triple coma en la respuesta (ej. VF o CV)
             if (typeof respTexto === 'string' && respTexto.includes(',,,')) {
                 respTexto = respTexto.split(',,,').map(r => r.trim()).join(' | ');
             }
