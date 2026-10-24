@@ -920,3 +920,69 @@ if (modalAsignarTP) {
 document.getElementById('filtroTextoTP')?.addEventListener('input', () => aplicarFiltrosBanco(supabase));
 document.getElementById('filtroBloomTP')?.addEventListener('change', () => aplicarFiltrosBanco(supabase));
 document.getElementById('filtroAnioTP')?.addEventListener('change', () => aplicarFiltrosBanco(supabase));
+
+// =========================================================================
+// EDICIÓN DE TRABAJOS PRÁCTICOS ASIGNADOS (MODAL Y ACTUALIZACIÓN EN SUPABASE)
+// =========================================================================
+document.addEventListener('click', async (e) => {
+    const btnEditar = e.target.closest('.btn-editar-plan');
+    if (btnEditar) {
+        const id = btnEditar.dataset.id;
+        const periodo = btnEditar.dataset.periodo;
+        const unidad = btnEditar.dataset.unidad;
+        const vencimiento = btnEditar.dataset.vencimiento;
+        const nombre = btnEditar.dataset.nombre;
+
+        document.getElementById('editPlanificacionId').value = id;
+        document.getElementById('editNombreTpTexto').value = nombre;
+        document.getElementById('editPeriodoEvaluativo').value = periodo;
+        document.getElementById('editUnidadTematica').value = unidad;
+        document.getElementById('editFechaVencimiento').value = vencimiento;
+
+        const modalEl = document.getElementById('modalEditarTpAsignado');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+    }
+});
+
+const formEditarTpAsignado = document.getElementById('formEditarTpAsignado');
+if (formEditarTpAsignado) {
+    formEditarTpAsignado.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const id = document.getElementById('editPlanificacionId').value;
+        const periodo = document.getElementById('editPeriodoEvaluativo').value;
+        const unidad = document.getElementById('editUnidadTematica').value;
+        const vencimiento = document.getElementById('editFechaVencimiento').value || null;
+
+        try {
+            const { error } = await supabase
+                .from('curso_planificacion')
+                .update({
+                    periodo_evaluativo: periodo,
+                    unidad_tematica: unidad,
+                    fecha_vencimiento: vencimiento
+                })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            const modalEl = document.getElementById('modalEditarTpAsignado');
+            if (modalEl) {
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+            }
+
+            alert('¡Planificación actualizada con éxito!');
+
+            if (cursoActualId) {
+                await cargarPlanificacionCurso(cursoActualId, supabase);
+                await renderizarMatrizSeguimiento(cursoActualId);
+            }
+        } catch (err) {
+            alert('Error al actualizar la planificación: ' + err.message);
+        }
+    });
+}
