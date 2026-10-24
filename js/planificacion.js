@@ -2,26 +2,36 @@
 
 let bancoGlobalTPs = [];
 
-// Diccionario de facetas y sinónimos pedagógicos para el motor de búsqueda
+// Diccionario de facetas y sinónimos pedagógicos extendido
 const DICCIONARIO_FACETAS = {
-    'fracciones': ['fraccion', 'fracciones', 'racionales', 'racional', 'densidad', 'simplificación', 'simplificacion', 'numerador', 'denominador', 'mínimo común múltiplo', 'mcm'],
-    'racionales': ['fraccion', 'fracciones', 'racionales', 'racional', 'densidad', 'simplificación', 'simplificacion'],
-    'ecuaciones': ['ecuacion', 'ecuaciones', 'incógnita', 'incognita', 'despeje', 'primer grado', 'segundo grado', 'sistema de ecuaciones'],
-    'geometria': ['geometría', 'geometria', 'triángulos', 'triangulos', 'ángulos', 'angulos', 'perímetro', 'perimetro', 'área', 'area', 'pitágoras', 'pitagoras'],
-    'funciones': ['función', 'funcion', 'lineal', 'cuadrática', 'cuadratica', 'dominio', 'imagen', 'pendiente', 'ordenada', 'gráfico'],
-    'porcentaje': ['porcentaje', 'proporcionalidad', 'regla de tres', 'descuento', 'recargo', 'razón', 'razon'],
-    'potenciación': ['potencia', 'potenciacion', 'potenciación', 'exponente', 'radicación', 'radicacion', 'raíz', 'raiz'],
-    'logica': ['logica', 'lógica', 'conjeturas', 'conjetura', 'razonamiento', 'demostración', 'premisa', 'validación']
+    'fraccion': ['fraccion', 'fracciones', 'racional', 'racionales', 'densidad', 'simplificacion', 'numerador', 'denominador', 'mcm', 'minimo comun multiplo'],
+    'racional': ['fraccion', 'fracciones', 'racional', 'racionales', 'densidad', 'simplificacion'],
+    'ecuacion': ['ecuacion', 'ecuaciones', 'incognita', 'despeje', 'primer grado', 'segundo grado', 'sistema', 'igualdad'],
+    'geometria': ['geometria', 'triangulo', 'triangulos', 'angulo', 'angulos', 'perimetro', 'area', 'pitagoras', 'figura', 'superficie'],
+    'funcion': ['funcion', 'funciones', 'lineal', 'cuadratica', 'dominio', 'imagen', 'pendiente', 'ordenada', 'grafico', 'parabola'],
+    'porcentaje': ['porcentaje', 'proporcionalidad', 'regla de tres', 'descuento', 'recargo', 'razon', 'interes'],
+    'potencia': ['potencia', 'potencias', 'potenciacion', 'exponente', 'radicacion', 'raiz', 'raices'],
+    'logica': ['logica', 'conjetura', 'conjeturas', 'razonamiento', 'demostracion', 'premisa', 'validacion', 'contraejemplo'],
+    'combinadas': ['combinada', 'combinadas', 'operaciones', 'prioridad', 'parentesis', 'calculos']
 };
 
-// Normalizador Unicode (remueve tildes, símbolos y convierte a minúsculas)
+// Normalizador Unicode (remueve tildes, símbolos y pasa a minúsculas)
 function normalizarTexto(txt) {
     if (!txt) return '';
     return String(txt)
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
         .trim();
+}
+
+// Obtener raíz de la palabra (Stemmer liviano en español)
+function obtenerRaiz(palabra) {
+    if (palabra.length <= 3) return palabra;
+    return palabra
+        .replace(/(ciones|cion|miento|mientos|idades|idad|aciones|acion)$/g, '')
+        .replace(/(es|s|es|ico|ica|icos|icas|ado|ada|ados|adas|ando|endo)$/g, '');
 }
 
 // Extraer número para ordenamiento secuencial
@@ -292,7 +302,7 @@ export async function cargarBancoGlobal(supabase) {
     }
 }
 
-// Búsqueda en tiempo real universal
+// Motor de Búsqueda de Alto Rendimiento (Scoring + Stemming)
 export function aplicarFiltrosBanco(supabase) {
     const inputTexto = document.getElementById('filtroTextoTP')?.value || '';
     const textareaPrograma = document.querySelector('#modalAsignarTP textarea')?.value || document.getElementById('inputProgramaDocente')?.value || '';
@@ -303,44 +313,72 @@ export function aplicarFiltrosBanco(supabase) {
 
     const textoLimpio = normalizarTexto(rawTexto);
     
-    const terminosIngresados = textoLimpio
-        .split(/[\s,.;:-]+/)
-        .filter(t => t.length > 0);
+    // Palabras ingresadas
+    const palabras = textoLimpio.split(/\s+/).filter(p => p.length > 0);
 
-    let terminosExpandidos = [...terminosIngresados];
-    terminosIngresados.forEach(term => {
-        Object.keys(DICCIONARIO_FACETAS).forEach(clave => {
-            const claveNorm = normalizarTexto(clave);
-            if (claveNorm.includes(term) || term.includes(claveNorm)) {
-                DICCIONARIO_FACETAS[clave].forEach(sinonimo => {
-                    terminosExpandidos.push(normalizarTexto(sinonimo));
+    // Si no hay búsqueda por texto, filtrar únicamente por selecciones (Año / Bloom)
+    if (palabras.length === 0) {
+        const resultadoFiltroBasico = bancoGlobalTPs.filter(tp => {
+            const coincideBloom = bloom === 'TODOS' || normalizarTexto(tp.nivel_bloom) === normalizarTexto(bloom);
+            const coincideAnio = anio === 'TODOS' || String(tp.anio) === String(anio);
+            return coincideBloom && coincideAnio;
+        });
+        renderizarBancoGlobal(resultadoFiltroBasico, supabase);
+        return;
+    }
+
+    // Expandir palabras clave con sinónimos pedagógicos
+    const expansionClaves = [];
+    palabras.forEach(pal => {
+        const raiz = obtenerRaiz(pal);
+        expansionClaves.push(pal, raiz);
+
+        Object.keys(DICCIONARIO_FACETAS).forEach(claveDict => {
+            if (claveDict.includes(raiz) || raiz.includes(claveDict)) {
+                DICCIONARIO_FACETAS[claveDict].forEach(sino => {
+                    expansionClaves.push(sino, obtenerRaiz(sino));
                 });
             }
         });
     });
-    terminosExpandidos = Array.from(new Set(terminosExpandidos));
 
-    const filtrados = bancoGlobalTPs.filter(tp => {
-        const codShort = normalizarTexto(tp.cod_tp);
-        const codFull = normalizarTexto(tp.cod_tp_completo);
-        const titulo = normalizarTexto(tp.titulo_humano);
-        const materia = normalizarTexto(tp.materia);
-        const especialidad = normalizarTexto(tp.especialidad);
-        const textoConsignas = normalizarTexto(tp.consignasTexto);
+    const terminosUnicos = Array.from(new Set(expansionClaves)).filter(t => t.length > 1);
 
-        const todoElContenido = `${codShort} ${codFull} ${titulo} ${materia} ${especialidad} ${textoConsignas}`;
-
-        const coincideTxt = terminosIngresados.length === 0 || terminosIngresados.some(token => {
-            return terminosExpandidos.some(exp => todoElContenido.includes(exp) || todoElContenido.includes(token));
-        });
+    // Algoritmo de Scoring y Relevancia
+    const asignadosPuntaje = bancoGlobalTPs.map(tp => {
+        let puntaje = 0;
 
         const coincideBloom = bloom === 'TODOS' || normalizarTexto(tp.nivel_bloom) === normalizarTexto(bloom);
         const coincideAnio = anio === 'TODOS' || String(tp.anio) === String(anio);
 
-        return coincideTxt && coincideBloom && coincideAnio;
+        if (!coincideBloom || !coincideAnio) {
+            return { tp, puntaje: -1 };
+        }
+
+        const tituloNorm = normalizarTexto(tp.titulo_humano);
+        const codShortNorm = normalizarTexto(tp.cod_tp);
+        const codFullNorm = normalizarTexto(tp.cod_tp_completo);
+        const consignasNorm = normalizarTexto(tp.consignasTexto);
+
+        terminosUnicos.forEach(term => {
+            // Relevancia máxima: término en título
+            if (tituloNorm.includes(term)) puntaje += 100;
+            // Relevancia alta: término en código TP
+            if (codShortNorm.includes(term) || codFullNorm.includes(term)) puntaje += 50;
+            // Relevancia media: término en consignas
+            if (consignasNorm.includes(term)) puntaje += 10;
+        });
+
+        return { tp, puntaje };
     });
 
-    renderizarBancoGlobal(filtrados, supabase);
+    // Ordenar de mayor a menor relevancia
+    const resultadosOrdenados = asignadosPuntaje
+        .filter(item => item.puntaje > 0)
+        .sort((a, b) => b.puntaje - a.puntaje)
+        .map(item => item.tp);
+
+    renderizarBancoGlobal(resultadosOrdenados, supabase);
 }
 
 // Delegación Global de Eventos
@@ -353,7 +391,7 @@ function iniciarEscuchadorGlobalEventos(supabase) {
         clearTimeout(timerDebounce);
         timerDebounce = setTimeout(() => {
             aplicarFiltrosBanco(supabase);
-        }, 100);
+        }, 120);
     };
 
     document.addEventListener('input', (e) => {
@@ -446,7 +484,6 @@ function renderizarBancoGlobal(lista, supabase) {
     });
 }
 
-// Seleccionar TP y cerrar modal/drawer limpiando la pantalla
 function seleccionarTPParaPlan(cod, titulo) {
     const inputHidden = document.getElementById('inputCodTPAsignar');
     const inputTexto = document.getElementById('inputCodTPAsignarTexto');
@@ -470,12 +507,10 @@ function seleccionarTPParaPlan(cod, titulo) {
     document.body.classList.remove('modal-open', 'overflow-hidden');
 }
 
-// Abrir el explorador en el Drawer sin colisión de z-index ni superposición
 async function abrirExploradorDrawer(tp, supabase) {
     const drawerEl = document.getElementById('drawerExploradorTP');
     if (!drawerEl) return;
 
-    // Ocultar modal si estaba abierto para que no entorpezca la vista
     const modalEl = document.getElementById('modalAsignarTP');
     if (modalEl) {
         const modalInst = bootstrap.Modal.getInstance(modalEl);
