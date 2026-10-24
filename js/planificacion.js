@@ -239,32 +239,22 @@ export async function iniciarUIAsignacionDiferenciada(cursoId, supabase) {
     });
 }
 
-// Carga del Banco Global unificando metadatos de TPs y preguntas
+// Carga del Banco Global basada exclusivamente en la tabla 'banco_preguntas'
 export async function cargarBancoGlobal(supabase) {
     try {
-        const { data: tps, error: errTp } = await supabase.from('banco_tp').select('*');
+        console.log('🔄 Cargando catálogo global desde Supabase (banco_preguntas)...');
+
         const { data: preguntas, error: errPreg } = await supabase
             .from('banco_preguntas')
-            .select('cod_tp, titulo_humano, nivel_bloom, materia, anio, consigna, explicacion, saber_evaluado');
+            .select('cod_tp, titulo_humano, nivel_bloom, materia, anio, consigna, saber_evaluado')
+            .range(0, 4999);
 
-        if (errPreg) console.warn('Aviso sobre banco_preguntas:', errPreg);
+        if (errPreg) {
+            console.error('Error al consultar banco_preguntas:', errPreg);
+            return;
+        }
 
         const mapaTPs = new Map();
-
-        (tps || []).forEach(tp => {
-            const cod = tp.cod_tp || tp.cod_tp_completo;
-            if (cod) {
-                mapaTPs.set(cod, {
-                    cod_tp: cod,
-                    titulo_humano: tp.titulo_humano || tp.titulo || cod,
-                    nivel_bloom: tp.nivel_bloom || 'General',
-                    anio: tp.anio || 1,
-                    descripcion: tp.descripcion || '',
-                    materia: tp.materia || '',
-                    consignasTexto: ''
-                });
-            }
-        });
 
         (preguntas || []).forEach(p => {
             const cod = p.cod_tp;
@@ -287,20 +277,23 @@ export async function cargarBancoGlobal(supabase) {
                 tpObj.titulo_humano = p.titulo_humano;
             }
             if (p.nivel_bloom) tpObj.nivel_bloom = p.nivel_bloom;
+            if (p.materia) tpObj.materia = p.materia;
+            if (p.anio) tpObj.anio = p.anio;
             
-            // Indexa el texto de preguntas y explicaciones para búsquedas profundas
-            tpObj.consignasTexto += ` ${p.consigna || ''} ${p.explicacion || ''} ${p.saber_evaluado || ''}`;
+            tpObj.consignasTexto += ` ${p.consigna || ''} ${p.saber_evaluado || ''}`;
         });
 
         bancoGlobalTPs = Array.from(mapaTPs.values()).sort((a, b) => 
             extraerNumeroCodigo(a.cod_tp) - extraerNumeroCodigo(b.cod_tp)
         );
 
+        console.log(`✅ Catálogo cargado con éxito: ${bancoGlobalTPs.length} TPs disponibles.`, bancoGlobalTPs);
+
         renderizarBancoGlobal(bancoGlobalTPs, supabase);
         conectarEventosBusquedaInstantanea(supabase);
 
     } catch (err) {
-        console.error('Error al cargar banco de TPs:', err);
+        console.error('Error crítico cargando catálogo del banco global:', err);
     }
 }
 
@@ -312,12 +305,10 @@ export function aplicarFiltrosBanco(supabase) {
 
     const textoLimpio = normalizarTexto(rawTexto);
     
-    // Divide en palabras clave individuales de más de 1 caracter
     const terminosIngresados = textoLimpio
         .split(/[\s,.;:-]+/)
         .filter(t => t.length > 1);
 
-    // Expansión con sinónimos y facetas pedagógicas
     let terminosExpandidos = [...terminosIngresados];
     terminosIngresados.forEach(term => {
         Object.keys(DICCIONARIO_FACETAS).forEach(clave => {
@@ -340,9 +331,7 @@ export function aplicarFiltrosBanco(supabase) {
 
         const todoElTextoTP = `${cod} ${titulo} ${desc} ${materia} ${contenidoPreguntas}`;
 
-        // Evalúa si al menos un término clave coincide dentro de cualquier atributo del TP
         const coincideTxt = terminosIngresados.length === 0 || terminosExpandidos.some(t => todoElTextoTP.includes(t));
-
         const coincideBloom = bloom === 'TODOS' || normalizarTexto(tp.nivel_bloom) === normalizarTexto(bloom);
         const coincideAnio = anio === 'TODOS' || String(tp.anio) === String(anio);
 
@@ -352,7 +341,7 @@ export function aplicarFiltrosBanco(supabase) {
     renderizarBancoGlobal(filtrados, supabase);
 }
 
-// Búsqueda instantánea mientras el usuario escribe
+// Listener para la entrada instantánea mientras el usuario escribe
 let timerDebounce = null;
 function conectarEventosBusquedaInstantanea(supabase) {
     const inputTexto = document.getElementById('filtroTextoTP');
@@ -507,7 +496,7 @@ async function abrirExploradorDrawer(tp, supabase) {
     try {
         const { data: preguntas, error } = await supabase
             .from('banco_preguntas')
-            .select('*')
+            .select('orden, consigna, opciones, respuesta_correcta, correcta, saber_evaluado')
             .eq('cod_tp', tp.cod_tp)
             .order('orden', { ascending: true });
 
@@ -535,11 +524,9 @@ async function abrirExploradorDrawer(tp, supabase) {
         }).join('');
 
         contRespuestas.innerHTML = preguntas.map((p, idx) => {
-            const exp = p.explicacion ? '<p class="text-muted mb-0 mt-1 fst-italic">' + p.explicacion + '</p>' : '';
             return '<div class="border-bottom pb-2 mb-2 small">' +
                 '<span class="fw-bold text-dark">P' + (idx + 1) + ':</span> ' +
                 '<span class="badge bg-success">' + (p.respuesta_correcta || p.correcta || 'Verificación en sistema') + '</span>' +
-                exp +
             '</div>';
         }).join('');
 
