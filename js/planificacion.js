@@ -15,13 +15,13 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
             .order('unidad_tematica', { ascending: true });
 
         if (error) {
-            console.error('Error al consultar planificación:', error);
+            console.error('Error de Supabase al cargar planificación:', error);
             throw error;
         }
 
         if (!plan || plan.length === 0) {
             contenedor.innerHTML = `
-                <div class="alert alert-light text-center py-4 border">
+                <div class="alert alert-light text-center py-4 border my-3">
                     <p class="text-muted mb-0">No hay Trabajos Prácticos asignados a este curso todavía.</p>
                 </div>`;
             return;
@@ -38,7 +38,7 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
         let html = '';
         Object.keys(agrupado).forEach(periodo => {
             html += `
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 shadow-sm mb-4 my-3">
                     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2 px-3">
                         <h6 class="mb-0 fw-bold">📅 ${periodo}</h6>
                         <span class="badge bg-secondary">${agrupado[periodo].length} TP(s)</span>
@@ -58,12 +58,20 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
                                 <tbody>`;
 
             agrupado[periodo].forEach(tp => {
-                const cod = tp.cod_tp_completo || tp.cod_tp;
+                const cod = tp.cod_tp_completo || tp.cod_tp || 'TP';
                 const alias = tp.alias_tp || cod;
                 
-                const asignadosArr = (tp.alumnos_asignados && Array.isArray(tp.alumnos_asignados)) ? tp.alumnos_asignados : [];
-                const esDiferenciado = asignadosArr.length > 0;
+                // Protección contra null o undefined
+                let asignadosArr = [];
+                if (tp && tp.alumnos_asignados) {
+                    if (Array.isArray(tp.alumnos_asignados)) {
+                        asignadosArr = tp.alumnos_asignados;
+                    } else if (typeof tp.alumnos_asignados === 'string') {
+                        try { asignadosArr = JSON.parse(tp.alumnos_asignados); } catch (e) { asignadosArr = []; }
+                    }
+                }
 
+                const esDiferenciado = asignadosArr.length > 0;
                 const badgeAlcance = esDiferenciado 
                     ? `<span class="badge bg-warning text-dark">🎯 ${asignadosArr.length} Alumno(s) Seleccionado(s)</span>`
                     : `<span class="badge bg-info text-dark">👥 Todo el Curso</span>`;
@@ -95,7 +103,7 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
 
         contenedor.innerHTML = html;
 
-        // Eliminar TP de la planificación
+        // Vincular eventos de eliminación
         document.querySelectorAll('.btn-eliminar-tp-plan').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const idTp = e.currentTarget.dataset.id;
@@ -116,8 +124,11 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
         });
 
     } catch (err) {
-        console.error('Error al cargar la planificación:', err);
-        contenedor.innerHTML = `<div class="alert alert-danger my-3">Error al cargar la planificación: ${err.message}</div>`;
+        console.error('Error capturado en cargarPlanificacionCurso:', err);
+        contenedor.innerHTML = `
+            <div class="alert alert-danger my-3">
+                <strong>Error al cargar la planificación:</strong> ${err.message || err}
+            </div>`;
     }
 }
 
