@@ -285,36 +285,30 @@ export async function cargarBancoGlobal(supabase) {
         console.log(`✅ Catálogo cargado exitosamente: ${bancoGlobalTPs.length} TPs únicos detectados.`, bancoGlobalTPs);
 
         renderizarBancoGlobal(bancoGlobalTPs, supabase);
-        conectarEventosBusquedaInstantanea(supabase);
+        iniciarEscuchadorGlobalEventos(supabase);
 
     } catch (err) {
         console.error('Error crítico cargando catálogo global:', err);
     }
 }
 
-// Búsqueda en tiempo real omnicanal (Unifica inputs de Programa y de Palabras clave)
+// Búsqueda en tiempo real universal
 export function aplicarFiltrosBanco(supabase) {
-    // Obtener texto de cualquier caja donde el docente haya escrito
-    const valInputTema = document.getElementById('filtroTextoTP')?.value || '';
-    
-    // Buscar en el textarea del programa si existiera
-    const elemPrograma = document.querySelector('#modalAsignarTP textarea') || document.getElementById('inputProgramaDocente');
-    const valInputPrograma = elemPrograma ? elemPrograma.value : '';
-    
-    // Concatenar el contenido de ambos campos
-    const rawTexto = `${valInputTema} ${valInputPrograma}`.trim();
-    
+    // Tomar texto del campo activo (input o textarea)
+    const inputTexto = document.getElementById('filtroTextoTP')?.value || '';
+    const textareaPrograma = document.querySelector('#modalAsignarTP textarea')?.value || document.getElementById('inputProgramaDocente')?.value || '';
+
+    const rawTexto = `${inputTexto} ${textareaPrograma}`.trim();
     const bloom = document.getElementById('filtroBloomTP')?.value || 'TODOS';
     const anio = document.getElementById('filtroAnioTP')?.value || 'TODOS';
 
     const textoLimpio = normalizarTexto(rawTexto);
     
-    // Separar en palabras clave sin restricción de tamaño (permite buscar desde 1 letra)
     const terminosIngresados = textoLimpio
         .split(/[\s,.;:-]+/)
         .filter(t => t.length > 0);
 
-    // Expandir términos con diccionario de sinónimos
+    // Expandir términos clave
     let terminosExpandidos = [...terminosIngresados];
     terminosIngresados.forEach(term => {
         Object.keys(DICCIONARIO_FACETAS).forEach(clave => {
@@ -338,8 +332,8 @@ export function aplicarFiltrosBanco(supabase) {
 
         const todoElContenido = `${codShort} ${codFull} ${titulo} ${materia} ${especialidad} ${textoConsignas}`;
 
-        // Verifica si los términos ingresados coinciden parcialmente en el TP
-        const coincideTxt = terminosIngresados.length === 0 || terminosIngresados.every(token => {
+        // Flexibilidad: Coincidencia si al menos algún término o sinónimo aparece
+        const coincideTxt = terminosIngresados.length === 0 || terminosIngresados.some(token => {
             return terminosExpandidos.some(exp => todoElContenido.includes(exp) || todoElContenido.includes(token));
         });
 
@@ -352,46 +346,43 @@ export function aplicarFiltrosBanco(supabase) {
     renderizarBancoGlobal(filtrados, supabase);
 }
 
-// Vinculación de eventos de escritura predictiva en tiempo real
-function conectarEventosBusquedaInstantanea(supabase) {
-    const inputTexto = document.getElementById('filtroTextoTP');
-    const elemPrograma = document.querySelector('#modalAsignarTP textarea') || document.getElementById('inputProgramaDocente');
-    const selectBloom = document.getElementById('filtroBloomTP');
-    const selectAnio = document.getElementById('filtroAnioTP');
-    const btnAnalizar = document.querySelector('#modalAsignarTP button:has-text("Analizar")') || document.getElementById('btnAnalizarPrograma');
+// Delegación Global de Eventos (Independiente del ciclo de vida de Bootstrap/DOM)
+let timerDebounce = null;
+function iniciarEscuchadorGlobalEventos(supabase) {
+    if (window.escuchadorGlobalFiltrosActivo) return;
+    window.escuchadorGlobalFiltrosActivo = true;
 
     const ejecutarFiltrado = () => {
-        aplicarFiltrosBanco(supabase);
+        clearTimeout(timerDebounce);
+        timerDebounce = setTimeout(() => {
+            aplicarFiltrosBanco(supabase);
+        }, 100);
     };
 
-    if (inputTexto) {
-        inputTexto.addEventListener('input', ejecutarFiltrado);
-        inputTexto.addEventListener('keyup', ejecutarFiltrado);
-    }
+    // Escuchar cualquier escritura en las cajas del modal
+    document.addEventListener('input', (e) => {
+        if (e.target.matches('#filtroTextoTP, #inputProgramaDocente, #modalAsignarTP textarea')) {
+            ejecutarFiltrado();
+        }
+    });
 
-    if (elemPrograma) {
-        elemPrograma.addEventListener('input', ejecutarFiltrado);
-        elemPrograma.addEventListener('keyup', ejecutarFiltrado);
-    }
+    document.addEventListener('keyup', (e) => {
+        if (e.target.matches('#filtroTextoTP, #inputProgramaDocente, #modalAsignarTP textarea')) {
+            ejecutarFiltrado();
+        }
+    });
 
-    if (selectBloom) {
-        selectBloom.addEventListener('change', ejecutarFiltrado);
-    }
+    document.addEventListener('change', (e) => {
+        if (e.target.matches('#filtroBloomTP, #filtroAnioTP')) {
+            ejecutarFiltrado();
+        }
+    });
 
-    if (selectAnio) {
-        selectAnio.addEventListener('change', ejecutarFiltrado);
-    }
-
-    if (btnAnalizar) {
-        btnAnalizar.addEventListener('click', ejecutarFiltrado);
-    }
-
-    // Escuchar la apertura del modal para refrescar y enfocar
-    const modalEl = document.getElementById('modalAsignarTP');
-    if (modalEl && !modalEl.dataset.listenerModalOk) {
-        modalEl.dataset.listenerModalOk = 'true';
-        modalEl.addEventListener('shown.bs.modal', ejecutarFiltrado);
-    }
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#btnAnalizarPrograma') || e.target.closest('#modalAsignarTP button')) {
+            ejecutarFiltrado();
+        }
+    });
 }
 
 function renderizarBancoGlobal(lista, supabase) {
