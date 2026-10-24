@@ -243,28 +243,33 @@ export async function cargarBancoGlobal(supabase) {
 }
 
 export function aplicarFiltrosBanco(supabase) {
-    const txtOriginal = (document.getElementById('filtroTextoTP')?.value || '').trim().toLowerCase();
+    const inputTexto = (document.getElementById('filtroTextoTP')?.value || '').trim().toLowerCase();
     const bloom = document.getElementById('filtroBloomTP')?.value || 'TODOS';
     const anio = document.getElementById('filtroAnioTP')?.value || 'TODOS';
 
-    let terminosBusqueda = [txtOriginal];
-    
-    if (txtOriginal) {
+    // 1. Separar el texto ingresado por comas o espacios en palabras sueltas
+    const palabrasIngresadas = inputTexto.split(/[\s,]+/).filter(p => p.length > 0);
+
+    // 2. Expandir los términos con el diccionario de facetas
+    let terminosBusqueda = [...palabrasIngresadas];
+    palabrasIngresadas.forEach(palabra => {
         Object.keys(DICCIONARIO_FACETAS).forEach(clave => {
-            if (clave.includes(txtOriginal) || txtOriginal.includes(clave)) {
+            if (clave.includes(palabra) || palabra.includes(clave)) {
                 terminosBusqueda = [...terminosBusqueda, ...DICCIONARIO_FACETAS[clave]];
             }
         });
-        terminosBusqueda = Array.from(new Set(terminosBusqueda));
-    }
+    });
+    terminosBusqueda = Array.from(new Set(terminosBusqueda));
 
     const filtrados = bancoGlobalTPs.filter(tp => {
         const cod = (tp.cod_tp || '').toLowerCase();
-        const titulo = (tp.titulo || '').toLowerCase();
+        // Mapea tanto 'titulo_humano' como 'titulo' para dar soporte al esquema Supabase
+        const titulo = (tp.titulo_humano || tp.titulo || '').toLowerCase();
         const descripcion = (tp.descripcion || '').toLowerCase();
         const saberes = (tp.saberes_evaluados || tp.temas || []).toString().toLowerCase();
 
-        const coincideTxt = !txtOriginal || terminosBusqueda.some(termino => 
+        // Coincide si alguna de las palabras clave está presente en algún campo
+        const coincideTxt = palabrasIngresadas.length === 0 || terminosBusqueda.some(termino => 
             cod.includes(termino) || 
             titulo.includes(termino) || 
             descripcion.includes(termino) ||
@@ -282,6 +287,12 @@ export function aplicarFiltrosBanco(supabase) {
 
 function renderizarBancoGlobal(lista, supabase) {
     const contenedor = document.getElementById('listaBancoTPs') || document.getElementById('contenedorListaBancoTP');
+    const cantEl = document.getElementById('cantTPsEncontrados');
+    
+    if (cantEl) {
+        cantEl.innerText = `${lista.length} disponibles`;
+    }
+
     if (!contenedor) return;
 
     if (lista.length === 0) {
@@ -291,7 +302,7 @@ function renderizarBancoGlobal(lista, supabase) {
 
     const tarjetasHtml = lista.map(tp => {
         const cod = tp.cod_tp || '';
-        const titulo = tp.titulo || cod;
+        const titulo = tp.titulo_humano || tp.titulo || cod;
         const bloom = tp.nivel_bloom || 'Nivel General';
         const desc = tp.descripcion ? (tp.descripcion.substring(0, 90) + '...') : 'Sin descripción';
 
@@ -360,15 +371,17 @@ async function abrirExploradorDrawer(tp, supabase) {
     const drawerEl = document.getElementById('drawerExploradorTP');
     if (!drawerEl) return;
 
+    const tituloMostrar = tp.titulo_humano || tp.titulo || tp.cod_tp;
+
     document.getElementById('drawerBadgeCodTP').innerText = tp.cod_tp;
-    document.getElementById('drawerTituloTP').innerText = tp.titulo || tp.cod_tp;
+    document.getElementById('drawerTituloTP').innerText = tituloMostrar;
     document.getElementById('drawerNivelBloom').innerText = 'Bloom: ' + (tp.nivel_bloom || 'General');
     document.getElementById('drawerAnioNivel').innerText = tp.anio ? (tp.anio + '° Año') : 'Nivel Secundario';
     document.getElementById('drawerDescripcionTP').innerText = tp.descripcion || 'Sin descripción disponible.';
 
     const btnSeleccionar = document.getElementById('btnDrawerSeleccionarTP');
     if (btnSeleccionar) {
-        btnSeleccionar.onclick = () => seleccionarTPParaPlan(tp.cod_tp, tp.titulo || tp.cod_tp);
+        btnSeleccionar.onclick = () => seleccionarTPParaPlan(tp.cod_tp, tituloMostrar);
     }
 
     const contConsignas = document.getElementById('contenedorDrawerConsignas');
