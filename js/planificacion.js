@@ -292,13 +292,16 @@ export async function cargarBancoGlobal(supabase) {
     }
 }
 
-// Búsqueda en tiempo real, predictiva e inteligente (Omnicanal)
+// Búsqueda en tiempo real omnicanal (Unifica inputs de Programa y de Palabras clave)
 export function aplicarFiltrosBanco(supabase) {
-    // Busca en ambos inputs si existieran para mantener compatibilidad
+    // Obtener texto de cualquier caja donde el docente haya escrito
     const valInputTema = document.getElementById('filtroTextoTP')?.value || '';
-    const valInputPrograma = document.getElementById('inputProgramaDocente')?.value || '';
     
-    // Combina ambos campos de texto
+    // Buscar en el textarea del programa si existiera
+    const elemPrograma = document.querySelector('#modalAsignarTP textarea') || document.getElementById('inputProgramaDocente');
+    const valInputPrograma = elemPrograma ? elemPrograma.value : '';
+    
+    // Concatenar el contenido de ambos campos
     const rawTexto = `${valInputTema} ${valInputPrograma}`.trim();
     
     const bloom = document.getElementById('filtroBloomTP')?.value || 'TODOS';
@@ -306,7 +309,7 @@ export function aplicarFiltrosBanco(supabase) {
 
     const textoLimpio = normalizarTexto(rawTexto);
     
-    // Filtra tokens individuales sin restricción de longitud mínima
+    // Separar en palabras clave sin restricción de tamaño (permite buscar desde 1 letra)
     const terminosIngresados = textoLimpio
         .split(/[\s,.;:-]+/)
         .filter(t => t.length > 0);
@@ -335,7 +338,7 @@ export function aplicarFiltrosBanco(supabase) {
 
         const todoElContenido = `${codShort} ${codFull} ${titulo} ${materia} ${especialidad} ${textoConsignas}`;
 
-        // Verifica si todos los tokens ingresados coinciden parcialmente en el contenido del TP
+        // Verifica si los términos ingresados coinciden parcialmente en el TP
         const coincideTxt = terminosIngresados.length === 0 || terminosIngresados.every(token => {
             return terminosExpandidos.some(exp => todoElContenido.includes(exp) || todoElContenido.includes(token));
         });
@@ -349,20 +352,16 @@ export function aplicarFiltrosBanco(supabase) {
     renderizarBancoGlobal(filtrados, supabase);
 }
 
-// Búsqueda instantánea en tiempo real escuchando múltiples eventos
-let timerDebounce = null;
+// Vinculación de eventos de escritura predictiva en tiempo real
 function conectarEventosBusquedaInstantanea(supabase) {
     const inputTexto = document.getElementById('filtroTextoTP');
-    const inputPrograma = document.getElementById('inputProgramaDocente');
+    const elemPrograma = document.querySelector('#modalAsignarTP textarea') || document.getElementById('inputProgramaDocente');
     const selectBloom = document.getElementById('filtroBloomTP');
     const selectAnio = document.getElementById('filtroAnioTP');
-    const btnAnalizar = document.getElementById('btnAnalizarPrograma');
+    const btnAnalizar = document.querySelector('#modalAsignarTP button:has-text("Analizar")') || document.getElementById('btnAnalizarPrograma');
 
     const ejecutarFiltrado = () => {
-        clearTimeout(timerDebounce);
-        timerDebounce = setTimeout(() => {
-            aplicarFiltrosBanco(supabase);
-        }, 100);
+        aplicarFiltrosBanco(supabase);
     };
 
     if (inputTexto) {
@@ -370,9 +369,9 @@ function conectarEventosBusquedaInstantanea(supabase) {
         inputTexto.addEventListener('keyup', ejecutarFiltrado);
     }
 
-    if (inputPrograma) {
-        inputPrograma.addEventListener('input', ejecutarFiltrado);
-        inputPrograma.addEventListener('keyup', ejecutarFiltrado);
+    if (elemPrograma) {
+        elemPrograma.addEventListener('input', ejecutarFiltrado);
+        elemPrograma.addEventListener('keyup', ejecutarFiltrado);
     }
 
     if (selectBloom) {
@@ -385,6 +384,13 @@ function conectarEventosBusquedaInstantanea(supabase) {
 
     if (btnAnalizar) {
         btnAnalizar.addEventListener('click', ejecutarFiltrado);
+    }
+
+    // Escuchar la apertura del modal para refrescar y enfocar
+    const modalEl = document.getElementById('modalAsignarTP');
+    if (modalEl && !modalEl.dataset.listenerModalOk) {
+        modalEl.dataset.listenerModalOk = 'true';
+        modalEl.addEventListener('shown.bs.modal', ejecutarFiltrado);
     }
 }
 
