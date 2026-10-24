@@ -8,8 +8,23 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Chart.js CDN para gráficos analíticos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- MathJax CDN para Fórmulas Matemáticas -->
+
+    <!-- MathJax v3: Configuración explícita para delimitadores $ inline -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; }
@@ -34,7 +49,7 @@
         .estado-sin-hacer{ background-color: #e9ecef; color: #6c757d; }
         .estado-no-asignado { background-color: #f8f9fa; color: #adb5bd; }
 
-        /* PERMITIR MÁS LÍNEAS EN LOS ENCABEZADOS DE LA MATRIZ */
+        /* Encabezados de la Matriz */
         #tablaMatrizHeader th {
             white-space: normal !important;
             vertical-align: bottom;
@@ -50,7 +65,7 @@
             display: block;
         }
 
-        /* CORREGIR POSICIONAMIENTO Y CAPA Z DEL TOOLTIP (FLOTANTE) */
+        /* Tooltip flotante en matriz */
         .celda-tp .tooltip-info { 
             display: none; 
             position: absolute; 
@@ -75,7 +90,7 @@
             display: block !important; 
         }
 
-        /* REGLAS DE IMPRESIÓN EXCLUSIVA PARA LA HOJA PEDAGÓGICA A4 */
+        /* Reglas de impresión Hoja A4 */
         @media print {
             body {
                 background: #ffffff !important;
@@ -208,7 +223,7 @@
             </div>
         </div>
 
-        <!-- SECCIÓN 3: DETALLE DEL CURSO Y PESTAÑAS Y PLANIFICACIÓN -->
+        <!-- SECCIÓN 3: DETALLE DEL CURSO, PESTAÑAS Y PLANIFICACIÓN -->
         <div id="seccionDetalleCurso" class="d-none">
             <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
                 <div>
@@ -255,8 +270,6 @@
                             </button>
                         </div>
 
-                        <!-- El alcance de la asignación (Todo el Curso / Diferenciada) se inyecta dinámicamente desde iniciarUIAsignacionDiferenciada() -->
-                        
                         <div class="row g-3 align-items-end">
                             <div class="col-md-3">
                                 <label class="form-label fw-bold small text-muted">Período Evaluativo</label>
@@ -300,7 +313,6 @@
 
                     <!-- Grid de 4 Gráficos -->
                     <div class="row g-4">
-                        <!-- Gráfico 1: Rendimiento por TP -->
                         <div class="col-md-6">
                             <div class="card border-0 shadow-sm p-3 h-100">
                                 <h6 class="fw-bold text-dark mb-3">📊 Rendimiento Global por TP (Aprobados vs Reprobados)</h6>
@@ -309,7 +321,6 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Gráfico 2: Radar de Bloom -->
                         <div class="col-md-6">
                             <div class="card border-0 shadow-sm p-3 h-100">
                                 <h6 class="fw-bold text-dark mb-3">🧠 Perfil de Competencias Cognitivas (Bloom)</h6>
@@ -318,7 +329,6 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Gráfico 3: Distribución de Calificaciones -->
                         <div class="col-md-6">
                             <div class="card border-0 shadow-sm p-3 h-100">
                                 <h6 class="fw-bold text-dark mb-3">🎯 Distribución de Calificaciones del Curso</h6>
@@ -327,7 +337,6 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Gráfico 4: Diagnóstico de Preguntas -->
                         <div class="col-md-6">
                             <div class="card border-0 shadow-sm p-3 h-100">
                                 <h6 class="fw-bold text-dark mb-2">🔬 Diagnóstico de Preguntas por TP</h6>
@@ -356,7 +365,6 @@
                                 <thead class="table-dark text-nowrap">
                                     <tr id="tablaMatrizHeader">
                                         <th class="text-start sticky-col">Alumno</th>
-                                        <!-- Columnas dinámicas de TPs mapeadas por JS -->
                                     </tr>
                                 </thead>
                                 <tbody id="tablaMatrizBody">
@@ -366,7 +374,6 @@
                         </div>
                     </div>
 
-                    <!-- NÓMINA DE DETALLES TÉCNICOS (Emails / PINs) -->
                     <div class="card border-0 shadow-sm p-4">
                         <h5 class="fw-bold mb-3">Gestión de Accesos (Emails y PINs)</h5>
                         <div class="table-responsive">
@@ -421,7 +428,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold">Carga Masiva de Alumnos (Pega la lista de Excel/Word)</label>
-                            <small class="text-muted d-block mb-2">Formato: Un alumno por línea (<code>APELLIDO, Nombre, email_alumno, email_tutor</code>). Si el alumno no tiene mail, dejá el espacio vacío entre comas (<code>, ,</code>).</small>
+                            <small class="text-muted d-block mb-2">Formato: Un alumno por línea (<code>APELLIDO, Nombre, email_alumno, email_tutor</code>). Si no hay mail, dejá espacios vacíos entre comas (<code>, ,</code>).</small>
                             <textarea id="nominaRaw" class="form-control" rows="8" placeholder="FULANO, Luis, luis.fulano@mail.com, tutor.fulano@gmail.com&#10;ZULTANO, Juan, , tutor.zultano@gmail.com"></textarea>
                         </div>
                     </div>
@@ -474,7 +481,7 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-bold">Pegar lista de Alumnos</label>
-                        <small class="text-muted d-block mb-2">Formato: Un alumno por línea (<code>APELLIDO, Nombre, email_alumno, email_tutor</code>). Si el alumno no tiene mail, dejá el espacio vacío entre comas (<code>, ,</code>).</small>
+                        <small class="text-muted d-block mb-2">Formato: Un alumno por línea (<code>APELLIDO, Nombre, email_alumno, email_tutor</code>).</small>
                         <textarea id="nominaEditarRaw" class="form-control" rows="8" placeholder="FULANO, Luis, luis.fulano@mail.com, tutor.fulano@gmail.com&#10;ZULTANO, Juan, , tutor.zultano@gmail.com"></textarea>
                     </div>
                 </div>
@@ -486,65 +493,55 @@
         </div>
     </div>
 
-    <!-- MODAL ASIGNAR TP DEL BANCO GLOBAL -->
+    <!-- MODAL BANCO GLOBAL (BUSCADOR ÚNICO OMNICANAL RESTRUCTURADO) -->
     <div class="modal fade" id="modalAsignarTP" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content card-custom">
-                <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title fw-bold">Banco Global de Trabajos Prácticos</h5>
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content card-custom border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white py-3">
+                    <h5 class="modal-title fw-bold">🔎 Buscador de Trabajos Prácticos</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     
-                    <!-- 1. MOTOR DE SUGERENCIAS -->
-                    <div class="card bg-light border-primary mb-4">
-                        <div class="card-body">
-                            <label class="form-label fw-bold text-primary mb-1">
-                                🧠 Motor de Sugerencias por Programa / Temario
-                            </label>
-                            <p class="text-muted small mb-2">Pegá los temas de tu programa para que el sistema filtre automáticamente los TPs que mejor se adaptan.</p>
-                            <div class="input-group">
-                                <textarea id="inputProgramaDocente" class="form-control form-control-sm" rows="2" placeholder="Ej: Ecuaciones de primer grado, potencias, lenguaje simbólico..."></textarea>
-                                <button type="button" id="btnAnalizarPrograma" class="btn btn-primary fw-bold px-3">
-                                    Analizar Programa
-                                </button>
-                            </div>
+                    <!-- Campo de búsqueda omnicanal unificado -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark mb-1">Buscar por tema, palabra clave o pegá tu programa completo:</label>
+                        <div class="input-group input-group-lg shadow-sm">
+                            <span class="input-group-text bg-white border-end-0 text-primary">🔍</span>
+                            <input type="text" id="filtroTextoTP" class="form-control border-start-0 ps-0 fs-6" placeholder="Escribí un tema (ej. ecuaciones, potencia) o pegá tu temario aquí..." autocomplete="off">
                         </div>
+                        <small class="text-muted d-block mt-1">El filtro analiza palabras y sinónimos en tiempo real mientras escribís.</small>
                     </div>
 
-                    <!-- 2. FILTROS DIRECTOS -->
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-5">
-                            <label class="form-label fw-bold small mb-1">Búsqueda por Tema / Palabras clave</label>
-                            <input type="text" id="filtroTextoTP" class="form-control form-control-sm" placeholder="Ej: Conjeturas, Ecuaciones...">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold small mb-1">Año / Nivel</label>
+                    <!-- Filtros secundarios -->
+                    <div class="row g-2 mb-3 bg-light p-2 rounded border">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted mb-1">Año / Nivel:</label>
                             <select id="filtroAnioTP" class="form-select form-select-sm">
-                                <option value="">Todos los Años</option>
+                                <option value="TODOS">Todos los Años</option>
                                 <option value="1">1° Año</option>
                                 <option value="2">2° Año</option>
                                 <option value="3">3° Año</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold small mb-1">Taxonomía de Bloom</label>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted mb-1">Taxonomía de Bloom:</label>
                             <select id="filtroBloomTP" class="form-select form-select-sm">
-                                <option value="">Todos los Niveles</option>
-                                <option value="Comprender">Nivel 1 y 2: Comprender</option>
-                                <option value="Aplicar">Nivel 3: Aplicar</option>
-                                <option value="Analizar">Nivel 4: Analizar</option>
+                                <option value="TODOS">Todos los Niveles Cognitivos</option>
+                                <option value="Comprender">Comprender</option>
+                                <option value="Aplicar">Aplicar</option>
+                                <option value="Analizar">Analizar</option>
                             </select>
                         </div>
                     </div>
 
-                    <!-- 3. LISTADO SELECTOR DE TPS -->
+                    <!-- Listado dinámico de TPs -->
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center py-2">
                             <span class="fw-bold small">Trabajos Prácticos Disponibles</span>
                             <span id="cantTPsEncontrados" class="badge bg-light text-dark">0 disponibles</span>
                         </div>
-                        <div class="list-group list-group-flush overflow-auto" id="listaBancoTPs" style="max-height: 280px;">
+                        <div class="list-group list-group-flush overflow-auto p-2" id="listaBancoTPs" style="max-height: 360px;">
                             <div class="list-group-item text-center text-muted py-4 small">
                                 Cargando catálogo del Banco Global...
                             </div>
@@ -552,7 +549,7 @@
                     </div>
 
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer bg-light py-2">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
@@ -642,7 +639,6 @@
                             
                             <input type="hidden" id="reporteAlumnoId">
                             
-                            <!-- Rango de Selección -->
                             <div class="mb-3">
                                 <label class="form-label fw-bold small text-muted">Tipo de Rango</label>
                                 <select id="tipoRangoInforme" class="form-select form-select-sm">
@@ -651,7 +647,6 @@
                                 </select>
                             </div>
 
-                            <!-- Selector por TPs -->
                             <div id="selectorRangoTPs" class="mb-3">
                                 <label class="form-label fw-bold small text-muted">Desde TP:</label>
                                 <select id="informeTpDesde" class="form-select form-select-sm mb-2"></select>
@@ -660,7 +655,6 @@
                                 <select id="informeTpHasta" class="form-select form-select-sm"></select>
                             </div>
 
-                            <!-- Selector por Fechas -->
                             <div id="selectorRangoFechas" class="mb-3 d-none">
                                 <label class="form-label fw-bold small text-muted">Fecha Desde:</label>
                                 <input type="date" id="informeFechaDesde" class="form-control form-control-sm mb-2">
@@ -669,7 +663,6 @@
                                 <input type="date" id="informeFechaHasta" class="form-control form-control-sm">
                             </div>
 
-                            <!-- Opciones de Contenido -->
                             <div class="mb-3">
                                 <label class="form-label fw-bold small text-muted">Contenido a Incluir</label>
                                 <div class="form-check small">
@@ -682,7 +675,6 @@
                                 </div>
                             </div>
 
-                            <!-- Observación Personalizada -->
                             <div class="mb-3">
                                 <label class="form-label fw-bold small text-muted">Observación Docente (Opcional)</label>
                                 <textarea id="observacionDocenteInforme" class="form-control form-control-sm" rows="3" placeholder="Ej: Muestra buen compromiso en clase, se sugiere repasar coordenadas..."></textarea>
@@ -695,7 +687,6 @@
 
                         <!-- PANEL DERECHO CON PESTAÑAS (HOJA A4 Y EMAIL) -->
                         <div class="col-md-8 ps-md-4">
-                            <!-- Pestañas de Navegación del Informe -->
                             <ul class="nav nav-tabs mb-3" id="pestañasInformeTab" role="tablist">
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link active fw-bold" id="tab-pdf-tab" data-bs-toggle="tab" data-bs-target="#tab-pdf-content" type="button" role="tab">
@@ -709,22 +700,19 @@
                                 </li>
                             </ul>
 
-                            <!-- Contenido de las Pestañas -->
                             <div class="tab-content" id="pestañasInformeTabContent">
-                                <!-- Pestaña 1: PDF A4 -->
                                 <div class="tab-pane fade show active" id="tab-pdf-content" role="tabpanel">
                                     <div class="bg-light p-3 rounded d-flex flex-column align-items-center">
                                         <span class="badge bg-secondary mb-2">Vista Previa del Documento A4</span>
                                         <div id="hojaPrevisualizacionPDF" class="bg-white shadow p-4 text-dark rounded" style="width: 100%; max-width: 650px; min-height: 600px; font-size: 0.85rem; font-family: Arial, sans-serif;">
-                                            <!-- Se renderiza dinámicamente el borrador del informe -->
+                                            <!-- Borrador del informe -->
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Pestaña 2: Email -->
                                 <div class="tab-pane fade" id="tab-email-content" role="tabpanel">
                                     <div id="vistaPreviaEmailContainer" class="p-3 bg-light border rounded shadow-sm" style="min-height: 600px; overflow-y: auto;">
-                                        <!-- Se renderiza el cuerpo del mail dinámicamente -->
+                                        <!-- Cuerpo del mail -->
                                     </div>
                                 </div>
                             </div>
@@ -862,7 +850,7 @@
 
     <!-- Script principal Bootstrap -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Lógica del Panel JS cargado como módulo para permitir import/export -->
+    <!-- Lógica del Panel JS -->
     <script type="module" src="js/panel.js"></script>
 
 </body>
