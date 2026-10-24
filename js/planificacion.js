@@ -4,7 +4,10 @@ let bancoGlobalTPs = [];
 
 export async function cargarPlanificacionCurso(cursoId, supabase) {
     const contenedor = document.getElementById('contenedorPlanificacion');
-    if (!contenedor) return;
+    if (!contenedor) {
+        console.error('No se encontró el elemento contenedorPlanificacion');
+        return;
+    }
 
     try {
         const { data: plan, error } = await supabase
@@ -14,10 +17,7 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
             .order('periodo_evaluativo', { ascending: true })
             .order('unidad_tematica', { ascending: true });
 
-        if (error) {
-            console.error('Error de Supabase al cargar planificación:', error);
-            throw error;
-        }
+        if (error) throw error;
 
         if (!plan || plan.length === 0) {
             contenedor.innerHTML = `
@@ -50,7 +50,6 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
                                     <tr>
                                         <th>Código / Alias</th>
                                         <th>Unidad Temática</th>
-                                        <th>Alcance / Asignación</th>
                                         <th>Fecha Vencimiento</th>
                                         <th class="text-end">Acciones</th>
                                     </tr>
@@ -60,21 +59,6 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
             agrupado[periodo].forEach(tp => {
                 const cod = tp.cod_tp_completo || tp.cod_tp || 'TP';
                 const alias = tp.alias_tp || cod;
-                
-                // Protección contra null o undefined
-                let asignadosArr = [];
-                if (tp && tp.alumnos_asignados) {
-                    if (Array.isArray(tp.alumnos_asignados)) {
-                        asignadosArr = tp.alumnos_asignados;
-                    } else if (typeof tp.alumnos_asignados === 'string') {
-                        try { asignadosArr = JSON.parse(tp.alumnos_asignados); } catch (e) { asignadosArr = []; }
-                    }
-                }
-
-                const esDiferenciado = asignadosArr.length > 0;
-                const badgeAlcance = esDiferenciado 
-                    ? `<span class="badge bg-warning text-dark">🎯 ${asignadosArr.length} Alumno(s) Seleccionado(s)</span>`
-                    : `<span class="badge bg-info text-dark">👥 Todo el Curso</span>`;
 
                 html += `
                     <tr>
@@ -83,7 +67,6 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
                             <small class="text-muted">${cod}</small>
                         </td>
                         <td>${tp.unidad_tematica || '-'}</td>
-                        <td>${badgeAlcance}</td>
                         <td>${tp.fecha_vencimiento ? new Date(tp.fecha_vencimiento).toLocaleDateString() : '<span class="text-muted small">Sin límite</span>'}</td>
                         <td class="text-end">
                             <button class="btn btn-sm btn-outline-danger btn-eliminar-tp-plan" data-id="${tp.id}" title="Quitar de la planificación">
@@ -103,7 +86,7 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
 
         contenedor.innerHTML = html;
 
-        // Vincular eventos de eliminación
+        // Eventos de eliminación
         document.querySelectorAll('.btn-eliminar-tp-plan').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const idTp = e.currentTarget.dataset.id;
@@ -124,10 +107,10 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
         });
 
     } catch (err) {
-        console.error('Error capturado en cargarPlanificacionCurso:', err);
+        console.error('Error al cargar la planificación:', err);
         contenedor.innerHTML = `
             <div class="alert alert-danger my-3">
-                <strong>Error al cargar la planificación:</strong> ${err.message || err}
+                <strong>Error al cargar la planificación:</strong> ${err.message || JSON.stringify(err)}
             </div>`;
     }
 }
@@ -205,19 +188,6 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
     const unidad = document.getElementById('inputNuevaUnidad')?.value.trim() || 'Unidad 1';
     const fechaVenc = document.getElementById('inputFechaVencimientoTP')?.value || null;
 
-    const radioAlcance = document.querySelector('input[name="radioAlcanceAsignacion"]:checked')?.value || 'TODOS';
-    let alumnosSeleccionados = null;
-
-    if (radioAlcance === 'SELECCION') {
-        const checkboxes = document.querySelectorAll('.chk-alumno-diferenciado:checked');
-        alumnosSeleccionados = Array.from(checkboxes).map(c => c.value);
-
-        if (alumnosSeleccionados.length === 0) {
-            alert('Por favor seleccioná al menos un alumno para realizar la asignación diferenciada.');
-            return;
-        }
-    }
-
     if (!cursoId || !codTp) {
         alert('Por favor seleccioná un TP antes de agregar.');
         return;
@@ -234,10 +204,6 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
             fecha_vencimiento: fechaVenc,
             activo: true
         };
-
-        if (alumnosSeleccionados !== null) {
-            datosInsert.alumnos_asignados = alumnosSeleccionados;
-        }
 
         const { error } = await supabase.from('curso_planificacion').insert([datosInsert]);
 
