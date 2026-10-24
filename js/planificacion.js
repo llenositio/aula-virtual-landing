@@ -285,29 +285,37 @@ function renderizarBancoGlobal(lista, supabase) {
     if (!contenedor) return;
 
     if (lista.length === 0) {
-        contenedor.innerHTML = `<div class="text-center text-muted py-4">No se encontraron TPs que coincidan con los filtros.</div>`;
+        contenedor.innerHTML = '<div class="text-center text-muted py-4">No se encontraron TPs que coincidan con los filtros.</div>';
         return;
     }
 
-    contenedor.innerHTML = lista.map(tp => `
-        <div class="card mb-2 border shadow-sm">
-            <div class="card-body p-3 d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="badge bg-primary me-2">${tp.cod_tp}</span>
-                    <span class="badge bg-outline-secondary border text-dark me-2">${tp.nivel_bloom || 'Nivel General'}</span>
-                    <h6 class="fw-bold d-inline text-dark mb-0">${tp.titulo || tp.cod_tp}</h6>
-                    <p class="small text-muted mb-0 mt-1">${tp.descripcion ? tp.descripcion.substring(0, 90) + '...' : 'Sin descripción'}</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-info fw-bold btn-inspeccionar-tp-banco" data-cod="${tp.cod_tp}">
-                        👁️ Inspeccionar
-                    </button>
-                    <button class="btn btn-sm btn-success fw-bold btn-seleccionar-tp-banco" data-cod="${tp.cod_tp}" data-titulo="${tp.titulo || tp.cod_tp}">
-                        ➕ Seleccionar
-                    </button>
-                </div>
-            </div>
-        </div>`).join('');
+    const tarjetasHtml = lista.map(tp => {
+        const cod = tp.cod_tp || '';
+        const titulo = tp.titulo || cod;
+        const bloom = tp.nivel_bloom || 'Nivel General';
+        const desc = tp.descripcion ? (tp.descripcion.substring(0, 90) + '...') : 'Sin descripción';
+
+        return '<div class="card mb-2 border shadow-sm">' +
+            '<div class="card-body p-3 d-flex justify-content-between align-items-center">' +
+                '<div>' +
+                    '<span class="badge bg-primary me-2">' + cod + '</span>' +
+                    '<span class="badge bg-outline-secondary border text-dark me-2">' + bloom + '</span>' +
+                    '<h6 class="fw-bold d-inline text-dark mb-0">' + titulo + '</h6>' +
+                    '<p class="small text-muted mb-0 mt-1">' + desc + '</p>' +
+                '</div>' +
+                '<div class="d-flex gap-2">' +
+                    '<button class="btn btn-sm btn-outline-info fw-bold btn-inspeccionar-tp-banco" data-cod="' + cod + '">' +
+                        '👁️ Inspeccionar' +
+                    '</button>' +
+                    '<button class="btn btn-sm btn-success fw-bold btn-seleccionar-tp-banco" data-cod="' + cod + '" data-titulo="' + titulo + '">' +
+                        '➕ Seleccionar' +
+                    '</button>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+
+    contenedor.innerHTML = tarjetasHtml;
 
     document.querySelectorAll('.btn-seleccionar-tp-banco').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -333,7 +341,7 @@ function seleccionarTPParaPlan(cod, titulo) {
     const inputTexto = document.getElementById('inputCodTPAsignarTexto');
 
     if (inputHidden) inputHidden.value = cod;
-    if (inputTexto) inputTexto.value = `${cod} - ${titulo}`;
+    if (inputTexto) inputTexto.value = cod + ' - ' + titulo;
 
     const modalEl = document.getElementById('modalAsignarTP');
     if (modalEl) {
@@ -354,8 +362,8 @@ async function abrirExploradorDrawer(tp, supabase) {
 
     document.getElementById('drawerBadgeCodTP').innerText = tp.cod_tp;
     document.getElementById('drawerTituloTP').innerText = tp.titulo || tp.cod_tp;
-    document.getElementById('drawerNivelBloom').innerText = `Bloom: ${tp.nivel_bloom || 'General'}`;
-    document.getElementById('drawerAnioNivel').innerText = tp.anio ? `${tp.anio}° Año` : 'Nivel Secundario';
+    document.getElementById('drawerNivelBloom').innerText = 'Bloom: ' + (tp.nivel_bloom || 'General');
+    document.getElementById('drawerAnioNivel').innerText = tp.anio ? (tp.anio + '° Año') : 'Nivel Secundario';
     document.getElementById('drawerDescripcionTP').innerText = tp.descripcion || 'Sin descripción disponible.';
 
     const btnSeleccionar = document.getElementById('btnDrawerSeleccionarTP');
@@ -390,34 +398,35 @@ async function abrirExploradorDrawer(tp, supabase) {
             return;
         }
 
-        contConsignas.innerHTML = preguntas.map((p, idx) => `
-            <div class="card border-0 shadow-sm p-3 bg-white">
-                <div class="fw-bold text-dark mb-1">Pregunta ${idx + 1}</div>
-                <div class="small text-dark mb-2">${p.consigna || 'Consigna en formato interactivo'}</div>
-                ${p.opciones && Array.isArray(p.opciones) ? `
-                    <ul class="list-group list-group-flush small">
-                        ${p.opciones.map(o => `<li class="list-group-item px-2 py-1 bg-light">${o}</li>`).join('')}
-                    </ul>
-                ` : ''}
-            </div>
-        `).join('');
+        contConsignas.innerHTML = preguntas.map((p, idx) => {
+            let opcionesHtml = '';
+            if (p.opciones && Array.isArray(p.opciones)) {
+                opcionesHtml = '<ul class="list-group list-group-flush small">' +
+                    p.opciones.map(o => '<li class="list-group-item px-2 py-1 bg-light">' + o + '</li>').join('') +
+                '</ul>';
+            }
+            return '<div class="card border-0 shadow-sm p-3 bg-white">' +
+                '<div class="fw-bold text-dark mb-1">Pregunta ' + (idx + 1) + '</div>' +
+                '<div class="small text-dark mb-2">' + (p.consigna || 'Consigna en formato interactivo') + '</div>' +
+                opcionesHtml +
+            '</div>';
+        }).join('');
 
-        contRespuestas.innerHTML = preguntas.map((p, idx) => `
-            <div class="border-bottom pb-2 mb-2 small">
-                <span class="fw-bold text-dark">P${idx + 1}:</span> 
-                <span class="badge bg-success">${p.respuesta_correcta || p.correcta || 'Verificación en sistema'}</span>
-                ${p.explicacion ? `<p class="text-muted mb-0 mt-1 fst-italic">${p.explicacion}</p>` : ''}
-            </div>
-        `).join('');
+        contRespuestas.innerHTML = preguntas.map((p, idx) => {
+            const exp = p.explicacion ? '<p class="text-muted mb-0 mt-1 fst-italic">' + p.explicacion + '</p>' : '';
+            return '<div class="border-bottom pb-2 mb-2 small">' +
+                '<span class="fw-bold text-dark">P' + (idx + 1) + ':</span> ' +
+                '<span class="badge bg-success">' + (p.respuesta_correcta || p.correcta || 'Verificación en sistema') + '</span>' +
+                exp +
+            '</div>';
+        }).join('');
 
         const saberesSet = new Set(preguntas.map(p => p.saber_evaluado).filter(Boolean));
         if (saberesSet.size > 0) {
-            contSaberes.innerHTML = `
-                <h6 class="fw-bold text-primary small mb-2">Micro-competencias evaluadas:</h6>
-                <ul class="mb-0 ps-3 small text-muted">
-                    ${Array.from(saberesSet).map(s => `<li class="mb-1"><strong>${s}</strong></li>`).join('')}
-                </ul>
-            `;
+            contSaberes.innerHTML = '<h6 class="fw-bold text-primary small mb-2">Micro-competencias evaluadas:</h6>' +
+                '<ul class="mb-0 ps-3 small text-muted">' +
+                    Array.from(saberesSet).map(s => '<li class="mb-1"><strong>' + s + '</strong></li>').join('') +
+                '</ul>';
         } else {
             contSaberes.innerHTML = '<div class="text-muted small">Este TP evalúa contenidos generales del nivel.</div>';
         }
@@ -428,7 +437,7 @@ async function abrirExploradorDrawer(tp, supabase) {
 
     } catch (err) {
         console.error('Error al cargar detalle del TP:', err);
-        contConsignas.innerHTML = `<div class="alert alert-danger small">Error al cargar consignas: ${err.message}</div>`;
+        contConsignas.innerHTML = '<div class="alert alert-danger small">Error al cargar consignas: ' + err.message + '</div>';
     }
 }
 
