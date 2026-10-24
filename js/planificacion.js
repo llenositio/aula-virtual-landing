@@ -26,6 +26,44 @@ function normalizarTexto(txt) {
         .trim();
 }
 
+// Formateo seguro para fórmulas MathJax
+function prepararTextoMathJax(txt) {
+    if (!txt) return '';
+    return String(txt);
+}
+
+// Función para parsear URLs e incrustar imágenes/videos dinámicamente según especificaciones
+function procesarConsignaConImagenes(texto) {
+    if (!texto) return 'Consigna en formato interactivo';
+    
+    let textoFormateado = prepararTextoMathJax(texto);
+    const regexUrl = /(https?:\/\/[^\s<]+)/g;
+
+    return textoFormateado.replace(regexUrl, (url) => {
+        const urlLimpia = url.replace(/➡️|➡|;|\)/g, '').trim();
+
+        // Detección de Videos de YouTube (Soporte tipo CA)
+        if (urlLimpia.includes('youtube.com') || urlLimpia.includes('youtu.be')) {
+            let videoId = '';
+            if (urlLimpia.includes('youtu.be/')) {
+                videoId = urlLimpia.split('youtu.be/')[1].split('?')[0];
+            } else if (urlLimpia.includes('v=')) {
+                videoId = urlLimpia.split('v=')[1].split('&')[0];
+            }
+            if (videoId) {
+                return `<div class="ratio ratio-16x9 my-2 rounded overflow-hidden shadow-sm">
+                    <iframe src="https://www.youtube.com/embed/${videoId}" title="Video explicativo" allowfullscreen></iframe>
+                </div>`;
+            }
+        }
+
+        // Render de Imagen directa (Soporte tipo VI, CA, OM, VF, RM, etc.)
+        return `<div class="text-center my-2">
+            <img src="${urlLimpia}" class="img-fluid rounded border shadow-sm" style="max-height: 280px;" alt="Recurso de la consigna" onerror="this.outerHTML='<a href=\'${urlLimpia}\' target=\'_blank\' class=\'btn btn-sm btn-outline-primary my-1\'>🔗 Ver Archivo Adjunto</a>'">
+        </div>`;
+    });
+}
+
 // Obtener raíz de la palabra (Stemmer liviano en español)
 function obtenerRaiz(palabra) {
     if (palabra.length <= 3) return palabra;
@@ -312,11 +350,8 @@ export function aplicarFiltrosBanco(supabase) {
     const anio = document.getElementById('filtroAnioTP')?.value || 'TODOS';
 
     const textoLimpio = normalizarTexto(rawTexto);
-    
-    // Palabras ingresadas
     const palabras = textoLimpio.split(/\s+/).filter(p => p.length > 0);
 
-    // Si no hay búsqueda por texto, filtrar únicamente por selecciones (Año / Bloom)
     if (palabras.length === 0) {
         const resultadoFiltroBasico = bancoGlobalTPs.filter(tp => {
             const coincideBloom = bloom === 'TODOS' || normalizarTexto(tp.nivel_bloom) === normalizarTexto(bloom);
@@ -327,7 +362,6 @@ export function aplicarFiltrosBanco(supabase) {
         return;
     }
 
-    // Expandir palabras clave con sinónimos pedagógicos
     const expansionClaves = [];
     palabras.forEach(pal => {
         const raiz = obtenerRaiz(pal);
@@ -344,7 +378,6 @@ export function aplicarFiltrosBanco(supabase) {
 
     const terminosUnicos = Array.from(new Set(expansionClaves)).filter(t => t.length > 1);
 
-    // Algoritmo de Scoring y Relevancia
     const asignadosPuntaje = bancoGlobalTPs.map(tp => {
         let puntaje = 0;
 
@@ -361,18 +394,14 @@ export function aplicarFiltrosBanco(supabase) {
         const consignasNorm = normalizarTexto(tp.consignasTexto);
 
         terminosUnicos.forEach(term => {
-            // Relevancia máxima: término en título
             if (tituloNorm.includes(term)) puntaje += 100;
-            // Relevancia alta: término en código TP
             if (codShortNorm.includes(term) || codFullNorm.includes(term)) puntaje += 50;
-            // Relevancia media: término en consignas
             if (consignasNorm.includes(term)) puntaje += 10;
         });
 
         return { tp, puntaje };
     });
 
-    // Ordenar de mayor a menor relevancia
     const resultadosOrdenados = asignadosPuntaje
         .filter(item => item.puntaje > 0)
         .sort((a, b) => b.puntaje - a.puntaje)
@@ -549,7 +578,7 @@ async function abrirExploradorDrawer(tp, supabase) {
     }, 50);
 
     try {
-        let query = supabase.from('banco_preguntas').select('N_de_orden_pregunta, consigna, opciones, respuesta_correcta');
+        let query = supabase.from('banco_preguntas').select('N_de_orden_pregunta, consigna, opciones, respuesta_correcta, tipo_pregunta');
 
         if (tp.cod_tp_completo) {
             query = query.eq('cod_tp_completo', tp.cod_tp_completo);
@@ -570,36 +599,66 @@ async function abrirExploradorDrawer(tp, supabase) {
 
         contConsignas.innerHTML = preguntas.map((p, idx) => {
             let opcionesHtml = '';
+            
             if (p.opciones) {
-                const listaOps = typeof p.opciones === 'string' ? p.opciones.split(',,') : p.opciones;
-                if (Array.isArray(listaOps) && listaOps.length > 0) {
-                    opcionesHtml = '<ul class="list-group list-group-flush small mt-2">' +
-                        listaOps.map(o => '<li class="list-group-item px-2 py-1 bg-light">' + o + '</li>').join('') +
+                // Parseo inteligente con soporte para el separador estricto ',,,' y parejas '|= >|'
+                const rawOps = typeof p.opciones === 'string' ? p.opciones.split(',,,') : p.opciones;
+                const listaOps = Array.isArray(rawOps) ? rawOps.map(o => String(o).trim()).filter(o => o.length > 0) : [];
+                
+                if (listaOps.length > 0) {
+                    opcionesHtml = '<ul class="list-group list-group-flush small mt-2 border rounded">' +
+                        listaOps.map(o => {
+                            // Soporte para Emparejamiento EM (Formato: A |=>| ResA)
+                            if (o.includes('|=>|')) {
+                                const partesEmp = o.split('|=>|');
+                                return `<li class="list-group-item px-3 py-1 bg-light d-flex justify-content-between align-items-center">
+                                    <span>${prepararTextoMathJax(partesEmp[0])}</span>
+                                    <span class="badge bg-secondary">➡️ ${prepararTextoMathJax(partesEmp[1])}</span>
+                                </li>`;
+                            }
+                            return '<li class="list-group-item px-3 py-1 bg-light">' + prepararTextoMathJax(o) + '</li>';
+                        }).join('') +
                     '</ul>';
                 }
             }
-            return '<div class="card border-0 shadow-sm p-3 bg-white mb-2">' +
-                '<div class="fw-bold text-dark mb-1">Pregunta ' + (p.N_de_orden_pregunta || (idx + 1)) + '</div>' +
-                '<div class="small text-dark mb-1">' + (p.consigna || 'Consigna en formato interactivo') + '</div>' +
+
+            const htmlConsigna = procesarConsignaConImagenes(p.consigna);
+            const badgeTipo = p.tipo_pregunta ? `<span class="badge bg-outline-dark border text-dark ms-2">${p.tipo_pregunta}</span>` : '';
+
+            return '<div class="card border-0 shadow-sm p-3 bg-white mb-3">' +
+                '<div class="fw-bold text-dark mb-2">Pregunta ' + (p.N_de_orden_pregunta || (idx + 1)) + badgeTipo + '</div>' +
+                '<div class="small text-dark mb-1">' + htmlConsigna + '</div>' +
                 opcionesHtml +
             '</div>';
         }).join('');
 
         contRespuestas.innerHTML = preguntas.map((p, idx) => {
+            let respTexto = p.respuesta_correcta || 'Verificación automática';
+            
+            // Si tiene delimitador triple coma en la respuesta (ej. VF o CV)
+            if (typeof respTexto === 'string' && respTexto.includes(',,,')) {
+                respTexto = respTexto.split(',,,').map(r => r.trim()).join(' | ');
+            }
+
             return '<div class="border-bottom pb-2 mb-2 small">' +
                 '<span class="fw-bold text-dark">P' + (p.N_de_orden_pregunta || (idx + 1)) + ':</span> ' +
-                '<span class="badge bg-success me-1">' + (p.respuesta_correcta || 'Verificación automática') + '</span>' +
+                '<span class="badge bg-success me-1">' + prepararTextoMathJax(respTexto) + '</span>' +
             '</div>';
         }).join('');
 
         contSaberes.innerHTML = `
             <div class="card border-0 bg-light p-3">
                 <h6 class="fw-bold text-primary small mb-2">Contenido temático:</h6>
-                <p class="small text-dark mb-0">${tp.titulo_humano}</p>
+                <p class="small text-dark mb-0">${prepararTextoMathJax(tp.titulo_humano)}</p>
             </div>`;
 
-        if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-            window.MathJax.typesetPromise([drawerEl]);
+        // Renderizado MathJax v3 / v2
+        if (window.MathJax) {
+            if (typeof window.MathJax.typesetPromise === 'function') {
+                window.MathJax.typesetPromise([drawerEl]).catch(err => console.error('Error MathJax:', err));
+            } else if (typeof window.MathJax.Hub?.Queue === 'function') {
+                window.MathJax.Hub.Queue(["Typeset", window.MathJax.Hub, drawerEl]);
+            }
         }
 
     } catch (err) {
