@@ -5,7 +5,7 @@ let bancoGlobalTPs = [];
 // Función auxiliar para extraer el número del código del TP y ordenar secuencialmente
 function extraerNumeroCodigo(cod) {
     if (!cod) return 0;
-    const match = cod.match(/\d+/);
+    const match = String(cod).match(/\d+/);
     return match ? parseInt(match[0], 10) : 0;
 }
 
@@ -141,6 +141,85 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
     }
 }
 
+export async function iniciarUIAsignacionDiferenciada(cursoId, supabase) {
+    const contenedorBarra = document.querySelector('#panel-planificacion .card-body');
+    if (!contenedorBarra || document.getElementById('wrapperAlcanceAsignacion')) return;
+
+    const divAlcance = document.createElement('div');
+    divAlcance.id = 'wrapperAlcanceAsignacion';
+    divAlcance.className = 'bg-light p-3 rounded mb-3 border';
+    divAlcance.innerHTML = `
+        <label class="form-label fw-bold small text-muted d-block mb-2">👥 Alcance de la Asignación:</label>
+        <div class="d-flex align-items-center gap-4 small mb-2">
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="radioAlcanceAsignacion" id="radioAsignarTodoCurso" value="CURSO" checked>
+                <label class="form-check-label fw-semibold" for="radioAsignarTodoCurso">
+                    Asignar a Todo el Curso
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="radioAlcanceAsignacion" id="radioAsignarDiferenciado" value="DIFERENCIADO">
+                <label class="form-check-label fw-semibold" for="radioAsignarDiferenciado">
+                    🎯 Asignación Diferenciada (Seleccionar Alumnos)
+                </label>
+            </div>
+        </div>
+        <div id="contenedorListaAlumnosDiferenciados" class="d-none border-top pt-2 mt-2">
+            <small class="text-muted d-block mb-2">Marque los alumnos que deberán resolver este TP:</small>
+            <div id="gridCheckboxesAlumnos" class="row g-2 max-vh-25 overflow-auto">
+                <div class="col-12 text-muted small">Cargando nómina...</div>
+            </div>
+        </div>
+    `;
+
+    const filaCampos = contenedorBarra.querySelector('.row');
+    if (filaCampos) {
+        contenedorBarra.insertBefore(divAlcance, filaCampos);
+    }
+
+    // Listener para cambiar entre Todo el Curso y Diferenciado
+    const radios = divAlcance.querySelectorAll('input[name="radioAlcanceAsignacion"]');
+    const panelAlumnos = divAlcance.querySelector('#contenedorListaAlumnosDiferenciados');
+    const gridAlumnos = divAlcance.querySelector('#gridCheckboxesAlumnos');
+
+    radios.forEach(radio => {
+        radio.addEventListener('change', async (e) => {
+            const esDiferenciado = e.target.value === 'DIFERENCIADO';
+            panelAlumnos.classList.toggle('d-none', !esDiferenciado);
+
+            if (esDiferenciado && gridAlumnos) {
+                try {
+                    const { data: alumnos, error } = await supabase
+                        .from('alumnos')
+                        .select('id, apellido, nombre')
+                        .eq('curso_id', cursoId)
+                        .order('apellido', { ascending: true });
+
+                    if (error) throw error;
+
+                    if (!alumnos || alumnos.length === 0) {
+                        gridAlumnos.innerHTML = `<div class="col-12 text-muted small py-2">No hay alumnos inscriptos en este curso.</div>`;
+                        return;
+                    }
+
+                    gridAlumnos.innerHTML = alumnos.map(a => `
+                        <div class="col-md-4 col-sm-6">
+                            <div class="form-check small">
+                                <input class="form-check-input chk-alumno-diferenciado" type="checkbox" value="${a.id}" id="chk_alum_${a.id}">
+                                <label class="form-check-label text-truncate" for="chk_alum_${a.id}" title="${a.apellido}, ${a.nombre}">
+                                    ${a.apellido}, ${a.nombre}
+                                </label>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (err) {
+                    gridAlumnos.innerHTML = `<div class="col-12 text-danger small">Error al cargar nómina: ${err.message}</div>`;
+                }
+            }
+        });
+    });
+}
+
 export async function cargarBancoGlobal(supabase) {
     try {
         const { data, error } = await supabase.from('banco_tp').select('*').order('cod_tp', { ascending: true });
@@ -232,7 +311,7 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
     if (radioAlcance === 'DIFERENCIADO' || radioAlcance === 'SELECCION') {
         const seleccionados = Array.from(document.querySelectorAll('.chk-alumno-diferenciado:checked')).map(cb => cb.value);
         if (seleccionados.length === 0) {
-            alert('Has seleccionado Asignación Diferenciada pero no marcaste ningún alumno.');
+            alert('Has seleccionado Asignación Diferenciada pero no marcaste ningún alumno de la lista.');
             return;
         }
         alumnosAsignados = seleccionados;
@@ -259,6 +338,9 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
         const inputTexto = document.getElementById('inputCodTPAsignarTexto');
         if (inputHidden) inputHidden.value = '';
         if (inputTexto) inputTexto.value = '';
+
+        // Desmarcar checkboxes diferenciados
+        document.querySelectorAll('.chk-alumno-diferenciado').forEach(cb => cb.checked = false);
 
         if (callbackExito) callbackExito();
 
