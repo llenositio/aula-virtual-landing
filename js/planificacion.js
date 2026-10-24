@@ -2,6 +2,17 @@
 
 let bancoGlobalTPs = [];
 
+// Diccionario de facetas y sinónimos pedagógicos para el motor de búsqueda
+const DICCIONARIO_FACETAS = {
+    'fracciones': ['fraccion', 'fracciones', 'racionales', 'racional', 'densidad', 'simplificación', 'simplificacion', 'numerador', 'denominador', 'mínimo común múltiplo', 'mcm'],
+    'racionales': ['fraccion', 'fracciones', 'racionales', 'racional', 'densidad', 'simplificación', 'simplificacion'],
+    'ecuaciones': ['ecuacion', 'ecuaciones', 'incógnita', 'incognita', 'despeje', 'primer grado', 'segundo grado', 'sistema de ecuaciones'],
+    'geometria': ['geometría', 'geometria', 'triángulos', 'triangulos', 'ángulos', 'angulos', 'perímetro', 'perimetro', 'área', 'area', 'pitágoras', 'pitagoras'],
+    'funciones': ['función', 'funcion', 'lineal', 'cuadrática', 'cuadratica', 'dominio', 'imagen', 'pendiente', 'ordenada', 'gráfico'],
+    'porcentaje': ['porcentaje', 'proporcionalidad', 'regla de tres', 'descuento', 'recargo', 'razón', 'razon'],
+    'potenciación': ['potencia', 'potenciacion', 'potenciación', 'exponente', 'radicación', 'radicacion', 'raíz', 'raiz']
+};
+
 // Función auxiliar para extraer el número del código del TP y ordenar secuencialmente
 function extraerNumeroCodigo(cod) {
     if (!cod) return 0;
@@ -44,7 +55,7 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
 
         let html = '';
         Object.keys(agrupado).forEach(periodo => {
-            // Ordenar numéricamente los TPs dentro del período de forma ascendente (001, 002, 005...)
+            // Ordenar numéricamente los TPs dentro del período de forma ascendente
             agrupado[periodo].sort((a, b) => {
                 const codA = a.cod_tp_completo || a.cod_tp || '';
                 const codB = b.cod_tp_completo || b.cod_tp || '';
@@ -177,7 +188,6 @@ export async function iniciarUIAsignacionDiferenciada(cursoId, supabase) {
         contenedorBarra.insertBefore(divAlcance, filaCampos);
     }
 
-    // Listener para cambiar entre Todo el Curso y Diferenciado
     const radios = divAlcance.querySelectorAll('input[name="radioAlcanceAsignacion"]');
     const panelAlumnos = divAlcance.querySelector('#contenedorListaAlumnosDiferenciados');
     const gridAlumnos = divAlcance.querySelector('#gridCheckboxesAlumnos');
@@ -225,7 +235,6 @@ export async function cargarBancoGlobal(supabase) {
         const { data, error } = await supabase.from('banco_tp').select('*').order('cod_tp', { ascending: true });
         if (error) throw error;
         
-        // Ordenar numéricamente el banco de TPs
         bancoGlobalTPs = (data || []).sort((a, b) => extraerNumeroCodigo(a.cod_tp) - extraerNumeroCodigo(b.cod_tp));
         renderizarBancoGlobal(bancoGlobalTPs, supabase);
     } catch (err) {
@@ -234,16 +243,37 @@ export async function cargarBancoGlobal(supabase) {
 }
 
 export function aplicarFiltrosBanco(supabase) {
-    const txt = (document.getElementById('filtroTextoTP')?.value || '').toLowerCase();
+    const txtOriginal = (document.getElementById('filtroTextoTP')?.value || '').trim().toLowerCase();
     const bloom = document.getElementById('filtroBloomTP')?.value || 'TODOS';
     const anio = document.getElementById('filtroAnioTP')?.value || 'TODOS';
 
+    let terminosBusqueda = [txtOriginal];
+    
+    if (txtOriginal) {
+        Object.keys(DICCIONARIO_FACETAS).forEach(clave => {
+            if (clave.includes(txtOriginal) || txtOriginal.includes(clave)) {
+                terminosBusqueda = [...terminosBusqueda, ...DICCIONARIO_FACETAS[clave]];
+            }
+        });
+        terminosBusqueda = Array.from(new Set(terminosBusqueda));
+    }
+
     const filtrados = bancoGlobalTPs.filter(tp => {
-        const coincideTxt = !txt || (tp.cod_tp || '').toLowerCase().includes(txt) || 
-                            (tp.titulo || '').toLowerCase().includes(txt) || 
-                            (tp.descripcion || '').toLowerCase().includes(txt);
+        const cod = (tp.cod_tp || '').toLowerCase();
+        const titulo = (tp.titulo || '').toLowerCase();
+        const descripcion = (tp.descripcion || '').toLowerCase();
+        const saberes = (tp.saberes_evaluados || tp.temas || []).toString().toLowerCase();
+
+        const coincideTxt = !txtOriginal || terminosBusqueda.some(termino => 
+            cod.includes(termino) || 
+            titulo.includes(termino) || 
+            descripcion.includes(termino) ||
+            saberes.includes(termino)
+        );
+
         const coincideBloom = bloom === 'TODOS' || tp.nivel_bloom === bloom;
         const coincideAnio = anio === 'TODOS' || String(tp.anio) === anio;
+
         return coincideTxt && coincideBloom && coincideAnio;
     });
 
@@ -268,9 +298,14 @@ function renderizarBancoGlobal(lista, supabase) {
                     <h6 class="fw-bold d-inline text-dark mb-0">${tp.titulo || tp.cod_tp}</h6>
                     <p class="small text-muted mb-0 mt-1">${tp.descripcion ? tp.descripcion.substring(0, 90) + '...' : 'Sin descripción'}</p>
                 </div>
-                <button class="btn btn-sm btn-success fw-bold btn-seleccionar-tp-banco" data-cod="${tp.cod_tp}" data-titulo="${tp.titulo || tp.cod_tp}">
-                    ➕ Seleccionar
-                </button>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-info fw-bold btn-inspeccionar-tp-banco" data-cod="${tp.cod_tp}">
+                        👁️ Inspeccionar
+                    </button>
+                    <button class="btn btn-sm btn-success fw-bold btn-seleccionar-tp-banco" data-cod="${tp.cod_tp}" data-titulo="${tp.titulo || tp.cod_tp}">
+                        ➕ Seleccionar
+                    </button>
+                </div>
             </div>
         </div>`).join('');
 
@@ -278,20 +313,123 @@ function renderizarBancoGlobal(lista, supabase) {
         btn.addEventListener('click', (e) => {
             const cod = e.currentTarget.dataset.cod;
             const titulo = e.currentTarget.dataset.titulo;
+            seleccionarTPParaPlan(cod, titulo);
+        });
+    });
 
-            const inputHidden = document.getElementById('inputCodTPAsignar');
-            const inputTexto = document.getElementById('inputCodTPAsignarTexto');
-
-            if (inputHidden) inputHidden.value = cod;
-            if (inputTexto) inputTexto.value = `${cod} - ${titulo}`;
-
-            const modalEl = document.getElementById('modalAsignarTP');
-            if (modalEl) {
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) modal.hide();
+    document.querySelectorAll('.btn-inspeccionar-tp-banco').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const cod = e.currentTarget.dataset.cod;
+            const tpObj = bancoGlobalTPs.find(t => t.cod_tp === cod);
+            if (tpObj) {
+                abrirExploradorDrawer(tpObj, supabase);
             }
         });
     });
+}
+
+function seleccionarTPParaPlan(cod, titulo) {
+    const inputHidden = document.getElementById('inputCodTPAsignar');
+    const inputTexto = document.getElementById('inputCodTPAsignarTexto');
+
+    if (inputHidden) inputHidden.value = cod;
+    if (inputTexto) inputTexto.value = `${cod} - ${titulo}`;
+
+    const modalEl = document.getElementById('modalAsignarTP');
+    if (modalEl) {
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+    }
+
+    const drawerEl = document.getElementById('drawerExploradorTP');
+    if (drawerEl) {
+        const drawer = bootstrap.Offcanvas.getInstance(drawerEl);
+        if (drawer) drawer.hide();
+    }
+}
+
+async function abrirExploradorDrawer(tp, supabase) {
+    const drawerEl = document.getElementById('drawerExploradorTP');
+    if (!drawerEl) return;
+
+    document.getElementById('drawerBadgeCodTP').innerText = tp.cod_tp;
+    document.getElementById('drawerTituloTP').innerText = tp.titulo || tp.cod_tp;
+    document.getElementById('drawerNivelBloom').innerText = `Bloom: ${tp.nivel_bloom || 'General'}`;
+    document.getElementById('drawerAnioNivel').innerText = tp.anio ? `${tp.anio}° Año` : 'Nivel Secundario';
+    document.getElementById('drawerDescripcionTP').innerText = tp.descripcion || 'Sin descripción disponible.';
+
+    const btnSeleccionar = document.getElementById('btnDrawerSeleccionarTP');
+    if (btnSeleccionar) {
+        btnSeleccionar.onclick = () => seleccionarTPParaPlan(tp.cod_tp, tp.titulo || tp.cod_tp);
+    }
+
+    const contConsignas = document.getElementById('contenedorDrawerConsignas');
+    const contRespuestas = document.getElementById('contenedorDrawerRespuestas');
+    const contSaberes = document.getElementById('contenedorDrawerSaberes');
+
+    contConsignas.innerHTML = '<div class="text-center py-4 text-muted small"><div class="spinner-border spinner-border-sm me-2"></div>Cargando consignas...</div>';
+    contRespuestas.innerHTML = '<div class="text-center py-4 text-muted small"><div class="spinner-border spinner-border-sm me-2"></div>Cargando respuestas...</div>';
+    contSaberes.innerHTML = '<div class="text-center py-4 text-muted small"><div class="spinner-border spinner-border-sm me-2"></div>Cargando matriz...</div>';
+
+    const bsOffcanvas = new bootstrap.Offcanvas(drawerEl);
+    bsOffcanvas.show();
+
+    try {
+        const { data: preguntas, error } = await supabase
+            .from('banco_preguntas')
+            .select('*')
+            .eq('cod_tp', tp.cod_tp)
+            .order('orden', { ascending: true });
+
+        if (error) throw error;
+
+        if (!preguntas || preguntas.length === 0) {
+            contConsignas.innerHTML = '<div class="alert alert-light text-center small text-muted">No se encontraron consignas registradas para este TP.</div>';
+            contRespuestas.innerHTML = '<div class="alert alert-light text-center small text-muted">Sin clave de respuestas.</div>';
+            contSaberes.innerHTML = '<div class="alert alert-light text-center small text-muted">Sin saberes catalogados.</div>';
+            return;
+        }
+
+        contConsignas.innerHTML = preguntas.map((p, idx) => `
+            <div class="card border-0 shadow-sm p-3 bg-white">
+                <div class="fw-bold text-dark mb-1">Pregunta ${idx + 1}</div>
+                <div class="small text-dark mb-2">${p.consigna || 'Consigna en formato interactivo'}</div>
+                ${p.opciones && Array.isArray(p.opciones) ? `
+                    <ul class="list-group list-group-flush small">
+                        ${p.opciones.map(o => `<li class="list-group-item px-2 py-1 bg-light">${o}</li>`).join('')}
+                    </ul>
+                ` : ''}
+            </div>
+        `).join('');
+
+        contRespuestas.innerHTML = preguntas.map((p, idx) => `
+            <div class="border-bottom pb-2 mb-2 small">
+                <span class="fw-bold text-dark">P${idx + 1}:</span> 
+                <span class="badge bg-success">${p.respuesta_correcta || p.correcta || 'Verificación en sistema'}</span>
+                ${p.explicacion ? `<p class="text-muted mb-0 mt-1 fst-italic">${p.explicacion}</p>` : ''}
+            </div>
+        `).join('');
+
+        const saberesSet = new Set(preguntas.map(p => p.saber_evaluado).filter(Boolean));
+        if (saberesSet.size > 0) {
+            contSaberes.innerHTML = `
+                <h6 class="fw-bold text-primary small mb-2">Micro-competencias evaluadas:</h6>
+                <ul class="mb-0 ps-3 small text-muted">
+                    ${Array.from(saberesSet).map(s => `<li class="mb-1"><strong>${s}</strong></li>`).join('')}
+                </ul>
+            `;
+        } else {
+            contSaberes.innerHTML = '<div class="text-muted small">Este TP evalúa contenidos generales del nivel.</div>';
+        }
+
+        if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+            window.MathJax.typesetPromise([drawerEl]);
+        }
+
+    } catch (err) {
+        console.error('Error al cargar detalle del TP:', err);
+        contConsignas.innerHTML = `<div class="alert alert-danger small">Error al cargar consignas: ${err.message}</div>`;
+    }
 }
 
 export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
@@ -304,7 +442,6 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
         return;
     }
 
-    // Capturar si es asignación a Todo el Curso o Diferenciada
     const radioAlcance = document.querySelector('input[name="radioAlcanceAsignacion"]:checked')?.value;
     let alumnosAsignados = null;
 
@@ -333,13 +470,11 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
 
         if (error) throw error;
 
-        // Limpiar campos del formulario
         const inputHidden = document.getElementById('inputCodTPAsignar');
         const inputTexto = document.getElementById('inputCodTPAsignarTexto');
         if (inputHidden) inputHidden.value = '';
         if (inputTexto) inputTexto.value = '';
 
-        // Desmarcar checkboxes diferenciados
         document.querySelectorAll('.chk-alumno-diferenciado').forEach(cb => cb.checked = false);
 
         if (callbackExito) callbackExito();
