@@ -2,6 +2,13 @@
 
 let bancoGlobalTPs = [];
 
+// Función auxiliar para extraer el número del código del TP y ordenar secuencialmente
+function extraerNumeroCodigo(cod) {
+    if (!cod) return 0;
+    const match = cod.match(/\d+/);
+    return match ? parseInt(match[0], 10) : 0;
+}
+
 export async function cargarPlanificacionCurso(cursoId, supabase) {
     const contenedor = document.getElementById('contenedorPlanificacion');
     if (!contenedor) {
@@ -37,6 +44,13 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
 
         let html = '';
         Object.keys(agrupado).forEach(periodo => {
+            // Ordenar numéricamente los TPs dentro del período de forma ascendente (001, 002, 005...)
+            agrupado[periodo].sort((a, b) => {
+                const codA = a.cod_tp_completo || a.cod_tp || '';
+                const codB = b.cod_tp_completo || b.cod_tp || '';
+                return extraerNumeroCodigo(codA) - extraerNumeroCodigo(codB);
+            });
+
             html += `
                 <div class="card border-0 shadow-sm mb-4 my-3">
                     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2 px-3">
@@ -59,6 +73,7 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
             agrupado[periodo].forEach(tp => {
                 const cod = tp.cod_tp_completo || tp.cod_tp || 'TP';
                 const alias = tp.alias_tp || cod;
+                const fechaVencStr = tp.fecha_vencimiento ? new Date(tp.fecha_vencimiento).toISOString().split('T')[0] : '';
 
                 html += `
                     <tr>
@@ -69,9 +84,20 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
                         <td>${tp.unidad_tematica || '-'}</td>
                         <td>${tp.fecha_vencimiento ? new Date(tp.fecha_vencimiento).toLocaleDateString() : '<span class="text-muted small">Sin límite</span>'}</td>
                         <td class="text-end">
-                            <button class="btn btn-sm btn-outline-danger btn-eliminar-tp-plan" data-id="${tp.id}" title="Quitar de la planificación">
-                                🗑️ Quitar
-                            </button>
+                            <div class="d-flex justify-content-end gap-1">
+                                <button class="btn btn-sm btn-outline-primary btn-editar-plan" 
+                                        data-id="${tp.id}" 
+                                        data-periodo="${tp.periodo_evaluativo || ''}" 
+                                        data-unidad="${tp.unidad_tematica || ''}" 
+                                        data-vencimiento="${fechaVencStr}" 
+                                        data-nombre="${alias}"
+                                        title="Editar detalles o fecha de vencimiento">
+                                    ✏️ Editar
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger btn-eliminar-tp-plan" data-id="${tp.id}" title="Quitar de la planificación">
+                                    🗑️ Quitar
+                                </button>
+                            </div>
                         </td>
                     </tr>`;
             });
@@ -119,7 +145,9 @@ export async function cargarBancoGlobal(supabase) {
     try {
         const { data, error } = await supabase.from('banco_tp').select('*').order('cod_tp', { ascending: true });
         if (error) throw error;
-        bancoGlobalTPs = data || [];
+        
+        // Ordenar numéricamente el banco de TPs
+        bancoGlobalTPs = (data || []).sort((a, b) => extraerNumeroCodigo(a.cod_tp) - extraerNumeroCodigo(b.cod_tp));
         renderizarBancoGlobal(bancoGlobalTPs, supabase);
     } catch (err) {
         console.error('Error al cargar banco de TPs:', err);
@@ -144,7 +172,7 @@ export function aplicarFiltrosBanco(supabase) {
 }
 
 function renderizarBancoGlobal(lista, supabase) {
-    const contenedor = document.getElementById('contenedorListaBancoTP');
+    const contenedor = document.getElementById('listaBancoTPs') || document.getElementById('contenedorListaBancoTP');
     if (!contenedor) return;
 
     if (lista.length === 0) {
@@ -170,8 +198,13 @@ function renderizarBancoGlobal(lista, supabase) {
     document.querySelectorAll('.btn-seleccionar-tp-banco').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const cod = e.currentTarget.dataset.cod;
-            const inputTarget = document.getElementById('inputCodTPAsignar');
-            if (inputTarget) inputTarget.value = cod;
+            const titulo = e.currentTarget.dataset.titulo;
+
+            const inputHidden = document.getElementById('inputCodTPAsignar');
+            const inputTexto = document.getElementById('inputCodTPAsignarTexto');
+
+            if (inputHidden) inputHidden.value = cod;
+            if (inputTexto) inputTexto.value = `${cod} - ${titulo}`;
 
             const modalEl = document.getElementById('modalAsignarTP');
             if (modalEl) {
@@ -186,11 +219,23 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
     const codTp = document.getElementById('inputCodTPAsignar')?.value;
     const periodo = document.getElementById('inputNuevoPeriodo')?.value.trim() || '1° Trimestre';
     const unidad = document.getElementById('inputNuevaUnidad')?.value.trim() || 'Unidad 1';
-    const fechaVenc = document.getElementById('inputFechaVencimientoTP')?.value || null;
 
     if (!cursoId || !codTp) {
         alert('Por favor seleccioná un TP antes de agregar.');
         return;
+    }
+
+    // Capturar si es asignación a Todo el Curso o Diferenciada
+    const radioAlcance = document.querySelector('input[name="radioAlcanceAsignacion"]:checked')?.value;
+    let alumnosAsignados = null;
+
+    if (radioAlcance === 'DIFERENCIADO' || radioAlcance === 'SELECCION') {
+        const seleccionados = Array.from(document.querySelectorAll('.chk-alumno-diferenciado:checked')).map(cb => cb.value);
+        if (seleccionados.length === 0) {
+            alert('Has seleccionado Asignación Diferenciada pero no marcaste ningún alumno.');
+            return;
+        }
+        alumnosAsignados = seleccionados;
     }
 
     try {
@@ -201,15 +246,20 @@ export async function ejecutarAsignacionTP(cursoId, supabase, callbackExito) {
             periodo_evaluativo: periodo,
             unidad_tematica: unidad,
             alias_tp: codTp,
-            fecha_vencimiento: fechaVenc,
-            activo: true
+            activo: true,
+            alumnos_asignados: alumnosAsignados
         };
 
         const { error } = await supabase.from('curso_planificacion').insert([datosInsert]);
 
         if (error) throw error;
 
-        document.getElementById('inputCodTPAsignar').value = '';
+        // Limpiar campos del formulario
+        const inputHidden = document.getElementById('inputCodTPAsignar');
+        const inputTexto = document.getElementById('inputCodTPAsignarTexto');
+        if (inputHidden) inputHidden.value = '';
+        if (inputTexto) inputTexto.value = '';
+
         if (callbackExito) callbackExito();
 
     } catch (err) {
