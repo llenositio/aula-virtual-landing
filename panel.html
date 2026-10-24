@@ -758,7 +758,54 @@
             </div>
         </div>
     </div>
+<!-- MODAL EDITAR TP ASIGNADO A LA PLANIFICACIÓN -->
+    <div class="modal fade" id="modalEditarTpAsignado" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content card-custom">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold">✏️ Editar TP Asignado</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formEditarTpAsignado">
+                    <div class="modal-body">
+                        <input type="hidden" id="editPlanificacionId">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Trabajo Práctico:</label>
+                            <input type="text" id="editNombreTpTexto" class="form-control form-control-sm bg-light" readonly>
+                        </div>
 
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Período Evaluativo:</label>
+                            <input type="text" id="editPeriodoEvaluativo" class="form-control form-control-sm" placeholder="Ej: 1° Bimestre" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Unidad Temática:</label>
+                            <input type="text" id="editUnidadTematica" class="form-control form-control-sm" placeholder="Ej: Unidad 1: Números Naturales" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Fecha de Vencimiento (Límite de entrega):</label>
+                            <input type="date" id="editFechaVencimiento" class="form-control form-control-sm">
+                            <small class="text-muted">Si se deja vacío, figurará como "Sin límite".</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary btn-sm fw-bold">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script principal Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Lógica del Panel JS cargado como módulo para permitir import/export -->
+    <script type="module" src="js/panel.js"></script>
+</body>
+</html>
     <!-- Script principal Bootstrap -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Lógica del Panel JS cargado como módulo para permitir import/export -->
