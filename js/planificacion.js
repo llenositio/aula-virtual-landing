@@ -10,8 +10,19 @@ const DICCIONARIO_FACETAS = {
     'geometria': ['geometría', 'geometria', 'triángulos', 'triangulos', 'ángulos', 'angulos', 'perímetro', 'perimetro', 'área', 'area', 'pitágoras', 'pitagoras'],
     'funciones': ['función', 'funcion', 'lineal', 'cuadrática', 'cuadratica', 'dominio', 'imagen', 'pendiente', 'ordenada', 'gráfico'],
     'porcentaje': ['porcentaje', 'proporcionalidad', 'regla de tres', 'descuento', 'recargo', 'razón', 'razon'],
-    'potenciación': ['potencia', 'potenciacion', 'potenciación', 'exponente', 'radicación', 'radicacion', 'raíz', 'raiz']
+    'potenciación': ['potencia', 'potenciacion', 'potenciación', 'exponente', 'radicación', 'radicacion', 'raíz', 'raiz'],
+    'logica': ['logica', 'lógica', 'conjeturas', 'conjetura', 'razonamiento', 'demostración', 'premisa', 'validación']
 };
+
+// Función de normalización de texto (remueve tildes, símbolos y mayúsculas)
+function normalizarTexto(txt) {
+    if (!txt) return '';
+    return String(txt)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+}
 
 // Función auxiliar para extraer el número del código del TP y ordenar secuencialmente
 function extraerNumeroCodigo(cod) {
@@ -55,7 +66,6 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
 
         let html = '';
         Object.keys(agrupado).forEach(periodo => {
-            // Ordenar numéricamente los TPs dentro del período de forma ascendente
             agrupado[periodo].sort((a, b) => {
                 const codA = a.cod_tp_completo || a.cod_tp || '';
                 const codB = b.cod_tp_completo || b.cod_tp || '';
@@ -123,7 +133,6 @@ export async function cargarPlanificacionCurso(cursoId, supabase) {
 
         contenedor.innerHTML = html;
 
-        // Eventos de eliminación
         document.querySelectorAll('.btn-eliminar-tp-plan').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const idTp = e.currentTarget.dataset.id;
@@ -230,59 +239,159 @@ export async function iniciarUIAsignacionDiferenciada(cursoId, supabase) {
     });
 }
 
+// Carga del Banco Global unificando metadatos de TPs y preguntas
 export async function cargarBancoGlobal(supabase) {
     try {
-        const { data, error } = await supabase.from('banco_tp').select('*').order('cod_tp', { ascending: true });
-        if (error) throw error;
-        
-        bancoGlobalTPs = (data || []).sort((a, b) => extraerNumeroCodigo(a.cod_tp) - extraerNumeroCodigo(b.cod_tp));
+        const { data: tps, error: errTp } = await supabase.from('banco_tp').select('*');
+        const { data: preguntas, error: errPreg } = await supabase
+            .from('banco_preguntas')
+            .select('cod_tp, titulo_humano, nivel_bloom, materia, anio, consigna, explicacion, saber_evaluado');
+
+        if (errPreg) console.warn('Aviso sobre banco_preguntas:', errPreg);
+
+        const mapaTPs = new Map();
+
+        (tps || []).forEach(tp => {
+            const cod = tp.cod_tp || tp.cod_tp_completo;
+            if (cod) {
+                mapaTPs.set(cod, {
+                    cod_tp: cod,
+                    titulo_humano: tp.titulo_humano || tp.titulo || cod,
+                    nivel_bloom: tp.nivel_bloom || 'General',
+                    anio: tp.anio || 1,
+                    descripcion: tp.descripcion || '',
+                    materia: tp.materia || '',
+                    consignasTexto: ''
+                });
+            }
+        });
+
+        (preguntas || []).forEach(p => {
+            const cod = p.cod_tp;
+            if (!cod) return;
+
+            if (!mapaTPs.has(cod)) {
+                mapaTPs.set(cod, {
+                    cod_tp: cod,
+                    titulo_humano: p.titulo_humano || cod,
+                    nivel_bloom: p.nivel_bloom || 'General',
+                    anio: p.anio || 1,
+                    descripcion: '',
+                    materia: p.materia || '',
+                    consignasTexto: ''
+                });
+            }
+
+            const tpObj = mapaTPs.get(cod);
+            if (p.titulo_humano && (!tpObj.titulo_humano || tpObj.titulo_humano === cod)) {
+                tpObj.titulo_humano = p.titulo_humano;
+            }
+            if (p.nivel_bloom) tpObj.nivel_bloom = p.nivel_bloom;
+            
+            // Indexa el texto de preguntas y explicaciones para búsquedas profundas
+            tpObj.consignasTexto += ` ${p.consigna || ''} ${p.explicacion || ''} ${p.saber_evaluado || ''}`;
+        });
+
+        bancoGlobalTPs = Array.from(mapaTPs.values()).sort((a, b) => 
+            extraerNumeroCodigo(a.cod_tp) - extraerNumeroCodigo(b.cod_tp)
+        );
+
         renderizarBancoGlobal(bancoGlobalTPs, supabase);
+        conectarEventosBusquedaInstantanea(supabase);
+
     } catch (err) {
         console.error('Error al cargar banco de TPs:', err);
     }
 }
 
+// Búsqueda en tiempo real e inteligente
 export function aplicarFiltrosBanco(supabase) {
-    const inputTexto = (document.getElementById('filtroTextoTP')?.value || '').trim().toLowerCase();
+    const rawTexto = document.getElementById('filtroTextoTP')?.value || '';
     const bloom = document.getElementById('filtroBloomTP')?.value || 'TODOS';
     const anio = document.getElementById('filtroAnioTP')?.value || 'TODOS';
 
-    // 1. Separar el texto ingresado por comas o espacios en palabras sueltas
-    const palabrasIngresadas = inputTexto.split(/[\s,]+/).filter(p => p.length > 0);
+    const textoLimpio = normalizarTexto(rawTexto);
+    
+    // Divide en palabras clave individuales de más de 1 caracter
+    const terminosIngresados = textoLimpio
+        .split(/[\s,.;:-]+/)
+        .filter(t => t.length > 1);
 
-    // 2. Expandir los términos con el diccionario de facetas
-    let terminosBusqueda = [...palabrasIngresadas];
-    palabrasIngresadas.forEach(palabra => {
+    // Expansión con sinónimos y facetas pedagógicas
+    let terminosExpandidos = [...terminosIngresados];
+    terminosIngresados.forEach(term => {
         Object.keys(DICCIONARIO_FACETAS).forEach(clave => {
-            if (clave.includes(palabra) || palabra.includes(clave)) {
-                terminosBusqueda = [...terminosBusqueda, ...DICCIONARIO_FACETAS[clave]];
+            const claveNorm = normalizarTexto(clave);
+            if (claveNorm.includes(term) || term.includes(claveNorm)) {
+                DICCIONARIO_FACETAS[clave].forEach(sinonimo => {
+                    terminosExpandidos.push(normalizarTexto(sinonimo));
+                });
             }
         });
     });
-    terminosBusqueda = Array.from(new Set(terminosBusqueda));
+    terminosExpandidos = Array.from(new Set(terminosExpandidos));
 
     const filtrados = bancoGlobalTPs.filter(tp => {
-        const cod = (tp.cod_tp || '').toLowerCase();
-        // Mapea tanto 'titulo_humano' como 'titulo' para dar soporte al esquema Supabase
-        const titulo = (tp.titulo_humano || tp.titulo || '').toLowerCase();
-        const descripcion = (tp.descripcion || '').toLowerCase();
-        const saberes = (tp.saberes_evaluados || tp.temas || []).toString().toLowerCase();
+        const cod = normalizarTexto(tp.cod_tp);
+        const titulo = normalizarTexto(tp.titulo_humano);
+        const desc = normalizarTexto(tp.descripcion);
+        const materia = normalizarTexto(tp.materia);
+        const contenidoPreguntas = normalizarTexto(tp.consignasTexto);
 
-        // Coincide si alguna de las palabras clave está presente en algún campo
-        const coincideTxt = palabrasIngresadas.length === 0 || terminosBusqueda.some(termino => 
-            cod.includes(termino) || 
-            titulo.includes(termino) || 
-            descripcion.includes(termino) ||
-            saberes.includes(termino)
-        );
+        const todoElTextoTP = `${cod} ${titulo} ${desc} ${materia} ${contenidoPreguntas}`;
 
-        const coincideBloom = bloom === 'TODOS' || tp.nivel_bloom === bloom;
-        const coincideAnio = anio === 'TODOS' || String(tp.anio) === anio;
+        // Evalúa si al menos un término clave coincide dentro de cualquier atributo del TP
+        const coincideTxt = terminosIngresados.length === 0 || terminosExpandidos.some(t => todoElTextoTP.includes(t));
+
+        const coincideBloom = bloom === 'TODOS' || normalizarTexto(tp.nivel_bloom) === normalizarTexto(bloom);
+        const coincideAnio = anio === 'TODOS' || String(tp.anio) === String(anio);
 
         return coincideTxt && coincideBloom && coincideAnio;
     });
 
     renderizarBancoGlobal(filtrados, supabase);
+}
+
+// Búsqueda instantánea mientras el usuario escribe
+let timerDebounce = null;
+function conectarEventosBusquedaInstantanea(supabase) {
+    const inputTexto = document.getElementById('filtroTextoTP');
+    const selectBloom = document.getElementById('filtroBloomTP');
+    const selectAnio = document.getElementById('filtroAnioTP');
+    const inputPrograma = document.getElementById('inputProgramaDocente');
+    const btnAnalizar = document.getElementById('btnAnalizarPrograma');
+
+    const ejecutarFiltrado = () => {
+        clearTimeout(timerDebounce);
+        timerDebounce = setTimeout(() => {
+            aplicarFiltrosBanco(supabase);
+        }, 150);
+    };
+
+    if (inputTexto && !inputTexto.dataset.listenerConectado) {
+        inputTexto.dataset.listenerConectado = 'true';
+        inputTexto.addEventListener('input', ejecutarFiltrado);
+    }
+
+    if (selectBloom && !selectBloom.dataset.listenerConectado) {
+        selectBloom.dataset.listenerConectado = 'true';
+        selectBloom.addEventListener('change', () => aplicarFiltrosBanco(supabase));
+    }
+
+    if (selectAnio && !selectAnio.dataset.listenerConectado) {
+        selectAnio.dataset.listenerConectado = 'true';
+        selectAnio.addEventListener('change', () => aplicarFiltrosBanco(supabase));
+    }
+
+    if (btnAnalizar && !btnAnalizar.dataset.listenerConectado) {
+        btnAnalizar.dataset.listenerConectado = 'true';
+        btnAnalizar.addEventListener('click', () => {
+            if (inputTexto && inputPrograma) {
+                inputTexto.value = inputPrograma.value;
+                aplicarFiltrosBanco(supabase);
+            }
+        });
+    }
 }
 
 function renderizarBancoGlobal(lista, supabase) {
@@ -296,7 +405,7 @@ function renderizarBancoGlobal(lista, supabase) {
     if (!contenedor) return;
 
     if (lista.length === 0) {
-        contenedor.innerHTML = '<div class="text-center text-muted py-4">No se encontraron TPs que coincidan con los filtros.</div>';
+        contenedor.innerHTML = '<div class="text-center text-muted py-4 small">No se encontraron TPs que coincidan con los términos ingresados.</div>';
         return;
     }
 
@@ -304,7 +413,7 @@ function renderizarBancoGlobal(lista, supabase) {
         const cod = tp.cod_tp || '';
         const titulo = tp.titulo_humano || tp.titulo || cod;
         const bloom = tp.nivel_bloom || 'Nivel General';
-        const desc = tp.descripcion ? (tp.descripcion.substring(0, 90) + '...') : 'Sin descripción';
+        const desc = tp.descripcion ? (tp.descripcion.substring(0, 90) + '...') : 'Sin descripción detallada';
 
         return '<div class="card mb-2 border shadow-sm">' +
             '<div class="card-body p-3 d-flex justify-content-between align-items-center">' +
