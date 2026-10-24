@@ -195,7 +195,7 @@ function mostrarDashboard() {
     }
 }
 
-// 6. CARGA DE EVALUACIONES RESPETANDO LA PLANIFICACIÓN Y NOMENCLATURA DEL DOCENTE
+// 6. CARGA DE EVALUACIONES RESPETANDO LA PLANIFICACIÓN Y VISIBILIDAD DIFERENCIADA
 async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
     const tablaPendientes = document.getElementById('tablaPendientesBody');
     const tablaAprobados = document.getElementById('tablaAprobadosBody');
@@ -216,7 +216,7 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
 
     try {
         // 1. Consultar la PLANIFICACIÓN pedagógica del curso que esté ACTIVA (visible)
-        const { data: planDocente, error: errPlan } = await supabase
+        const { data: planDocenteRaw, error: errPlan } = await supabase
             .from('curso_planificacion')
             .select('*')
             .eq('curso_id', cursoId)
@@ -226,6 +226,16 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
             .order('orden', { ascending: true });
 
         if (errPlan) throw errPlan;
+
+        // FILTRADO DE ASIGNACIÓN DIFERENCIADA
+        const planDocente = (planDocenteRaw || []).filter(itemPlan => {
+            // Si alumnos_asignados es null o está vacío, el TP es para TODO EL CURSO
+            if (!itemPlan.alumnos_asignados || itemPlan.alumnos_asignados.length === 0) {
+                return true;
+            }
+            // Si es ASIGNACIÓN DIFERENCIADA, verificar si este alumno está explícitamente en la lista
+            return itemPlan.alumnos_asignados.includes(alumnoId);
+        });
 
         if (!planDocente || planDocente.length === 0) {
             const msjVacio = '<tr><td colspan="7" class="text-center text-muted py-4">No tenés evaluaciones asignadas en este momento. ¡Buen trabajo! 🎉</td></tr>';
@@ -296,7 +306,6 @@ async function cargarEvaluacionesAsignadas(cursoId, alumnoId) {
         // 4. Clasificar respetando ALIAS, UNIDAD Y PERÍODO elegidos por el docente
         planDocente.forEach(itemPlan => {
             const codTp = itemPlan.cod_tp;
-            // Si el docente definió alias usa alias_tp, si no usa el código
             const tituloLegible = itemPlan.alias_tp || codTp; 
             const bloom = sanitizarBloom(mapaBloom[codTp]);
             const periodoUnidad = `${itemPlan.periodo_evaluativo} - ${itemPlan.unidad_tematica}`;
